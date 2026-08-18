@@ -37,6 +37,49 @@ SOFTWARE = [
     {"id": "vision", "name": "视觉模块", "version": "0.9.0", "installed": True},
 ]
 
+# 模拟的系统日志（line_no 从 100 开始，模拟已有多条）
+def _mock_logs():
+    logs = []
+    for i in range(30):
+        line_no = 101 + i
+        if i % 5 == 0:
+            level, source, message = "info", "wo-bot-control", f"服务启动完成 v1.0.0 (line {line_no})"
+        elif i % 5 == 1:
+            level, source, message = "info", "camera", f"摄像头 {i % 2} 初始化成功"
+        elif i % 5 == 2:
+            level, source, message = "warn", "system", f"CPU 温度偏高: 65°C (line {line_no})"
+        elif i % 5 == 3:
+            level, source, message = "info", "motion", f"运动指令已处理 vx=0 vy=0 vz=0"
+        else:
+            level, source, message = "debug", "websocket", f"心跳保活 OK (line {line_no})"
+        logs.append({
+            "line_no": line_no,
+            "timestamp": f"2026-08-18 {10 + i // 6:02d}:{30 + (i % 6) * 5:02d}:00",
+            "level": level,
+            "source": source,
+            "message": message,
+        })
+    return logs
+
+def MOCK_LOGS_RESPONSE(mode, limit, level, since_line=0, before_line=0):
+    all_logs = _mock_logs()
+    # 级别过滤（服务端用 "warning"，前端转 "warn"）
+    if level and level != "all":
+        lv = "warning" if level == "warn" else level
+        all_logs = [l for l in all_logs if l["level"] == lv]
+    if mode == "tail":
+        logs = all_logs[-limit:]
+        return {"mode": "tail", "logs": logs, "total_lines": len(all_logs), "next_since": logs[-1]["line_no"] if logs else 0, "has_more": len(all_logs) > limit}
+    if mode == "since":
+        # 返回 line_no 之后的日志
+        logs = [l for l in all_logs if l["line_no"] > since_line][-limit:]
+        return {"mode": "since", "logs": logs, "next_since": logs[-1]["line_no"] if logs else since_line, "has_more": False}
+    if mode == "before":
+        # 返回 line_no 之前的日志
+        logs = [l for l in all_logs if l["line_no"] < before_line][-limit:]
+        return {"mode": "before", "logs": logs, "has_more": False}
+    return {"mode": "tail", "logs": [], "has_more": False}
+
 async def handler(websocket):
     addr = websocket.remote_address
     print(f"[+] Connected: {addr}")
@@ -294,6 +337,18 @@ async def handler(websocket):
 
                 elif msg_type == "exec":
                     await websocket.send(json.dumps({"type": "exec_result", "data": {"exit_code": 0, "output": "ok"}}))
+
+                elif msg_type == "logs":
+                    # 模拟系统日志 — 匹配 web-debug logs 协议
+                    mode = data.get("mode", "tail") if isinstance(data, dict) else "tail"
+                    limit = int(data.get("limit", 200)) if isinstance(data, dict) else 200
+                    level = data.get("level", "") if isinstance(data, dict) else ""
+                    since_line = int(data.get("since_line", 0)) if isinstance(data, dict) else 0
+                    before_line = int(data.get("before_line", 0)) if isinstance(data, dict) else 0
+                    await websocket.send(json.dumps({
+                        "type": "logs",
+                        "data": MOCK_LOGS_RESPONSE(mode, limit, level, since_line, before_line)
+                    }))
 
         except json.JSONDecodeError:
             print(f"[!] bad json: {msg[:100]}")

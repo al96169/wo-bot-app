@@ -207,17 +207,25 @@ class RobotDataStore extends StateNotifier<int> {
   void updateLogs(Map<String, dynamic> data, {required String mode}) {
     final items = (data['logs'] as List? ?? []).map((e) {
       final m = e as Map<String, dynamic>;
+      final rawLevel = (m['level'] as String? ?? 'info').toLowerCase();
+      final level = rawLevel == 'warning'
+          ? 'warn'
+          : ['debug', 'info', 'warn', 'error'].contains(rawLevel)
+              ? rawLevel
+              : 'info';
+      final lineNo = m['line_no'] as int? ?? 0;
       return LogEntry(
-        id: m['id'] as String? ?? '${m['line_no'] ?? 0}',
-        lineNo: m['line_no'] as int? ?? 0,
-        time: m['time'] as String? ?? '',
-        level: m['level'] as String? ?? 'info',
-        source: m['source'] as String? ?? '',
+        id: m['id'] as String? ?? 'ln-$lineNo',
+        lineNo: lineNo,
+        time: m['timestamp'] as String? ?? m['time'] as String? ?? '',
+        level: level,
+        source: m['source'] as String? ?? 'remote',
         message: m['message'] as String? ?? '',
       );
     }).toList();
 
-    final cursor = data['cursor'] as int? ?? data['next_line'] as int? ?? 0;
+    // 游标：服务端返回 next_since（对齐 web-debug）
+    final cursor = data['next_since'] as int? ?? data['cursor'] as int? ?? 0;
     final hasMore = data['has_more'] as bool? ?? false;
 
     switch (mode) {
