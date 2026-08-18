@@ -61,19 +61,41 @@ class SystemStatusData {
   });
 
   void updateFromJson(Map<String, dynamic> json) {
-    batteryLevel = (json['battery'] as num?)?.toDouble() ?? (json['batteryLevel'] as num?)?.toDouble() ?? batteryLevel;
-    batteryCharging = json['battery_charging'] as bool? ?? json['batteryCharging'] as bool? ?? batteryCharging;
-    cpuUsage = (json['cpu'] as num?)?.toDouble() ?? (json['cpuUsage'] as num?)?.toDouble() ?? cpuUsage;
-    memoryUsage = (json['memory'] as num?)?.toDouble() ?? (json['memoryUsage'] as num?)?.toDouble() ?? memoryUsage;
-    diskUsage = (json['disk'] as num?)?.toDouble() ?? (json['diskUsage'] as num?)?.toDouble() ?? diskUsage;
-    wifiSSID = json['wifi_ssid'] as String? ?? json['wifiSSID'] as String? ?? wifiSSID;
-    wifiSignal = json['wifi_signal'] as int? ?? json['wifiSignal'] as int? ?? wifiSignal;
-    ip = json['ip'] as String? ?? ip;
-    hostname = json['hostname'] as String? ?? hostname;
-    uptime = json['uptime'] as int? ?? uptime;
-    cpuTemp = (json['cpu_temp'] as num?)?.toDouble() ?? (json['cpuTemp'] as num?)?.toDouble() ?? cpuTemp;
+    // 兼容两种格式：
+    // - 真机 (wo-bot-control): {battery: {level, status, temperature, estimated_minutes}, system: {cpu_percent, ...}, network: {ssid, signal_strength, ip}}
+    // - mock/扁平: {battery: 95, cpu: 50, wifi_ssid: "...", ...}
+    Map<String, dynamic> obj(dynamic v) =>
+        v is Map ? Map<String, dynamic>.from(v) : const {};
+
+    final batt = obj(json['battery']);
+    final sys = obj(json['system']);
+    final net = obj(json['network']);
+
+    batteryLevel = _num(batt['level']) ?? _num(json['battery']) ?? _num(json['batteryLevel']) ?? batteryLevel;
+    batteryCharging = batt['status'] == 'charging' ||
+        batt['charging'] == true ||
+        json['battery_charging'] == true ||
+        json['batteryCharging'] == true ||
+        batteryCharging;
+    cpuUsage = _num(sys['cpu_percent']) ?? _num(json['cpu']) ?? _num(json['cpuUsage']) ?? cpuUsage;
+    memoryUsage = _num(sys['memory_percent']) ?? _num(json['memory']) ?? _num(json['memoryUsage']) ?? memoryUsage;
+    diskUsage = _num(sys['disk_percent']) ?? _num(json['disk']) ?? _num(json['diskUsage']) ?? diskUsage;
+    wifiSSID = net['ssid'] as String? ?? json['wifi_ssid'] as String? ?? json['wifiSSID'] as String? ?? wifiSSID;
+    wifiSignal = (net['signal_strength'] as num?)?.toInt() ??
+        json['wifi_signal'] as int? ??
+        json['wifiSignal'] as int? ??
+        wifiSignal;
+    ip = net['ip'] as String? ?? json['ip'] as String? ?? ip;
+    hostname = sys['hostname'] as String? ?? json['hostname'] as String? ?? hostname;
+    uptime = (sys['uptime'] as num?)?.toInt() ?? json['uptime'] as int? ?? uptime;
+    cpuTemp = _num(sys['temperature']) ?? _num(json['cpu_temp']) ?? _num(json['cpuTemp']) ?? cpuTemp;
     model = json['model'] as String? ?? model;
     version = json['version'] as String? ?? version;
+  }
+
+  static double? _num(dynamic v) {
+    if (v is num) return v.toDouble();
+    return null;
   }
 }
 
