@@ -11,14 +11,62 @@ import 'package:wo_bot/features/quick_control/presentation/quick_control_page.da
 /// 记录发送的 device_control 命令
 class _RecorderConnectionManager extends ConnectionManager {
   final List<Map<String, dynamic>> commands = [];
+  final List<Map<String, dynamic>> musicCommands = [];
 
   @override
   void sendDeviceControl(String action, bool enabled) {
     commands.add({'action': action, 'enabled': enabled});
   }
+
+  @override
+  void sendMusicVolume(int volume) {
+    musicCommands.add({'type': 'music_volume', 'data': {'volume': volume}});
+  }
 }
 
 void main() {
+  testWidgets('音量条可拖动，松手后发送 music_volume', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final recorder = _RecorderConnectionManager();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          connectionManagerProvider.overrideWith((ref) => recorder),
+        ],
+        child: const MaterialApp(home: QuickControlPage()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // 找到 Slider
+    expect(find.byType(Slider), findsOneWidget);
+
+    // 拖动滑块到右侧（音量增大）
+    final sliderRect = tester.getRect(find.byType(Slider));
+    final startX = sliderRect.left + 10;
+    final endX = sliderRect.right - 10;
+    await tester.dragFrom(
+      Offset(startX, sliderRect.center.dy),
+      Offset(endX - startX, 0),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+    // 拖动过程中已更新本地音量显示
+    expect(find.textContaining('%'), findsNothing); // 当前显示纯数字
+
+    // 松手后 300ms 防抖 → 发送 music_volume
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(recorder.musicCommands, isNotEmpty, reason: '松手后应发送音量命令');
+    final cmd = recorder.musicCommands.last;
+    expect(cmd['type'], 'music_volume');
+    expect(cmd['data']['volume'], inInclusiveRange(1, 100));
+
+    // 清理
+    AppToast.dismiss();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 100));
+  });
+
   testWidgets('寻找设备二态切换：点击开始 → 再点停止', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final recorder = _RecorderConnectionManager();

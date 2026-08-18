@@ -21,6 +21,9 @@ class _QuickControlPageState extends ConsumerState<QuickControlPage> {
   bool _eco = false;
   bool _mute = false;
 
+  // 音量防抖（对齐 web-debug volTimer 300ms）
+  Timer? _volumeTimer;
+
   // 寻找设备：二态 + 30s 倒计时（对齐 web-debug handleFind）
   static const int _findDuration = 30;
   bool _findActive = false;
@@ -29,8 +32,24 @@ class _QuickControlPageState extends ConsumerState<QuickControlPage> {
 
   @override
   void dispose() {
+    _volumeTimer?.cancel();
     _findTimer?.cancel();
     super.dispose();
+  }
+
+  /// 音量变化 — 拖动实时更新本地，松手防抖 300ms 后发送（对齐 web-debug）
+  void _onVolumeChanged(int v) {
+    final data = ref.read(robotDataProvider.notifier);
+    data.music.volume = v;
+    data.notify();
+  }
+
+  void _onVolumeChangeEnd(int v) {
+    final manager = ref.read(connectionManagerProvider.notifier);
+    _volumeTimer?.cancel();
+    _volumeTimer = Timer(const Duration(milliseconds: 300), () {
+      manager.sendMusicVolume(v);
+    });
   }
 
   void _toggle(String action, bool value) {
@@ -97,11 +116,8 @@ class _QuickControlPageState extends ConsumerState<QuickControlPage> {
                     // 音量卡 (Pixso 5:2540, 398×117)
                     _VolumeCard(
                       volume: volume,
-                      onChanged: (v) {
-                        manager.sendMusicVolume(v);
-                        data.music.volume = v;
-                        data.notify();
-                      },
+                      onChanged: _onVolumeChanged,
+                      onChangeEnd: _onVolumeChangeEnd,
                     ),
                     const SizedBox(height: 10),
                     // 快捷按钮卡 (Pixso 5:2223, 398×237)
@@ -143,11 +159,14 @@ class _QuickControlPageState extends ConsumerState<QuickControlPage> {
   }
 }
 
-/// 音量卡 — 匹配 Pixso 5:2540（白底圆角15 + 灰色圆角30 进度底 + 白色圆角30 进度条）
+/// 音量卡 — 匹配 Pixso 5:2540（白底圆角15 + 可拖动音量条 + 百分比）
+///
+/// 拖动实时更新本地值，松手后防抖发送 music_volume（对齐 web-debug handleVolumeChange）
 class _VolumeCard extends StatelessWidget {
   final int volume;
   final ValueChanged<int> onChanged;
-  const _VolumeCard({required this.volume, required this.onChanged});
+  final ValueChanged<int>? onChangeEnd;
+  const _VolumeCard({required this.volume, required this.onChanged, this.onChangeEnd});
 
   @override
   Widget build(BuildContext context) {
@@ -163,29 +182,37 @@ class _VolumeCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '音量',
-            style: TextStyle(fontSize: 14, color: Color(0xFF3D3D3D)),
+          Row(
+            children: [
+              const Text(
+                '音量',
+                style: TextStyle(fontSize: 14, color: Color(0xFF3D3D3D)),
+              ),
+              const Spacer(),
+              Text(
+                '$volume',
+                style: const TextStyle(fontSize: 14, color: Color(0xFF1C1C1E)),
+              ),
+            ],
           ),
           const Spacer(),
-          // 进度条: 灰底圆角30 + 白内条 (Pixso 5:2544/5:2546)
-          Container(
-            height: 60,
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: const Color(0xFF9E9E9E),
-              borderRadius: BorderRadius.circular(30),
+          // 可拖动音量条
+          SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 6,
+              activeTrackColor: const Color(0xFF0256FF),
+              inactiveTrackColor: const Color(0xFF9E9E9E),
+              thumbColor: const Color(0xFF0256FF),
+              overlayColor: const Color(0x1A0256FF),
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: (56 / 100) * volume, // 比例占位
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(27),
-                  ),
-                ),
-              ],
+            child: Slider(
+              value: volume.toDouble().clamp(0, 100),
+              min: 0,
+              max: 100,
+              onChanged: (v) => onChanged(v.round()),
+              onChangeEnd: onChangeEnd == null ? null : (v) => onChangeEnd!(v.round()),
             ),
           ),
         ],
