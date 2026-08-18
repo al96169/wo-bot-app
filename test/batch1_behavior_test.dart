@@ -136,14 +136,12 @@ void main() {
     await tester.tapAt(const Offset(10, 10));
     await tester.pump(const Duration(milliseconds: 300));
 
-    // 连接设备C → 菜单变为断开/忘记
+    // 连接设备C → 应跳转到机器人主页（对齐 web-debug：连接后进入功能主页）
     await tester.tap(find.text('设备C'));
     await tester.pump(const Duration(milliseconds: 400));
-    await tester.tap(find.byTooltip('设备管理'));
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('断开连接'), findsOneWidget);
-    expect(find.text('忘记设备'), findsOneWidget);
-    expect(find.text('移除设备'), findsNothing);
+    await tester.pump(const Duration(milliseconds: 500));
+    // 已进入机器人主页（含快捷控制入口）
+    expect(find.text('快捷控制'), findsOneWidget);
 
     AppToast.dismiss();
   });

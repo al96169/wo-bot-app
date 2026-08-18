@@ -77,6 +77,25 @@ class SystemStatusData {
   }
 }
 
+// ============== 日志 (匹配 web-debug LogEntry) ==============
+class LogEntry {
+  final String id;
+  final int lineNo;
+  final String time;
+  final String level; // debug/info/warn/error
+  final String source;
+  final String message;
+
+  const LogEntry({
+    required this.id,
+    required this.lineNo,
+    required this.time,
+    required this.level,
+    required this.source,
+    required this.message,
+  });
+}
+
 // ============== 模块 ==============
 class Module {
   final String id;

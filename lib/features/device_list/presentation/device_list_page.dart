@@ -6,6 +6,7 @@ import '../../../core/network/connection_manager.dart';
 import '../../../core/network/device_store.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../shared/models/robot_device.dart';
+import '../../robot_home/presentation/robot_home_page.dart';
 import 'add_device_page.dart';
 import 'bind_view.dart';
 import 'device_list_provider.dart';
@@ -222,6 +223,20 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
     final store = ref.watch(deviceStoreProvider);
     final connection = ref.watch(connectionManagerProvider);
     final saved = store.devices;
+
+    // 连接成功后跳转机器人主页（对齐 web-debug：连接后进入功能主页）
+    ref.listen<ConnState>(connectionManagerProvider, (prev, next) {
+      if (prev != ConnState.connected && next == ConnState.connected && mounted) {
+        // 延迟跳转，避免绑定流程中的 connected 误触发
+        Future.delayed(const Duration(milliseconds: 400), () {
+          if (mounted && ref.read(connectionManagerProvider) == ConnState.connected) {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const RobotHomePage()),
+            );
+          }
+        });
+      }
+    });
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9F9),

@@ -25,6 +25,10 @@ class RobotDataStore extends StateNotifier<int> {
   // 软件
   final List<Software> softwareInstalled = [];
   final List<Software> softwareAvailable = [];
+  // 日志 (匹配 web-debug robotStore.logs)
+  final List<LogEntry> logs = [];
+  int logCursor = 0;
+  bool logHasMore = false;
   // 图库
   final List<GalleryItem> galleryItems = [];
   GalleryStorage? galleryStorage;
@@ -194,6 +198,45 @@ class RobotDataStore extends StateNotifier<int> {
         remoteFeatures.add(f.toString());
       }
     }
+    notify();
+  }
+
+  /// 更新日志 — 匹配 web-debug handleLogsMessage
+  ///
+  /// [mode]: tail(首次加载) / since(增量) / before(历史)
+  void updateLogs(Map<String, dynamic> data, {required String mode}) {
+    final items = (data['logs'] as List? ?? []).map((e) {
+      final m = e as Map<String, dynamic>;
+      return LogEntry(
+        id: m['id'] as String? ?? '${m['line_no'] ?? 0}',
+        lineNo: m['line_no'] as int? ?? 0,
+        time: m['time'] as String? ?? '',
+        level: m['level'] as String? ?? 'info',
+        source: m['source'] as String? ?? '',
+        message: m['message'] as String? ?? '',
+      );
+    }).toList();
+
+    final cursor = data['cursor'] as int? ?? data['next_line'] as int? ?? 0;
+    final hasMore = data['has_more'] as bool? ?? false;
+
+    switch (mode) {
+      case 'tail':
+        logs
+          ..clear()
+          ..addAll(items);
+        break;
+      case 'since':
+        // 去重后追加
+        final known = logs.map((l) => l.lineNo).toSet();
+        logs.addAll(items.where((l) => !known.contains(l.lineNo)));
+        break;
+      case 'before':
+        logs.insertAll(0, items);
+        break;
+    }
+    if (cursor > 0) logCursor = cursor;
+    logHasMore = hasMore;
     notify();
   }
 }

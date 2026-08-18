@@ -157,6 +157,9 @@ class ConnectionManager extends StateNotifier<ConnState> {
   void sendGetStatus() => send('get_status');
   void sendGetModuleList() => send('get_module_list');
   void sendGetServiceStatus() => send('get_service_status');
+  // 服务控制 (匹配 web-debug sendServiceControl)
+  void sendServiceControl(String serviceId, String action) =>
+      send('service_control', {'service_id': serviceId, 'action': action});
   void sendGetDanceList() => send('dance_list');
   void sendGetMusicList() => send('music_list');
   void sendGetSoftwareList() => send('software_list');
@@ -202,6 +205,21 @@ class ConnectionManager extends StateNotifier<ConnState> {
   // ---- 订阅 ----
   void sendSubscribe(List<String> events) =>
       send('subscribe', {'events': events});
+
+  // ---- 日志 (匹配 web-debug requestLogs) ----
+  void requestLogs({
+    String mode = 'tail',
+    int limit = 200,
+    int? sinceLine,
+    int? beforeLine,
+    String? level,
+  }) {
+    final data = <String, dynamic>{'mode': mode, 'limit': limit};
+    if (sinceLine != null) data['since_line'] = sinceLine;
+    if (beforeLine != null) data['before_line'] = beforeLine;
+    if (level != null && level.isNotEmpty) data['level'] = level;
+    send('logs', data);
+  }
 
   // ---- exec ----
   void sendExec(String command) =>
@@ -461,6 +479,11 @@ class ConnectionManager extends StateNotifier<ConnState> {
       // ---- exec ----
       case 'exec_result':
         debugPrint('[CM] exec_result: ok');
+        break;
+
+      // ---- 日志 ----
+      case 'logs':
+        _data.updateLogs(d, mode: d['mode'] as String? ?? 'tail');
         break;
 
       // ---- 错误 ----
