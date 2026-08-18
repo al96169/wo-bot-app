@@ -116,10 +116,21 @@ class WsClient {
 
   void _onData(dynamic data) {
     try {
-      final json = jsonDecode(data as String) as Map<String, dynamic>;
+      var text = data is String ? data : utf8.decode(data as List<int>);
+      // 容错：wo-bot-control (Python json.dumps) 默认输出 NaN/Infinity/-Infinity，
+      // 非标准 JSON — Dart jsonDecode 无法解析。仅替换 JSON 数值位置的 token
+      // （前面是冒号/逗号/括号，后面是逗号/括号），避免误改字符串内容。
+      if (text.contains('NaN') || text.contains('Infinity')) {
+        text = text.replaceAllMapped(
+          RegExp(r'(?<=[:,\[\{])\s*(NaN|-?Infinity)\s*(?=[,\}\]])'),
+          (_) => 'null',
+        );
+      }
+      final json = jsonDecode(text) as Map<String, dynamic>;
       onMessage?.call(json);
     } catch (e) {
-      debugPrint('[WS] 解析失败: $data');
+      final s = data.toString();
+      debugPrint('[WS] 解析失败: $e → ${s.length > 120 ? s.substring(0, 120) : s}');
     }
   }
 
