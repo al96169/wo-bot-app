@@ -206,14 +206,14 @@ class RobotDataStore extends StateNotifier<int> {
   /// [mode]: tail(首次加载) / since(增量) / before(历史)
   void updateLogs(Map<String, dynamic> data, {required String mode}) {
     final items = (data['logs'] as List? ?? []).map((e) {
-      final m = e as Map<String, dynamic>;
+      final m = e is Map ? Map<String, dynamic>.from(e) : const <String, dynamic>{};
       final rawLevel = (m['level'] as String? ?? 'info').toLowerCase();
       final level = rawLevel == 'warning'
           ? 'warn'
           : ['debug', 'info', 'warn', 'error'].contains(rawLevel)
               ? rawLevel
               : 'info';
-      final lineNo = m['line_no'] as int? ?? 0;
+      final lineNo = m['line_no'] is num ? (m['line_no'] as num).toInt() : 0;
       return LogEntry(
         id: m['id'] as String? ?? 'ln-$lineNo',
         lineNo: lineNo,
@@ -225,7 +225,7 @@ class RobotDataStore extends StateNotifier<int> {
     }).toList();
 
     // 游标：服务端返回 next_since（对齐 web-debug）
-    final cursor = data['next_since'] as int? ?? data['cursor'] as int? ?? 0;
+    final cursor = data['next_since'] is num ? (data['next_since'] as num).toInt() : 0;
     final hasMore = data['has_more'] as bool? ?? false;
 
     switch (mode) {

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/connection_manager.dart';
 import '../../../core/network/robot_data_store.dart';
+import '../../../core/utils/app_toast.dart';
 import '../../../shared/models/robot_data.dart';
 import '../../../shared/widgets/feature_status_bar.dart';
 
@@ -17,7 +19,7 @@ class LogsPage extends ConsumerStatefulWidget {
 
 class _LogsPageState extends ConsumerState<LogsPage> {
   String _keyword = '';
-  String _level = 'info';
+  String _level = 'all';
   bool _sortAsc = false;
   final _searchC = TextEditingController();
 
@@ -37,7 +39,7 @@ class _LogsPageState extends ConsumerState<LogsPage> {
     ref.read(connectionManagerProvider.notifier).requestLogs(
       mode: 'tail',
       limit: 200,
-      level: _level == 'all' ? null : _level,
+      level: _level == 'all' ? '' : _level,
     );
   }
 
@@ -51,7 +53,7 @@ class _LogsPageState extends ConsumerState<LogsPage> {
       mode: 'since',
       sinceLine: store.logCursor,
       limit: 200,
-      level: _level == 'all' ? null : _level,
+      level: _level == 'all' ? '' : _level,
     );
   }
 
@@ -64,8 +66,24 @@ class _LogsPageState extends ConsumerState<LogsPage> {
       mode: 'before',
       beforeLine: oldest,
       limit: 200,
-      level: _level == 'all' ? null : _level,
+      level: _level == 'all' ? '' : _level,
     );
+  }
+
+  /// 导出日志 — 复制到剪贴板（web/移动端通用）
+  Future<void> _exportLogs(List<LogEntry> logs) async {
+    if (logs.isEmpty) {
+      AppToast.show('暂无可导出的日志', type: AppToastType.info);
+      return;
+    }
+    final sb = StringBuffer();
+    for (final l in logs) {
+      sb.writeln('[$l.time] [$l.level] [$l.source] $l.message');
+    }
+    await Clipboard.setData(ClipboardData(text: sb.toString()));
+    if (mounted) {
+      AppToast.show('已复制 ${logs.length} 条日志到剪贴板', type: AppToastType.success);
+    }
   }
 
   @override
@@ -95,37 +113,12 @@ class _LogsPageState extends ConsumerState<LogsPage> {
           children: [
             const FeatureStatusBar(title: '日志'),
             // 操作条 (Pixso 5:2120, 40px)
-            _buildActionBar(),
+            _buildActionBar(logs),
             // 日志列表
             Expanded(
               child: RefreshIndicator(
                 onRefresh: () async => _fetchNew(),
-                child: NotificationListener<ScrollNotification>(
-                  onNotification: (n) {
-                    // 滚动到底部时加载更早日志
-                    if (n.metrics.pixels > n.metrics.maxScrollExtent - 80) {
-                      _fetchOlder();
-                    }
-                    return false;
-                  },
-                  child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(15, 0, 15, 20),
-                    itemCount: logs.length + 1,
-                    itemBuilder: (context, i) {
-                      if (i == 0) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Text(
-                            '显示最近 1000 条日志，下拉刷新',
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
-                          ),
-                        );
-                      }
-                      final log = logs[i - 1];
-                      return _LogRow(log: log);
-                    },
-                  ),
-                ),
+                child: _buildLogList(logs),
               ),
             ),
           ],
@@ -134,7 +127,51 @@ class _LogsPageState extends ConsumerState<LogsPage> {
     );
   }
 
-  Widget _buildActionBar() {
+  Widget _buildLogList(List<LogEntry> logs) {
+    if (logs.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(40),
+        children: const [
+          Icon(Icons.receipt_long_outlined, size: 40, color: Color(0xFFC7C7CC)),
+          SizedBox(height: 12),
+          Text(
+            '暂无日志\n下拉刷新或切换级别筛选重试',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+          ),
+        ],
+      );
+    }
+    return NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        // 滚动到底部时加载更早日志
+        if (n.metrics.pixels > n.metrics.maxScrollExtent - 80) {
+          _fetchOlder();
+        }
+        return false;
+      },
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(15, 0, 15, 20),
+        itemCount: logs.length + 1,
+        itemBuilder: (context, i) {
+          if (i == 0) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                '共 ${logs.length} 条日志，下拉刷新，滚动到底加载更多',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+              ),
+            );
+          }
+          final log = logs[i - 1];
+          return _LogRow(log: log);
+        },
+      ),
+    );
+  }
+
+  Widget _buildActionBar(List<LogEntry> logs) {
     return SizedBox(
       height: 40,
       child: Padding(
@@ -206,7 +243,7 @@ class _LogsPageState extends ConsumerState<LogsPage> {
             ),
             const SizedBox(width: 8),
             // 导出 (Pixso 5:2558)
-            _FilterChip(label: '导出', onTap: () {}),
+            _FilterChip(label: '导出', onTap: () => _exportLogs(logs)),
           ],
         ),
       ),

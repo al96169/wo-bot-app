@@ -115,8 +115,9 @@ class WsClient {
   // ---- 内部方法 ----
 
   void _onData(dynamic data) {
+    String text;
     try {
-      var text = data is String ? data : utf8.decode(data as List<int>);
+      text = data is String ? data : utf8.decode(data as List<int>);
       // 容错：wo-bot-control (Python json.dumps) 默认输出 NaN/Infinity/-Infinity，
       // 非标准 JSON — Dart jsonDecode 无法解析。仅替换 JSON 数值位置的 token
       // （前面是冒号/逗号/括号，后面是逗号/括号），避免误改字符串内容。
@@ -126,11 +127,25 @@ class WsClient {
           (_) => 'null',
         );
       }
-      final json = jsonDecode(text) as Map<String, dynamic>;
-      onMessage?.call(json);
     } catch (e) {
       final s = data.toString();
-      debugPrint('[WS] 解析失败: $e → ${s.length > 120 ? s.substring(0, 120) : s}');
+      debugPrint('[WS] 数据解码失败: $e → ${s.length > 120 ? s.substring(0, 120) : s}');
+      return;
+    }
+
+    Map<String, dynamic> json;
+    try {
+      json = jsonDecode(text) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('[WS] JSON 解析失败: $e → ${text.length > 120 ? text.substring(0, 120) : text}');
+      return;
+    }
+
+    // 消息处理（onMessage）异常不应阻断 WS 消息流，单独捕获
+    try {
+      onMessage?.call(json);
+    } catch (e) {
+      debugPrint('[WS] 消息处理异常: $e (type=${json['type']})');
     }
   }
 

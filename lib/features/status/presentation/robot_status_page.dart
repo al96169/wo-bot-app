@@ -47,13 +47,17 @@ class RobotStatusPage extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    // 3. 环境状态
+                    // 3. 设备信息（型号/版本/系统，来自 status 或 robot_info）
                     _StatusCard(
-                      title: '环境状态',
+                      title: '设备信息',
                       children: [
+                        if (data.system.model != null)
+                          _StatusRow(label: '型号', value: data.system.model!),
+                        if (data.system.version != null)
+                          _StatusRow(label: '版本', value: data.system.version!),
                         _StatusRow(label: 'CPU温度', value: system.cpuTemp != null ? '${system.cpuTemp!.toStringAsFixed(0)}°C' : '--'),
                         _StatusRow(label: 'WiFi', value: system.wifiSSID ?? '--'),
-                        _StatusRow(label: '信号', value: '${system.wifiSignal}dBm'),
+                        _StatusRow(label: '信号', value: system.wifiSignal != 0 ? '${system.wifiSignal}dBm' : '--'),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -76,6 +80,23 @@ class RobotStatusPage extends ConsumerWidget {
   }
 
   Widget _buildTopStatusCard(SystemStatusData system) {
+    // 电池
+    final batteryValue = '${system.batteryLevel.toStringAsFixed(0)}%';
+    final batterySubtitle = system.batteryCharging ? '充电中' : '使用中';
+    final batteryIcon = system.batteryCharging
+        ? Icons.battery_charging_full
+        : system.batteryLevel <= 20
+            ? Icons.battery_alert
+            : Icons.battery_full;
+    // WiFi
+    final wifiValue = system.wifiSSID ?? '未连接';
+    final wifiSubtitle = system.wifiSignal != 0
+        ? '${system.wifiSignal}dBm'
+        : '信号未知';
+    // 蜂窝（SystemStatusData 无蜂窝字段，显示 '--' 占位，后续补充）
+    final cellularValue = '--';
+    final cellularSubtitle = '蜂窝网络';
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(15),
@@ -88,17 +109,17 @@ class RobotStatusPage extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Expanded(child: _MetricTile(icon: Icons.network_cell, title: '5G', subtitle: '信号良好', value: '已连接')),
-              Expanded(child: _MetricTile(icon: Icons.wifi, title: 'WiFi', subtitle: '信号良好', value: '已连接')),
-              Expanded(child: _MetricTile(icon: Icons.battery_charging_full, title: '电池', subtitle: '充电中', value: '100%')),
+              Expanded(child: _MetricTile(icon: Icons.network_cell, title: '蜂窝', subtitle: cellularSubtitle, value: cellularValue)),
+              Expanded(child: _MetricTile(icon: Icons.wifi, title: 'WiFi', subtitle: wifiSubtitle, value: wifiValue)),
+              Expanded(child: _MetricTile(icon: batteryIcon, title: '电池', subtitle: batterySubtitle, value: batteryValue)),
             ],
           ),
           const Divider(height: 24, thickness: 0.5, color: Color(0xFFD8D8D8)),
           Row(
             children: [
-              Expanded(child: _MetricTile(icon: Icons.memory, title: 'CPU', subtitle: '正常', value: '${system.cpuUsage.toStringAsFixed(0)}%')),
-              Expanded(child: _MetricTile(icon: Icons.storage, title: '内存', subtitle: '正常', value: '${system.memoryUsage.toStringAsFixed(0)}%')),
-              Expanded(child: _MetricTile(icon: Icons.dns_outlined, title: '硬盘', subtitle: '正常', value: '${system.diskUsage.toStringAsFixed(0)}%')),
+              Expanded(child: _MetricTile(icon: Icons.memory, title: 'CPU', subtitle: '使用率', value: '${system.cpuUsage.toStringAsFixed(0)}%')),
+              Expanded(child: _MetricTile(icon: Icons.storage, title: '内存', subtitle: '使用率', value: '${system.memoryUsage.toStringAsFixed(0)}%')),
+              Expanded(child: _MetricTile(icon: Icons.dns_outlined, title: '硬盘', subtitle: '使用率', value: '${system.diskUsage.toStringAsFixed(0)}%')),
             ],
           ),
         ],

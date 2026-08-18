@@ -38,7 +38,7 @@ void main() {
 
     expect(find.text('状态'), findsOneWidget);
     expect(find.text('设备状态'), findsOneWidget);
-    expect(find.text('环境状态'), findsOneWidget);
+    expect(find.text('设备信息'), findsOneWidget);
     expect(find.text('子系统'), findsOneWidget);
   });
 }

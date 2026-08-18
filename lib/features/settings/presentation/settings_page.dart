@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/connection_manager.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../shared/widgets/feature_status_bar.dart';
+import 'wifi_manager_dialog.dart';
 
 /// 设置页 — 匹配 Pixso 5:3864
 ///
@@ -54,14 +55,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       _NavRow(
                         label: 'WIFI管理',
                         value: '添加要连接的wifi热点',
-                        onTap: () => AppToast.show('WiFi 管理功能开发中', type: AppToastType.info),
+                        onTap: () => WifiManagerDialog.show(context),
                       ),
                       _Divider(),
                       // 蓝牙 (Pixso 5:4260)
                       _NavRow(
                         label: '蓝牙',
-                        value: '已连接：66666',
-                        onTap: () => AppToast.show('蓝牙功能开发中', type: AppToastType.info),
+                        value: '待接入',
+                        onTap: () => AppToast.show('蓝牙功能待接入', type: AppToastType.info),
                       ),
                       _Divider(),
                       // 软件版本管理 (Pixso 5:4257)

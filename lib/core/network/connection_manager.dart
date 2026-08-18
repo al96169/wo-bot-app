@@ -171,8 +171,12 @@ class ConnectionManager extends StateNotifier<ConnState> {
   void sendSoftwareUpgrade(String id) =>
       send('software_upgrade', {'id': id});
 
-  // ---- WiFi ----
+  // ---- WiFi (匹配 web-debug sendWifiScan/sendWifiConnect) ----
   void sendWifiScan() => send('wifi_scan');
+  void sendWifiConnect(String ssid, String password) =>
+      send('wifi_connect', {'ssid': ssid, 'password': password});
+  void sendWifiDisconnect(String device) =>
+      send('wifi_disconnect', {'device': device});
 
   // ---- 省电策略 ----
   void sendGetPowerPolicy() => send('get_power_policy');
