@@ -138,10 +138,7 @@ class RobotDataStore extends StateNotifier<int> {
     softwareInstalled.clear();
     for (final s in list) {
       if (s is Map) {
-        // 已安装列表来源强制 installed=true（对齐 web-debug DC 路径）
-        softwareInstalled.add(
-          Software.fromJson(s.cast<String, dynamic>())..installed = true,
-        );
+        softwareInstalled.add(Software.fromJson(s.cast<String, dynamic>()));
       }
     }
     notify();
@@ -151,10 +148,7 @@ class RobotDataStore extends StateNotifier<int> {
     softwareAvailable.clear();
     for (final s in list) {
       if (s is Map) {
-        // 可安装列表来源强制 installed=false
-        softwareAvailable.add(
-          Software.fromJson(s.cast<String, dynamic>())..installed = false,
-        );
+        softwareAvailable.add(Software.fromJson(s.cast<String, dynamic>()));
       }
     }
     notify();

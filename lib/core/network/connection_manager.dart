@@ -496,11 +496,11 @@ class ConnectionManager extends StateNotifier<ConnState> {
 
       // ---- 软件 ----
       case 'software_list':
-        debugPrint('[CM] software_list: ${d['packages'] is List ? '${(d['packages'] as List).length}个 首项=${(d['packages'] as List).isNotEmpty ? (d['packages'] as List).first : ''}' : '无 packages'}');
+        debugPrint('[CM] software_list 完整数据: $d');
         _data.setSoftwareInstalled(d['packages'] as List? ?? d['software'] as List? ?? []);
         break;
       case 'software_available':
-        debugPrint('[CM] software_available: ${d['packages'] is List ? '${(d['packages'] as List).length}个 首项=${(d['packages'] as List).isNotEmpty ? (d['packages'] as List).first : ''}' : '无 packages'}');
+        debugPrint('[CM] software_available 完整数据: $d');
         _data.setSoftwareAvailable(d['packages'] as List? ?? d['software'] as List? ?? []);
         break;
       case 'software_progress':
