@@ -1,5 +1,6 @@
 // 系统状态解析测试 — 真机嵌套格式 + mock 扁平格式
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wo_bot/core/network/robot_data_store.dart';
 import 'package:wo_bot/shared/models/robot_data.dart';
 
 void main() {
@@ -58,5 +59,29 @@ void main() {
     s.updateFromJson({'battery': {'level': null}, 'system': {}});
     expect(s.batteryLevel, 0);
     expect(s.cpuUsage, 0);
+  });
+
+  test('真机 uptime 为 double 时不抛异常（回归：曾致 status 解析中断）', () {
+    final s = SystemStatusData();
+    // 真机实测：json['uptime'] 为 double（如 59662.86），且 system 内无 uptime
+    s.updateFromJson({
+      'battery': {'level': 95, 'status': 'discharging'},
+      'system': {'cpu_percent': 12.3},
+      'uptime': 59662.86214160919,
+    });
+    expect(s.uptime, 59662);
+  });
+
+  test('services 列表解析（含 double uptime，对齐真机格式）', () {
+    final store = RobotDataStore();
+    store.setServices([
+      {'service_id': 'main', 'name': 'wo-bot-control', 'status': 'running', 'pid': 1234, 'uptime': 59662.86},
+      {'service_id': 'camera', 'name': 'camera_service', 'status': 'stopped'},
+    ]);
+    expect(store.services.length, 2);
+    expect(store.services.first.serviceId, 'main');
+    expect(store.services.first.name, 'wo-bot-control');
+    expect(store.services.first.status, 'running');
+    expect(store.services.first.uptime, 59662);
   });
 }

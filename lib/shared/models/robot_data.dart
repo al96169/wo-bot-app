@@ -82,12 +82,12 @@ class SystemStatusData {
     diskUsage = _num(sys['disk_percent']) ?? _num(json['disk']) ?? _num(json['diskUsage']) ?? diskUsage;
     wifiSSID = net['ssid'] as String? ?? json['wifi_ssid'] as String? ?? json['wifiSSID'] as String? ?? wifiSSID;
     wifiSignal = (net['signal_strength'] as num?)?.toInt() ??
-        json['wifi_signal'] as int? ??
-        json['wifiSignal'] as int? ??
+        _num(json['wifi_signal'])?.toInt() ??
+        _num(json['wifiSignal'])?.toInt() ??
         wifiSignal;
     ip = net['ip'] as String? ?? json['ip'] as String? ?? ip;
     hostname = sys['hostname'] as String? ?? json['hostname'] as String? ?? hostname;
-    uptime = (sys['uptime'] as num?)?.toInt() ?? json['uptime'] as int? ?? uptime;
+    uptime = _num(sys['uptime'])?.toInt() ?? _num(json['uptime'])?.toInt() ?? uptime;
     cpuTemp = _num(sys['temperature']) ?? _num(json['cpu_temp']) ?? _num(json['cpuTemp']) ?? cpuTemp;
     model = json['model'] as String? ?? model;
     version = json['version'] as String? ?? version;
@@ -188,10 +188,10 @@ class ServiceInfo {
     serviceId: json['service_id'] as String? ?? '',
     name: json['name'] as String? ?? '',
     status: json['status'] as String? ?? 'stopped',
-    pid: json['pid'] as int?,
-    restartCount: json['restart_count'] as int? ?? 0,
+    pid: (json['pid'] as num?)?.toInt(),
+    restartCount: (json['restart_count'] as num?)?.toInt() ?? 0,
     lastError: json['last_error'] as String?,
-    uptime: json['uptime'] as int?,
+    uptime: (json['uptime'] as num?)?.toInt(),
   );
 }
 
