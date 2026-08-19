@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/app_constants.dart';
 import '../utils/logger.dart';
 import '../../shared/models/connection_state.dart';
+import '../../shared/models/robot_data.dart';
 import '../../shared/models/robot_device.dart';
 import '../../shared/models/robot_status.dart';
 import 'mdns_discovery.dart';
@@ -100,8 +101,11 @@ class ConnectionManager extends StateNotifier<ConnState> {
 
   /// 通用发送 — { type: "...", data: {...} }
   void send(String type, [Map<String, dynamic>? data]) {
-    if (data != null) _ws.sendCommand(type, data);
-    else _ws.sendRaw({'type': type});
+    if (data != null) {
+      _ws.sendCommand(type, data);
+    } else {
+      _ws.sendRaw({'type': type});
+    }
   }
 
   void sendRaw(Map<String, dynamic> msg) => _ws.sendRaw(msg);
@@ -161,6 +165,11 @@ class ConnectionManager extends StateNotifier<ConnState> {
   void sendGetStatus() => send('get_status');
   void sendGetModuleList() => send('get_module_list');
   void sendGetServiceStatus() => send('get_service_status');
+
+  /// 生成消息 ID — 对齐 web-debug (Date.now().toString(36) + 随机)
+  static String _genMessageId() =>
+      DateTime.now().millisecondsSinceEpoch.toRadixString(36) +
+      DateTime.now().microsecond.toRadixString(36);
   // 服务控制 (匹配 web-debug sendServiceControl)
   void sendServiceControl(String serviceId, String action) =>
       send('service_control', {'service_id': serviceId, 'action': action});
@@ -241,7 +250,7 @@ class ConnectionManager extends StateNotifier<ConnState> {
   void _startStatusPolling() {
     _statusTimer?.cancel();
     _statusTimer = Timer.periodic(
-      Duration(seconds: AppConstants.statusUpdateIntervalSec),
+      const Duration(seconds: AppConstants.statusUpdateIntervalSec),
       (_) => sendGetStatus(),
     );
   }
@@ -360,6 +369,21 @@ class ConnectionManager extends StateNotifier<ConnState> {
         break;
       case 'service_status':
         _data.setServices(d['services'] as List? ?? []);
+        break;
+      case 'service_message':
+        // 机器人服务管理器推送的通知（对齐 web-debug handleSignalingMessage）
+        _data.addMessage(RobotMessage(
+          id: d['id'] as String? ?? _genMessageId(),
+          subject: d['subject'] as String? ?? '服务通知',
+          time: DateTime.now(),
+          summary: d['summary'] as String? ?? '',
+          body: d['body'] as String? ?? '',
+          read: false,
+          source: d['source'] as String? ?? 'service_manager',
+          severity: ['info', 'warning', 'error'].contains(d['severity'])
+              ? d['severity'] as String
+              : 'info',
+        ));
         break;
 
       // ---- 舞蹈 ----

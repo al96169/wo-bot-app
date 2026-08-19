@@ -29,6 +29,8 @@ class RobotDataStore extends StateNotifier<int> {
   final List<LogEntry> logs = [];
   int logCursor = 0;
   bool logHasMore = false;
+  // 消息 (匹配 web-debug robotStore.messages)
+  final List<RobotMessage> messages = [];
   // 图库
   final List<GalleryItem> galleryItems = [];
   GalleryStorage? galleryStorage;
@@ -255,6 +257,22 @@ class RobotDataStore extends StateNotifier<int> {
     if (cursor > 0) logCursor = cursor;
     logHasMore = hasMore;
     notify();
+  }
+
+  // ---- 消息 ----
+  /// 新增一条机器人消息（最新在上，对齐手机消息列表习惯；web-debug 为追加）
+  void addMessage(RobotMessage msg) {
+    messages.insert(0, msg);
+    notify();
+  }
+
+  /// 标记消息已读/未读
+  void markMessageRead(String id, bool read) {
+    final i = messages.indexWhere((m) => m.id == id);
+    if (i >= 0 && messages[i].read != read) {
+      messages[i] = messages[i].copyWith(read: read);
+      notify();
+    }
   }
 }
 

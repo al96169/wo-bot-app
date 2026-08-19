@@ -118,6 +118,41 @@ class LogEntry {
   });
 }
 
+// ============== 消息 (匹配 web-debug Message) ==============
+/// 机器人消息 — 由机器人 `service_message` 推送产生（对齐 web-debug robotStore.messages）
+class RobotMessage {
+  final String id;
+  final String subject;
+  final DateTime time;
+  final String summary;
+  final String body;
+  final bool read;
+  final String source;
+  final String severity; // info / warning / error
+
+  const RobotMessage({
+    required this.id,
+    required this.subject,
+    required this.time,
+    this.summary = '',
+    this.body = '',
+    this.read = false,
+    this.source = 'service_manager',
+    this.severity = 'info',
+  });
+
+  RobotMessage copyWith({bool? read}) => RobotMessage(
+    id: id,
+    subject: subject,
+    time: time,
+    summary: summary,
+    body: body,
+    read: read ?? this.read,
+    source: source,
+    severity: severity,
+  );
+}
+
 // ============== 模块 ==============
 class Module {
   final String id;

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/network/robot_data_store.dart';
+import '../../../core/utils/app_toast.dart';
+import '../../../shared/models/robot_data.dart';
 import '../../../shared/widgets/feature_status_bar.dart';
 
 /// 消息页 — 匹配 Pixso 5:2598
 ///
 /// 状态栏(76px) + 操作条(搜索/导出) + 消息卡片列表(49px)
-/// 数据源: 机器人消息（当前为 mock，后续对接协议）
+/// 数据源: 机器人 `service_message` 推送（对齐 web-debug robotStore.messages）
 class MessagesPage extends ConsumerStatefulWidget {
   const MessagesPage({super.key});
   @override
@@ -24,11 +28,16 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
 
   @override
   Widget build(BuildContext context) {
-    var messages = _mockMessages;
+    ref.watch(robotDataProvider);
+    final all = ref.read(robotDataProvider.notifier).messages;
+    var messages = all;
     if (_keyword.isNotEmpty) {
       final kw = _keyword.toLowerCase();
       messages = messages
-          .where((m) => m.title.toLowerCase().contains(kw) || m.preview.toLowerCase().contains(kw))
+          .where((m) =>
+              m.subject.toLowerCase().contains(kw) ||
+              m.body.toLowerCase().contains(kw) ||
+              m.source.toLowerCase().contains(kw))
           .toList();
     }
 
@@ -78,7 +87,7 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
                     const SizedBox(width: 8),
                     // 导出 (Pixso 5:2608)
                     InkWell(
-                      onTap: () {},
+                      onTap: () => _exportMessages(messages),
                       borderRadius: BorderRadius.circular(15),
                       child: Container(
                         height: 30,
@@ -99,15 +108,35 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
             // 消息列表
             Expanded(
               child: RefreshIndicator(
-                onRefresh: () async {},
-                child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(15, 0, 15, 20),
-                  itemCount: messages.length,
-                  itemBuilder: (context, i) => Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: _MessageCard(msg: messages[i]),
-                  ),
-                ),
+                onRefresh: () async {
+                  // 消息由机器人推送产生，无拉取协议；下拉仅触发重建
+                  setState(() {});
+                },
+                child: messages.isEmpty
+                    ? ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(40),
+                        children: const [
+                          Icon(Icons.mail_outline, size: 40, color: Color(0xFFC7C7CC)),
+                          SizedBox(height: 12),
+                          Text(
+                            '暂无消息\n机器人服务通知将在此显示',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+                          ),
+                        ],
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(15, 0, 15, 20),
+                        itemCount: messages.length,
+                        itemBuilder: (context, i) => Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: _MessageCard(
+                            msg: messages[i],
+                            onTap: () => _openDetail(messages[i]),
+                          ),
+                        ),
+                      ),
               ),
             ),
           ],
@@ -115,68 +144,170 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
       ),
     );
   }
+
+  /// 打开消息详情 — 对齐 web-debug openDetail：点击即标记已读
+  void _openDetail(RobotMessage msg) {
+    ref.read(robotDataProvider.notifier).markMessageRead(msg.id, true);
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+      ),
+      builder: (ctx) => _MessageDetailSheet(msg: msg),
+    );
+  }
+
+  /// 导出消息到剪贴板
+  Future<void> _exportMessages(List<RobotMessage> messages) async {
+    if (messages.isEmpty) {
+      AppToast.show('暂无可导出的消息', type: AppToastType.info);
+      return;
+    }
+    final sb = StringBuffer();
+    for (final m in messages) {
+      sb
+        ..write('${_fmtTime(m.time)} [${m.source}] ${m.subject}')
+        ..writeln()
+        ..writeln(m.body.isEmpty ? m.summary : m.body)
+        ..writeln('---');
+    }
+    await Clipboard.setData(ClipboardData(text: sb.toString()));
+    if (mounted) {
+      AppToast.show('已复制 ${messages.length} 条消息到剪贴板', type: AppToastType.success);
+    }
+  }
+
+  /// 时间格式 — 对齐 web-debug fmtTime (MM/DD HH:mm)
+  static String _fmtTime(DateTime t) {
+    final m = t.month.toString().padLeft(2, '0');
+    final d = t.day.toString().padLeft(2, '0');
+    final h = t.hour.toString().padLeft(2, '0');
+    final min = t.minute.toString().padLeft(2, '0');
+    return '$m/$d $h:$min';
+  }
 }
 
-/// 消息卡片 — 匹配 Pixso 5:2664 (398×49: 类型 + 标题 + 时间)
+/// 消息卡片 — 匹配 Pixso 5:2664 (398×49: 未读点 + 标题 + 时间)
 class _MessageCard extends StatelessWidget {
-  final _MockMessage msg;
-  const _MessageCard({required this.msg});
+  final RobotMessage msg;
+  final VoidCallback onTap;
+  const _MessageCard({required this.msg, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 49,
-      padding: const EdgeInsets.symmetric(horizontal: 15),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    final dotColor = msg.read
+        ? const Color(0xFFC7C7CC)
+        : msg.severity == 'error'
+            ? const Color(0xFFFF3B30)
+            : msg.severity == 'warning'
+                ? const Color(0xFFFF9500)
+                : const Color(0xFF0256FF);
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(15),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: const Color(0xFFEEEEEE), width: 0.5),
-      ),
-      child: Row(
-        children: [
-          // 类型标记圆点
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: msg.read ? const Color(0xFFC7C7CC) : const Color(0xFF0256FF),
-            ),
+        child: Container(
+          height: 49,
+          padding: const EdgeInsets.symmetric(horizontal: 15),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: const Color(0xFFEEEEEE), width: 0.5),
           ),
-          const SizedBox(width: 10),
-          // 标题
-          Expanded(
-            child: Text(
-              msg.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: Color(0xFF3D3D3D)),
-            ),
+          child: Row(
+            children: [
+              // 类型标记圆点（未读高亮，error/warning 着色）
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: dotColor,
+                ),
+              ),
+              const SizedBox(width: 10),
+              // 标题
+              Expanded(
+                child: Text(
+                  msg.subject,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: Color(0xFF3D3D3D)),
+                ),
+              ),
+              // 时间
+              Text(
+                _MessagesPageState._fmtTime(msg.time),
+                style: const TextStyle(fontSize: 12, color: Color(0xFF898989)),
+              ),
+            ],
           ),
-          // 时间
-          Text(
-            msg.time,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF898989)),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _MockMessage {
-  final String type;
-  final String time;
-  final String title;
-  final String preview;
-  final bool read;
-  const _MockMessage(this.type, this.time, this.title, this.preview, {this.read = false});
-}
+/// 消息详情底部弹层 — 对齐 web-debug MessageDetailDialog
+class _MessageDetailSheet extends ConsumerWidget {
+  final RobotMessage msg;
+  const _MessageDetailSheet({required this.msg});
 
-const _mockMessages = [
-  _MockMessage('设备消息', '2024/8/16 14:00', '设备固件更新通知', '您的「我的小蜗」固件已更新至 v2.1.0，新增云台自动校准功能'),
-  _MockMessage('系统通知', '2024/8/15 09:30', 'Wo-Bot 服务协议更新', '我们更新了服务协议和隐私政策，请查阅最新版本'),
-  _MockMessage('设备消息', '2024/8/14 18:00', '设备离线提醒', '「我的小蜗」已离线超过 30 分钟，请检查设备连接', read: true),
-  _MockMessage('设备消息', '2024/8/13 10:00', '低电量提醒', '「我的小蜗」电量低于 20%，请及时充电'),
-  _MockMessage('系统通知', '2024/8/12 16:30', '新版本可用', 'v2.0.0 已发布，支持舞蹈与音乐功能', read: true),
-];
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              msg.subject,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF1C1C1E)),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${_MessagesPageState._fmtTime(msg.time)} · ${msg.source} · '
+              '${msg.read ? '已读' : '未读'}',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+            ),
+            const SizedBox(height: 14),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Text(
+                  msg.body.isEmpty ? msg.summary : msg.body,
+                  style: const TextStyle(fontSize: 14, height: 1.7, color: Color(0xFF3D3D3D)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () {
+                    ref.read(robotDataProvider.notifier).markMessageRead(msg.id, false);
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('标记未读', style: TextStyle(fontSize: 13, color: Color(0xFF3D3D3D))),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF0256FF),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                  child: const Text('关闭', style: TextStyle(fontSize: 13)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
