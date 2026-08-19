@@ -340,12 +340,16 @@ class ConnectionManager extends StateNotifier<ConnState> {
       // ---- 状态 ----
       case 'status':
         debugPrint('[CM] status: services=${d['services'] is List ? '${(d['services'] as List).length}个' : '无'} battery=${d['battery']}');
-        // 先同步服务列表（对齐 web-debug），避免状态解析异常阻断服务更新
+        // 先同步服务列表（对齐 web-debug），状态解析异常不阻断服务更新
         if (d['services'] is List) {
           _data.setServices(d['services'] as List);
         }
-        _data.updateFromStatus(d);
-        robotStatus = RobotStatus.fromJson(d);
+        try {
+          _data.updateFromStatus(d);
+          robotStatus = RobotStatus.fromJson(d);
+        } catch (e) {
+          debugPrint('[CM] status 解析异常(已隔离): $e');
+        }
         break;
       case 'pong':
         break;
