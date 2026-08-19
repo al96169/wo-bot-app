@@ -84,4 +84,26 @@ void main() {
     expect(store.services.first.status, 'running');
     expect(store.services.first.uptime, 59662);
   });
+
+  test('软件项 status:"installed" 判定为已安装并解析版本号', () {
+    final sw = Software.fromJson({
+      'name': 'wobot-control',
+      'display_name': 'wo-bot 主控',
+      'status': 'installed',
+      'version': '2.1.0',
+      'description': '主控服务',
+      'category': 'core',
+    });
+    expect(sw.installed, isTrue);
+    expect(sw.version, '2.1.0');
+    expect(sw.displayName, 'wo-bot 主控');
+
+    // 未安装（status 缺失或非 installed）
+    final sw2 = Software.fromJson({'name': 'dance', 'display_name': '舞蹈'});
+    expect(sw2.installed, isFalse);
+
+    // 兼容 installed: true 布尔形式
+    final sw3 = Software.fromJson({'name': 'x', 'display_name': 'X', 'installed': true});
+    expect(sw3.installed, isTrue);
+  });
 }

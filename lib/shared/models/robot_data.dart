@@ -284,12 +284,21 @@ class Software {
     name: json['name'] as String? ?? '',
     displayName: json['display_name'] as String? ?? json['name'] as String? ?? '',
     description: json['description'] as String?,
-    version: json['version'] as String?,
+    version: json['version'] as String? ??
+        json['current_version'] as String? ??
+        json['installed_version'] as String? ??
+        json['version_name'] as String?,
     category: json['category'] as String?,
     critical: json['critical'] as bool? ?? false,
     icon: json['icon'] as String?,
-    installed: json['installed'] as bool? ?? false,
-    upgradable: json['upgradable'] as bool?,
+    // 真机用 status: "installed" 而非 installed: true（对齐 web-debug packages 直传）
+    installed: json['installed'] as bool? ??
+        (json['status'] == 'installed' ? true : null) ??
+        (json['installed_status'] == 'installed' ? true : null) ??
+        false,
+    upgradable: json['upgradable'] as bool? ??
+        json['update_available'] as bool? ??
+        json['has_update'] as bool?,
   );
 }
 
