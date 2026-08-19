@@ -177,12 +177,12 @@ class ConnectionManager extends StateNotifier<ConnState> {
   void sendGetMusicList() => send('music_list');
   void sendGetSoftwareList() => send('software_list');
   void sendGetSoftwareAvailable() => send('software_available');
-  void sendSoftwareInstall(String id) =>
-      send('software_install', {'id': id});
-  void sendSoftwareUninstall(String id) =>
-      send('software_uninstall', {'id': id});
-  void sendSoftwareUpgrade(String id) =>
-      send('software_upgrade', {'id': id});
+  void sendSoftwareInstall(String package) =>
+      send('software_install', {'package': package});
+  void sendSoftwareUninstall(String package) =>
+      send('software_uninstall', {'package': package});
+  void sendSoftwareUpgrade(String package) =>
+      send('software_upgrade', {'package': package});
 
   // ---- WiFi (匹配 web-debug sendWifiScan/sendWifiConnect) ----
   void sendWifiScan() => send('wifi_scan');
@@ -467,10 +467,12 @@ class ConnectionManager extends StateNotifier<ConnState> {
 
       // ---- 软件 ----
       case 'software_list':
-        _data.setSoftwareInstalled(d['software'] as List? ?? []);
+        debugPrint('[CM] software_list: ${d['packages'] is List ? '${(d['packages'] as List).length}个' : '无 packages'}');
+        _data.setSoftwareInstalled(d['packages'] as List? ?? d['software'] as List? ?? []);
         break;
       case 'software_available':
-        _data.setSoftwareAvailable(d['software'] as List? ?? []);
+        debugPrint('[CM] software_available: ${d['packages'] is List ? '${(d['packages'] as List).length}个' : '无 packages'}');
+        _data.setSoftwareAvailable(d['packages'] as List? ?? d['software'] as List? ?? []);
         break;
       case 'software_progress':
         debugPrint('[CM] sw_progress: ${d['progress']}');

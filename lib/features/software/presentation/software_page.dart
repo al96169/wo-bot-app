@@ -78,15 +78,27 @@ class _SoftwarePageState extends ConsumerState<SoftwarePage> {
             const FeatureStatusBar(title: '软件管理'),
             _buildActionBar(),
             Expanded(
-              child: list.isEmpty
-                  ? const Center(child: Text('暂无软件', style: TextStyle(color: Color(0xFF8E8E93))))
-                  : RefreshIndicator(
-                      onRefresh: () async {
-                        final m = ref.read(connectionManagerProvider.notifier);
-                        m.sendGetSoftwareList();
-                        m.sendGetSoftwareAvailable();
-                      },
-                      child: ListView.builder(
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  final m = ref.read(connectionManagerProvider.notifier);
+                  m.sendGetSoftwareList();
+                  m.sendGetSoftwareAvailable();
+                },
+                child: list.isEmpty
+                    ? ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(40),
+                        children: const [
+                          Icon(Icons.apps, size: 40, color: Color(0xFFC7C7CC)),
+                          SizedBox(height: 12),
+                          Text(
+                            '暂无软件\n下拉刷新重试',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+                          ),
+                        ],
+                      )
+                    : ListView.builder(
                         padding: const EdgeInsets.fromLTRB(15, 0, 15, 20),
                         itemCount: list.length,
                         itemBuilder: (context, i) => Padding(
@@ -99,7 +111,7 @@ class _SoftwarePageState extends ConsumerState<SoftwarePage> {
                           ),
                         ),
                       ),
-                    ),
+              ),
             ),
           ],
         ),
