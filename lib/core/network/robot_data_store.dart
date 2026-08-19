@@ -203,9 +203,17 @@ class RobotDataStore extends StateNotifier<int> {
 
   /// 更新日志 — 匹配 web-debug handleLogsMessage
   ///
-  /// [mode]: tail(首次加载) / since(增量) / before(历史)
+  /// 兼容两种真机格式：
+  /// 1. 批量响应: {logs: [{line_no, timestamp, level, source, message}], next_since, has_more, mode}
+  /// 2. 流式推送: {line_no, timestamp, level, source, message}（单条，data 顶层即日志）
+  /// [mode]: tail(首次加载) / since(增量) / before(历史) / push(流式)
   void updateLogs(Map<String, dynamic> data, {required String mode}) {
-    final items = (data['logs'] as List? ?? []).map((e) {
+    // 单条日志对象（流式推送）：data 顶层就是日志字段
+    final rawLogs = data['logs'] is List
+        ? (data['logs'] as List)
+        : (data['line_no'] != null ? [data] : const []);
+
+    final items = rawLogs.map((e) {
       final m = e is Map ? Map<String, dynamic>.from(e) : const <String, dynamic>{};
       final rawLevel = (m['level'] as String? ?? 'info').toLowerCase();
       final level = rawLevel == 'warning'
@@ -235,7 +243,8 @@ class RobotDataStore extends StateNotifier<int> {
           ..addAll(items);
         break;
       case 'since':
-        // 去重后追加
+      case 'push':
+        // 去重后追加（流式推送逐条追加）
         final known = logs.map((l) => l.lineNo).toSet();
         logs.addAll(items.where((l) => !known.contains(l.lineNo)));
         break;

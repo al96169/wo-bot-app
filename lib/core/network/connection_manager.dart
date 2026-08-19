@@ -24,7 +24,7 @@ class ConnectionManager extends StateNotifier<ConnState> {
   final MdnsDiscovery _mdns = MdnsDiscovery();
   Timer? _statusTimer;
   final BindService _bind = BindService.instance;
-  final RobotDataStore _data = RobotDataStore();
+  late final RobotDataStore _data;
 
   RobotDevice? currentDevice;
   RobotStatus? robotStatus;
@@ -36,7 +36,11 @@ class ConnectionManager extends StateNotifier<ConnState> {
   String pendingShareCode = '';
   String accountToken = '';
 
-  ConnectionManager() : super(ConnState.disconnected) {
+  /// [data]: 外部注入的 RobotDataStore（与 UI 共享同一实例）。
+  /// 关键：若不注入，ConnectionManager 自建实例，UI 通过 provider 读的将是另一实例，
+  /// 导致 status/logs 等数据永远不同步（web-debug 用单一 store 共享）。
+  ConnectionManager({RobotDataStore? data}) : super(ConnState.disconnected) {
+    _data = data ?? RobotDataStore();
     _bind.init();
     _ws
       ..onMessage = _handleMessage
@@ -210,7 +214,7 @@ class ConnectionManager extends StateNotifier<ConnState> {
   void sendSubscribe(List<String> events) =>
       send('subscribe', {'events': events});
 
-  // ---- 日志 (匹配 web-debug requestLogs) ----
+  // ---- 日志 (匹配 web-debug requestLogs，字段与 web-debug 完全一致) ----
   void requestLogs({
     String mode = 'tail',
     int limit = 200,
@@ -218,10 +222,13 @@ class ConnectionManager extends StateNotifier<ConnState> {
     int? beforeLine,
     String? level,
   }) {
-    final data = <String, dynamic>{'mode': mode, 'limit': limit};
-    if (sinceLine != null) data['since_line'] = sinceLine;
-    if (beforeLine != null) data['before_line'] = beforeLine;
-    if (level != null && level.isNotEmpty) data['level'] = level;
+    final data = <String, dynamic>{
+      'mode': mode,
+      'since_line': sinceLine ?? 0,
+      'before_line': beforeLine ?? 0,
+      'limit': limit,
+      'level': level ?? '',
+    };
     send('logs', data);
   }
 
@@ -487,7 +494,11 @@ class ConnectionManager extends StateNotifier<ConnState> {
 
       // ---- 日志 ----
       case 'logs':
-        _data.updateLogs(d, mode: d['mode'] as String? ?? 'tail');
+        debugPrint('[CM] logs 消息: keys=${d.keys.toList()}');
+        debugPrint('[CM] logs 条数=${(d['logs'] as List?)?.length ?? (d['line_no'] != null ? '单条推送' : '0')}');
+        // 无 mode 字段且非批量数组 → 流式推送，追加而非覆盖
+        final isPush = d['mode'] == null && d['logs'] is! List && d['line_no'] != null;
+        _data.updateLogs(d, mode: isPush ? 'push' : (d['mode'] as String? ?? 'tail'));
         break;
 
       // ---- 错误 ----
@@ -505,6 +516,9 @@ class ConnectionManager extends StateNotifier<ConnState> {
     disconnect();
     super.dispose();
   }
+
+  /// 共享的 RobotDataStore（供 UI 与测试读取）
+  RobotDataStore get dataStore => _data;
 }
 
 /// 兼容旧代码 — 连接状态
@@ -518,4 +532,7 @@ AppConnectionState connStateToAppState(ConnState s) {
   }
 }
 
-final connectionManagerProvider = StateNotifierProvider<ConnectionManager, ConnState>((ref) => ConnectionManager());
+// ConnectionManager 与 RobotDataStore 共享同一实例（web-debug 单一 store 模式）
+final connectionManagerProvider = StateNotifierProvider<ConnectionManager, ConnState>(
+  (ref) => ConnectionManager(data: ref.read(robotDataProvider.notifier)),
+);
