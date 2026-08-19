@@ -2,6 +2,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wo_bot/core/network/robot_data_store.dart';
 import 'package:wo_bot/shared/models/robot_data.dart';
+import 'package:wo_bot/shared/models/robot_status.dart';
 
 void main() {
   test('解析真机嵌套 status 格式（battery/system/network）', () {
@@ -83,6 +84,24 @@ void main() {
     expect(store.services.first.name, 'wo-bot-control');
     expect(store.services.first.status, 'running');
     expect(store.services.first.uptime, 59662);
+  });
+
+  test('RobotStatus 按真机线格式解析（battery.status/system.*/network.*）', () {
+    final rs = RobotStatus.fromJson({
+      'battery': {'level': 95, 'status': 'charging', 'temperature': 35},
+      'system': {'cpu_percent': 42.5, 'memory_percent': 51.3, 'disk_percent': 80.2, 'uptime': 59662.86, 'temperature': 60.1, 'hostname': 'jetson'},
+      'network': {'ssid': 'HomeWiFi', 'signal_strength': -55, 'ip': '192.168.1.47'},
+    });
+    expect(rs.batteryLevel, 95);
+    expect(rs.batteryCharging, isTrue);
+    expect(rs.cpuUsage, 42.5);
+    expect(rs.memoryUsage, 51.3);
+    expect(rs.diskUsage, 80.2);
+    expect(rs.wifiSSID, 'HomeWiFi');
+    expect(rs.wifiSignal, -55);
+    expect(rs.ip, '192.168.1.47');
+    expect(rs.uptime, 59662);
+    expect(rs.temperature, 60.1);
   });
 
   test('软件项 status:"installed" 判定为已安装并解析版本号', () {

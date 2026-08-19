@@ -148,23 +148,25 @@ class ConnectionManager extends StateNotifier<ConnState> {
       send('camera_stream_quality', {'mode': mode});
 
   // ---- 音乐 ----
-  void sendMusicPlay([String? songId]) =>
-      send('music_play', songId != null ? {'songId': songId} : {});
+  void sendMusicPlay([String? filename]) =>
+      send('music_play', filename != null ? {'filename': filename} : {});
   void sendMusicPause() => send('music_pause');
   void sendMusicNext() => send('music_next');
-  void sendMusicPrev() => send('music_prev');
+  void sendMusicPrev() => send('music_previous');
   void sendMusicVolume(int volume) =>
       send('music_volume', {'volume': volume});
 
-  // ---- 舞蹈 ----
+  // ---- 舞蹈 (对齐 web-debug: {type:"dance", data:{command}}) ----
   void sendDancePlay(String danceId) =>
-      send('dance_play', {'danceId': danceId});
-  void sendDanceStop() => send('dance_stop');
+      send('dance', {'command': 'play', 'dance_id': danceId});
+  void sendDanceStop() => send('dance', {'command': 'stop'});
+  void sendDancePause() => send('dance', {'command': 'pause'});
 
   // ---- 查询类 ----
   void sendGetStatus() => send('get_status');
-  void sendGetModuleList() => send('get_module_list');
-  void sendGetServiceStatus() => send('get_service_status');
+  // 请求 type 与响应 type 相同（对齐 web-debug：真机只响应 module_list / service_status）
+  void sendGetModuleList() => send('module_list');
+  void sendGetServiceStatus() => send('service_status');
 
   /// 生成消息 ID — 对齐 web-debug (Date.now().toString(36) + 随机)
   static String _genMessageId() =>
@@ -173,7 +175,7 @@ class ConnectionManager extends StateNotifier<ConnState> {
   // 服务控制 (匹配 web-debug sendServiceControl)
   void sendServiceControl(String serviceId, String action) =>
       send('service_control', {'service_id': serviceId, 'action': action});
-  void sendGetDanceList() => send('dance_list');
+  void sendGetDanceList() => send('dance', {'command': 'list'});
   void sendGetMusicList() => send('music_list');
   void sendGetSoftwareList() => send('software_list');
   void sendGetSoftwareAvailable() => send('software_available');
@@ -197,8 +199,9 @@ class ConnectionManager extends StateNotifier<ConnState> {
       send('set_power_policy', policy);
 
   // ---- 配置 ----
-  void sendConfigGet(String key) =>
-      send('config_get', {'key': key});
+  // 对齐 web-debug：config_get 无 key 时取全量配置
+  void sendConfigGet([String? key]) =>
+      send('config_get', key != null ? {'key': key} : {});
   void sendConfigSet(String key, dynamic value) =>
       send('config_set', {'key': key, 'value': value});
 
@@ -287,9 +290,15 @@ class ConnectionManager extends StateNotifier<ConnState> {
         authRequired = false;
         state = ConnState.connected;
         _startStatusPolling();
-        // 连接后请求初始数据
+        // 连接后请求初始数据（对齐 web-debug connected：subscribe + camera list + 模块/服务）
+        send('subscribe', {'events': ['status']});
+        send('camera', {'action': 'list'});
         sendGetModuleList();
         sendGetServiceStatus();
+        // robotInfo 补充 name/model/version（对齐 web-debug setRobotInfo）
+        if (d['name'] != null || d['model'] != null || d['version'] != null) {
+          robotInfo = {...?robotInfo, ...d};
+        }
         break;
 
       case 'auth_required':
@@ -343,6 +352,15 @@ class ConnectionManager extends StateNotifier<ConnState> {
         // 先同步服务列表（对齐 web-debug），状态解析异常不阻断服务更新
         if (d['services'] is List) {
           _data.setServices(d['services'] as List);
+        }
+        // features 同步（对齐 web-debug status 处理）
+        if (d['features'] is List) {
+          remoteFeatures = d['features']!.map((e) => e.toString()).toList();
+          _data.setRemoteFeatures(d['features'] as List);
+        }
+        // power_policy 内嵌解析（对齐 web-debug DC 路径）
+        if (d['power_policy'] is Map) {
+          _data.setPowerPolicy(Map<String, dynamic>.from(d['power_policy'] as Map));
         }
         try {
           _data.updateFromStatus(d);
@@ -403,7 +421,7 @@ class ConnectionManager extends StateNotifier<ConnState> {
       case 'dance_status':
         _data.setDanceStatus(
           d['status'] as String? ?? 'stopped',
-          danceId: d['id'] as String?,
+          danceId: d['dance_id'] as String? ?? d['id'] as String?,
           progress: (d['progress'] as num?)?.toDouble(),
           loop: d['loop'] as bool?,
         );
@@ -420,32 +438,43 @@ class ConnectionManager extends StateNotifier<ConnState> {
         _data.setMusicSongs(d['songs'] as List? ?? []);
         break;
       case 'music_volume':
-        _data.music.volume = d['volume'] as int? ?? _data.music.volume;
+        _data.music.volume = (d['volume'] as num?)?.toInt() ?? _data.music.volume;
         _data.notify();
         break;
 
       // ---- 摄像头 ----
       case 'camera_status':
-        _data.setCamerasFromList(d['cameras'] ?? d);
+        if (d['cameras'] is List) {
+          _data.setCamerasFromList(d['cameras'] as List);
+        } else if (d['id'] != null || d['camera_id'] != null) {
+          // 单对象增量更新（对齐 web-debug：{id,status,stream_url}）
+          _data.setCamerasFromList([d]);
+        }
         break;
       case 'camera_capture_result':
-        debugPrint('[CM] capture: ${d['file_name']}');
+        debugPrint('[CM] capture: ${d['file_name'] ?? d['photos']}');
         break;
       case 'camera_record_result':
-        _data.isRecording = d['action'] == 'start';
+        // 对齐 web-debug：data.is_recording / data.success
+        _data.isRecording = d['is_recording'] as bool? ?? d['success'] as bool? ?? false;
         _data.notify();
         break;
       case 'camera_record_status':
-        _data.isRecording = d['recording'] as bool? ?? _data.isRecording;
+        _data.isRecording = d['is_recording'] as bool? ?? d['recording'] as bool? ?? _data.isRecording;
         _data.notify();
         break;
       case 'camera_media_list_result':
-        _data.setGalleryItems(d['items'] as List? ?? []);
+        // 对齐 web-debug：data.files（兼容旧 items）
+        _data.setGalleryItems(d['files'] as List? ?? d['items'] as List? ?? []);
         _data.setGalleryStorageFromJson(d['storage'] as Map<String, dynamic>?);
+        final page = (d['page'] as num?)?.toInt() ?? 1;
+        final total = (d['total'] as num?)?.toInt() ?? 0;
+        final pageSize = _data.galleryPageSize;
+        // 对齐 web-debug：has_more = page*pageSize < total（真机可能不返回 has_more）
         _data.setGalleryPageInfo(
-          d['page'] as int? ?? 1,
-          d['total'] as int? ?? 0,
-          d['has_more'] as bool? ?? false,
+          page,
+          total,
+          d['has_more'] as bool? ?? (page * pageSize < total),
         );
         break;
       case 'camera_stream_quality_ack':
@@ -480,7 +509,10 @@ class ConnectionManager extends StateNotifier<ConnState> {
       case 'software_install_ack':
       case 'software_uninstall_ack':
       case 'software_upgrade_ack':
-        debugPrint('[CM] sw_ack: $type');
+        debugPrint('[CM] sw_ack: $type success=${d['success']}');
+        // 操作完成后刷新列表（对齐 web-debug：成功后重发 software_list/available）
+        sendGetSoftwareList();
+        sendGetSoftwareAvailable();
         break;
       case 'software_updates_available':
         debugPrint('[CM] sw_updates: $d');

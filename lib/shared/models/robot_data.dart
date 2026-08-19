@@ -227,7 +227,7 @@ class MusicTrack {
     name: json['name'] as String? ?? '',
     filename: json['filename'] as String? ?? json['name'] as String? ?? '',
     path: json['path'] as String?,
-    size: json['size'] as int?,
+    size: (json['size'] as num?)?.toInt(),
     format: json['format'] as String?,
     duration: (json['duration'] as num?)?.toDouble(),
   );
@@ -252,7 +252,7 @@ class MusicStatus {
 
   void updateFromJson(Map<String, dynamic> json) {
     status = json['status'] as String? ?? status;
-    volume = json['volume'] as int? ?? volume;
+    volume = (json['volume'] as num?)?.toInt() ?? volume;
     position = (json['position'] as num?)?.toDouble() ?? position;
     if (json['current_track'] != null) {
       currentTrack = MusicTrack.fromJson(json['current_track'] as Map<String, dynamic>);
@@ -263,6 +263,9 @@ class MusicStatus {
     streaming = json['streaming'] as bool? ?? streaming;
     streamType = json['stream_type'] as String? ?? streamType;
     activeSource = json['active_source'] as String? ?? activeSource;
+    if (json['active_services'] is List) {
+      activeServices = (json['active_services'] as List).map((e) => e.toString()).toList();
+    }
   }
 }
 
@@ -315,16 +318,20 @@ class GalleryItem {
 
   const GalleryItem({required this.id, required this.name, required this.type, this.thumbnailBase64, this.fileSize, this.durationSec, this.cameraId, this.timestamp});
 
-  factory GalleryItem.fromJson(Map<String, dynamic> json) => GalleryItem(
-    id: json['id'] as String? ?? json['name'] as String? ?? '',
-    name: json['name'] as String? ?? '',
-    type: json['type'] as String? ?? 'photo',
-    thumbnailBase64: json['thumbnail_base64'] as String?,
-    fileSize: json['file_size'] as int?,
-    durationSec: (json['duration_s'] as num?)?.toDouble(),
-    cameraId: json['camera_id'] as String?,
-    timestamp: json['timestamp'] as String?,
-  );
+  factory GalleryItem.fromJson(Map<String, dynamic> json) {
+    // 对齐 web-debug：id/name = file_name ?? name ?? id；size = size_bytes ?? file_size；camera_id 为数字
+    final fileName = json['file_name'] as String?;
+    return GalleryItem(
+      id: fileName ?? json['id'] as String? ?? json['name'] as String? ?? '',
+      name: fileName ?? json['name'] as String? ?? '',
+      type: json['type'] as String? ?? 'photo',
+      thumbnailBase64: json['thumbnail_base64'] as String?,
+      fileSize: (json['size_bytes'] as num?)?.toInt() ?? (json['file_size'] as num?)?.toInt(),
+      durationSec: (json['duration_s'] as num?)?.toDouble() ?? (json['duration_sec'] as num?)?.toDouble(),
+      cameraId: (json['camera_id'] as num?)?.toInt().toString() ?? json['camera_id'] as String?,
+      timestamp: json['timestamp'] as String?,
+    );
+  }
 }
 
 class GalleryStorage {
@@ -334,8 +341,8 @@ class GalleryStorage {
   const GalleryStorage({required this.totalBytes, required this.usedBytes, required this.availableBytes});
 
   factory GalleryStorage.fromJson(Map<String, dynamic> json) => GalleryStorage(
-    totalBytes: json['total_bytes'] as int? ?? 0,
-    usedBytes: json['used_bytes'] as int? ?? 0,
-    availableBytes: json['available_bytes'] as int? ?? 0,
+    totalBytes: (json['total_bytes'] as num?)?.toInt() ?? 0,
+    usedBytes: (json['used_bytes'] as num?)?.toInt() ?? 0,
+    availableBytes: (json['available_bytes'] as num?)?.toInt() ?? 0,
   );
 }

@@ -94,17 +94,29 @@ class RobotStatus {
   // ---- JSON 序列化 ----
 
   factory RobotStatus.fromJson(Map<String, dynamic> json) {
+    // 真机线格式（对齐 web-debug useWebSocket.ts L1408-1432）：
+    // battery.{level,status,temperature} / system.{cpu_percent,memory_percent,disk_percent,uptime,hostname,temperature} / network.{ssid,signal_strength,ip}
+    final batt = json['battery'] is Map
+        ? Map<String, dynamic>.from(json['battery'] as Map)
+        : const <String, dynamic>{};
+    final sys = json['system'] is Map
+        ? Map<String, dynamic>.from(json['system'] as Map)
+        : const <String, dynamic>{};
+    final net = json['network'] is Map
+        ? Map<String, dynamic>.from(json['network'] as Map)
+        : const <String, dynamic>{};
+
     return RobotStatus(
-      batteryLevel: (json['battery']?['level'] as num?)?.toInt() ?? 0,
-      batteryCharging: json['battery']?['state'] == 'charging',
-      cpuUsage: (json['cpu']?['usage'] as num?)?.toDouble() ?? 0,
-      memoryUsage: (json['memory']?['usage'] as num?)?.toDouble() ?? 0,
-      diskUsage: (json['disk']?['usage'] as num?)?.toDouble() ?? 0,
-      wifiSSID: json['wifi']?['ssid'] as String?,
-      wifiSignal: _parseSignalDbm(json['wifi']?['signal']),
-      ip: json['wifi']?['ip'] as String?,
-      uptime: _parseUptime(json['uptime']),
-      temperature: (json['environment']?['temperature'] as num?)?.toDouble(),
+      batteryLevel: (batt['level'] as num?)?.toInt() ?? 0,
+      batteryCharging: batt['status'] == 'charging',
+      cpuUsage: (sys['cpu_percent'] as num?)?.toDouble() ?? 0,
+      memoryUsage: (sys['memory_percent'] as num?)?.toDouble() ?? 0,
+      diskUsage: (sys['disk_percent'] as num?)?.toDouble() ?? 0,
+      wifiSSID: net['ssid'] as String?,
+      wifiSignal: _parseSignalDbm(net['signal_strength']),
+      ip: net['ip'] as String?,
+      uptime: _parseUptime(sys['uptime'] ?? json['uptime']),
+      temperature: (sys['temperature'] as num?)?.toDouble(),
     );
   }
 
