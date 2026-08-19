@@ -341,6 +341,10 @@ class ConnectionManager extends StateNotifier<ConnState> {
       case 'status':
         _data.updateFromStatus(d);
         robotStatus = RobotStatus.fromJson(d);
+        // 从 status 中同步服务状态（对齐 web-debug：status 消息携带 services）
+        if (d['services'] is List) {
+          _data.setServices(d['services'] as List);
+        }
         break;
       case 'pong':
         break;

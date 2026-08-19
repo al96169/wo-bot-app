@@ -48,31 +48,51 @@ class _ProcessPageState extends ConsumerState<ProcessPage> {
           children: [
             const FeatureStatusBar(title: '进程'),
             Expanded(
-              child: services.isEmpty
-                  ? const Center(child: Text('暂无服务信息', style: TextStyle(color: Color(0xFF8E8E93))))
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(15, 15, 15, 20),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(15),
-                          border: Border.all(color: const Color(0xFFEEEEEE), width: 0.5),
-                        ),
-                        child: Column(
-                          children: [
-                            for (var i = 0; i < services.length; i++) ...[
-                              if (i > 0)
-                                const Divider(height: 0.5, thickness: 0.5, color: Color(0xFFD8D8D8)),
-                              _ServiceRow(
-                                service: services[i],
-                                onStop: () => _control(services[i].serviceId, 'stop', services[i].name),
-                                onRestart: () => _control(services[i].serviceId, 'restart', services[i].name),
-                              ),
-                            ],
-                          ],
-                        ),
+              child: RefreshIndicator(
+                onRefresh: () async =>
+                    ref.read(connectionManagerProvider.notifier).sendGetServiceStatus(),
+                child: services.isEmpty
+                    ? ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(40),
+                        children: const [
+                          Icon(Icons.memory, size: 40, color: Color(0xFFC7C7CC)),
+                          SizedBox(height: 12),
+                          Text(
+                            '暂无服务数据\n下拉刷新重试',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+                          ),
+                        ],
+                      )
+                    : ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(15, 15, 15, 20),
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(15),
+                              border: Border.all(color: const Color(0xFFEEEEEE), width: 0.5),
+                            ),
+                            child: Column(
+                              children: [
+                                for (var i = 0; i < services.length; i++) ...[
+                                  if (i > 0)
+                                    const Divider(height: 0.5, thickness: 0.5, color: Color(0xFFD8D8D8)),
+                                  _ServiceRow(
+                                    service: services[i],
+                                    onStart: () => _control(services[i].serviceId, 'start', services[i].name),
+                                    onStop: () => _control(services[i].serviceId, 'stop', services[i].name),
+                                    onRestart: () => _control(services[i].serviceId, 'restart', services[i].name),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
+              ),
             ),
           ],
         ),
@@ -81,12 +101,18 @@ class _ProcessPageState extends ConsumerState<ProcessPage> {
   }
 }
 
-/// 服务行 — 匹配 Pixso 5:4455 (388×57: 名称 + 停止/重启)
+/// 服务行 — 匹配 Pixso 5:4455 (388×57: 名称 + 停止/启动/重启)
 class _ServiceRow extends StatelessWidget {
   final dynamic service;
+  final VoidCallback onStart;
   final VoidCallback onStop;
   final VoidCallback onRestart;
-  const _ServiceRow({required this.service, required this.onStop, required this.onRestart});
+  const _ServiceRow({
+    required this.service,
+    required this.onStart,
+    required this.onStop,
+    required this.onRestart,
+  });
 
   String get _name => service.name as String? ?? '服务';
   String get _status => service.status as String? ?? '';
@@ -117,9 +143,12 @@ class _ServiceRow extends StatelessWidget {
                 style: const TextStyle(fontSize: 14, color: Color(0xFF3D3D3D)),
               ),
             ),
-            // 操作按钮 (Pixso 5:4553, 76×27)
+            // 操作按钮 (Pixso 5:4553, 76×27) — 停止/启动 + 重启（对齐 web-debug）
             if (running) ...[
               _ActionBtn(label: '停止', onTap: onStop),
+              const SizedBox(width: 8),
+            ] else ...[
+              _ActionBtn(label: '启动', onTap: onStart),
               const SizedBox(width: 8),
             ],
             _ActionBtn(label: '重启', onTap: onRestart),
