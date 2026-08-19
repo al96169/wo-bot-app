@@ -65,13 +65,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         onTap: () => AppToast.show('蓝牙功能待接入', type: AppToastType.info),
                       ),
                       _Divider(),
-                      // 软件版本管理 (Pixso 5:4257)
-                      _NavRow(
-                        label: '软件版本管理',
-                        value: '管理机载软件版本 >',
-                        onTap: () => AppToast.show('请前往软件管理页', type: AppToastType.info),
-                      ),
-                      _Divider(),
                       // 省电模式阈值 (Pixso 5:4254)
                       _StepperRow(
                         label: '省电模式阈值',
