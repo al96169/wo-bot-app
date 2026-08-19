@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/connection_manager.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../shared/widgets/feature_status_bar.dart';
-import 'wifi_manager_dialog.dart';
+import 'wifi_manager_page.dart';
 
 /// 设置页 — 匹配 Pixso 5:3864
 ///
@@ -55,7 +55,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       _NavRow(
                         label: 'WIFI管理',
                         value: '添加要连接的wifi热点',
-                        onTap: () => WifiManagerDialog.show(context),
+                        onTap: () => WifiManagerPage.open(context),
                       ),
                       _Divider(),
                       // 蓝牙 (Pixso 5:4260)
@@ -148,6 +148,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
     if (ok == true) {
       AppToast.show('已删除此机器人', type: AppToastType.success);
+      if (!mounted) return;
       Navigator.of(context).pop();
     }
   }
