@@ -38,12 +38,29 @@ class RobotStatusPage extends ConsumerWidget {
                     _StatusCard(
                       title: '设备状态',
                       children: [
-                        _StatusRow(label: 'CPU温度', value: system.cpuTemp != null ? '${system.cpuTemp!.toStringAsFixed(0)}°C' : '--'),
-                        _StatusRow(label: '电池电量', value: '${system.batteryLevel.toStringAsFixed(0)}%'),
-                        _StatusRow(label: '预计可用', value: _uptime(system.uptime)),
+                        _StatusRow(
+                          label: 'CPU温度',
+                          value: system.cpuTemp != null
+                              ? '${system.cpuTemp!.toStringAsFixed(0)}°C'
+                              : '--',
+                        ),
+                        _StatusRow(
+                          label: '电池电量',
+                          value: '${system.batteryLevel.toStringAsFixed(0)}%',
+                        ),
+                        _StatusRow(
+                          label: '预计可用',
+                          value: _uptime(system.uptime),
+                        ),
                         _StatusRow(label: 'IP地址', value: system.ip ?? '--'),
-                        _StatusRow(label: '主机名', value: system.hostname ?? '--'),
-                        _StatusRow(label: '本次运行', value: _uptime(system.uptime)),
+                        _StatusRow(
+                          label: '主机名',
+                          value: system.hostname ?? '--',
+                        ),
+                        _StatusRow(
+                          label: '本次运行',
+                          value: _uptime(system.uptime),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -55,9 +72,22 @@ class RobotStatusPage extends ConsumerWidget {
                           _StatusRow(label: '型号', value: data.system.model!),
                         if (data.system.version != null)
                           _StatusRow(label: '版本', value: data.system.version!),
-                        _StatusRow(label: 'CPU温度', value: system.cpuTemp != null ? '${system.cpuTemp!.toStringAsFixed(0)}°C' : '--'),
-                        _StatusRow(label: 'WiFi', value: system.wifiSSID ?? '--'),
-                        _StatusRow(label: '信号', value: system.wifiSignal != 0 ? '${system.wifiSignal}dBm' : '--'),
+                        _StatusRow(
+                          label: 'CPU温度',
+                          value: system.cpuTemp != null
+                              ? '${system.cpuTemp!.toStringAsFixed(0)}°C'
+                              : '--',
+                        ),
+                        _StatusRow(
+                          label: 'WiFi',
+                          value: system.wifiSSID ?? '--',
+                        ),
+                        _StatusRow(
+                          label: '信号',
+                          value: system.wifiSignal != 0
+                              ? '${system.wifiSignal}dBm'
+                              : '--',
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -66,7 +96,10 @@ class RobotStatusPage extends ConsumerWidget {
                       title: '子系统',
                       children: [
                         for (final s in data.services)
-                          _StatusRow(label: s.name, value: _serviceStatus(s.status)),
+                          _StatusRow(
+                            label: s.name,
+                            value: _serviceStatus(s.status),
+                          ),
                       ],
                     ),
                   ],
@@ -86,16 +119,16 @@ class RobotStatusPage extends ConsumerWidget {
     final batteryIcon = system.batteryCharging
         ? Icons.battery_charging_full
         : system.batteryLevel <= 20
-            ? Icons.battery_alert
-            : Icons.battery_full;
+        ? Icons.battery_alert
+        : Icons.battery_full;
     // WiFi
     final wifiValue = system.wifiSSID ?? '未连接';
     final wifiSubtitle = system.wifiSignal != 0
         ? '${system.wifiSignal}dBm'
         : '信号未知';
     // 蜂窝（SystemStatusData 无蜂窝字段，显示 '--' 占位，后续补充）
-    final cellularValue = '--';
-    final cellularSubtitle = '蜂窝网络';
+    const cellularValue = '--';
+    const cellularSubtitle = '蜂窝网络';
 
     return Container(
       width: double.infinity,
@@ -109,17 +142,59 @@ class RobotStatusPage extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Expanded(child: _MetricTile(icon: Icons.network_cell, title: '蜂窝', subtitle: cellularSubtitle, value: cellularValue)),
-              Expanded(child: _MetricTile(icon: Icons.wifi, title: 'WiFi', subtitle: wifiSubtitle, value: wifiValue)),
-              Expanded(child: _MetricTile(icon: batteryIcon, title: '电池', subtitle: batterySubtitle, value: batteryValue)),
+              const Expanded(
+                child: _MetricTile(
+                  icon: Icons.network_cell,
+                  title: '蜂窝',
+                  subtitle: cellularSubtitle,
+                  value: cellularValue,
+                ),
+              ),
+              Expanded(
+                child: _MetricTile(
+                  icon: Icons.wifi,
+                  title: 'WiFi',
+                  subtitle: wifiSubtitle,
+                  value: wifiValue,
+                ),
+              ),
+              Expanded(
+                child: _MetricTile(
+                  icon: batteryIcon,
+                  title: '电池',
+                  subtitle: batterySubtitle,
+                  value: batteryValue,
+                ),
+              ),
             ],
           ),
           const Divider(height: 24, thickness: 0.5, color: Color(0xFFD8D8D8)),
           Row(
             children: [
-              Expanded(child: _MetricTile(icon: Icons.memory, title: 'CPU', subtitle: '使用率', value: '${system.cpuUsage.toStringAsFixed(0)}%')),
-              Expanded(child: _MetricTile(icon: Icons.storage, title: '内存', subtitle: '使用率', value: '${system.memoryUsage.toStringAsFixed(0)}%')),
-              Expanded(child: _MetricTile(icon: Icons.dns_outlined, title: '硬盘', subtitle: '使用率', value: '${system.diskUsage.toStringAsFixed(0)}%')),
+              Expanded(
+                child: _MetricTile(
+                  icon: Icons.memory,
+                  title: 'CPU',
+                  subtitle: '使用率',
+                  value: '${system.cpuUsage.toStringAsFixed(0)}%',
+                ),
+              ),
+              Expanded(
+                child: _MetricTile(
+                  icon: Icons.storage,
+                  title: '内存',
+                  subtitle: '使用率',
+                  value: '${system.memoryUsage.toStringAsFixed(0)}%',
+                ),
+              ),
+              Expanded(
+                child: _MetricTile(
+                  icon: Icons.dns_outlined,
+                  title: '硬盘',
+                  subtitle: '使用率',
+                  value: '${system.diskUsage.toStringAsFixed(0)}%',
+                ),
+              ),
             ],
           ),
         ],
@@ -130,18 +205,23 @@ class RobotStatusPage extends ConsumerWidget {
   String _uptime(int seconds) {
     final h = seconds ~/ 3600;
     final d = h ~/ 24;
-    if (d > 0) return '${d}天${h % 24}小时';
-    if (h > 0) return '${h}小时';
+    if (d > 0) return '$d天${h % 24}小时';
+    if (h > 0) return '$h小时';
     return '${seconds ~/ 60}分钟';
   }
 
   String _serviceStatus(String status) {
     switch (status) {
-      case 'running': return '运行中';
-      case 'starting': return '启动中';
-      case 'stopped': return '已停止';
-      case 'failed': return '异常';
-      default: return status;
+      case 'running':
+        return '运行中';
+      case 'starting':
+        return '启动中';
+      case 'stopped':
+        return '已停止';
+      case 'failed':
+        return '异常';
+      default:
+        return status;
     }
   }
 }
@@ -150,7 +230,12 @@ class RobotStatusPage extends ConsumerWidget {
 class _MetricTile extends StatelessWidget {
   final IconData icon;
   final String title, subtitle, value;
-  const _MetricTile({required this.icon, required this.title, required this.subtitle, required this.value});
+  const _MetricTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -163,12 +248,25 @@ class _MetricTile extends StatelessWidget {
             children: [
               Icon(icon, size: 18, color: const Color(0xFF232222)),
               const SizedBox(width: 6),
-              Text(title, style: const TextStyle(fontSize: 13, color: Color(0xFF232222))),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 13, color: Color(0xFF232222)),
+              ),
             ],
           ),
           const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
-          Text(subtitle, style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93))),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1C1C1E),
+            ),
+          ),
+          Text(
+            subtitle,
+            style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93)),
+          ),
         ],
       ),
     );
@@ -194,7 +292,14 @@ class _StatusCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF3D3D3D))),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF3D3D3D),
+            ),
+          ),
           const SizedBox(height: 4),
           ...children,
         ],
@@ -214,9 +319,15 @@ class _StatusRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(fontSize: 14, color: Color(0xFF3D3D3D))),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF3D3D3D)),
+          ),
           const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 14, color: Color(0xFF1C1C1E))),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF1C1C1E)),
+          ),
         ],
       ),
     );

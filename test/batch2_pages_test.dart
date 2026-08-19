@@ -7,8 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wo_bot/features/robot_home/presentation/robot_home_page.dart';
 import 'package:wo_bot/features/status/presentation/robot_status_page.dart';
 
-Widget _wrap(Widget child) =>
-    ProviderScope(child: MaterialApp(home: child));
+Widget _wrap(Widget child) => ProviderScope(child: MaterialApp(home: child));
 
 void main() {
   testWidgets('机器人主页渲染功能导航', (tester) async {

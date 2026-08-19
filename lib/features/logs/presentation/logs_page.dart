@@ -20,6 +20,7 @@ class LogsPage extends ConsumerStatefulWidget {
 class _LogsPageState extends ConsumerState<LogsPage> {
   String _keyword = '';
   String _level = 'all';
+
   /// 是否倒序显示（最新在上）。默认倒序。
   bool _descending = true;
   final _searchC = TextEditingController();
@@ -37,11 +38,9 @@ class _LogsPageState extends ConsumerState<LogsPage> {
   }
 
   void _fetchTail() {
-    ref.read(connectionManagerProvider.notifier).requestLogs(
-      mode: 'tail',
-      limit: 200,
-      level: _level == 'all' ? '' : _level,
-    );
+    ref
+        .read(connectionManagerProvider.notifier)
+        .requestLogs(level: _level == 'all' ? '' : _level);
   }
 
   void _fetchNew() {
@@ -50,12 +49,13 @@ class _LogsPageState extends ConsumerState<LogsPage> {
       _fetchTail();
       return;
     }
-    ref.read(connectionManagerProvider.notifier).requestLogs(
-      mode: 'since',
-      sinceLine: store.logCursor,
-      limit: 200,
-      level: _level == 'all' ? '' : _level,
-    );
+    ref
+        .read(connectionManagerProvider.notifier)
+        .requestLogs(
+          mode: 'since',
+          sinceLine: store.logCursor,
+          level: _level == 'all' ? '' : _level,
+        );
   }
 
   void _fetchOlder() {
@@ -63,18 +63,19 @@ class _LogsPageState extends ConsumerState<LogsPage> {
     if (store.logs.isEmpty || !store.logHasMore) return;
     final oldest = store.logs.first.lineNo;
     if (oldest <= 0) return;
-    ref.read(connectionManagerProvider.notifier).requestLogs(
-      mode: 'before',
-      beforeLine: oldest,
-      limit: 200,
-      level: _level == 'all' ? '' : _level,
-    );
+    ref
+        .read(connectionManagerProvider.notifier)
+        .requestLogs(
+          mode: 'before',
+          beforeLine: oldest,
+          level: _level == 'all' ? '' : _level,
+        );
   }
 
   /// 导出日志 — 复制到剪贴板（web/移动端通用）
   Future<void> _exportLogs(List<LogEntry> logs) async {
     if (logs.isEmpty) {
-      AppToast.show('暂无可导出的日志', type: AppToastType.info);
+      AppToast.show('暂无可导出的日志');
       return;
     }
     final sb = StringBuffer();
@@ -97,7 +98,11 @@ class _LogsPageState extends ConsumerState<LogsPage> {
     if (_keyword.isNotEmpty) {
       final kw = _keyword.toLowerCase();
       logs = logs
-          .where((l) => l.message.toLowerCase().contains(kw) || l.source.toLowerCase().contains(kw))
+          .where(
+            (l) =>
+                l.message.toLowerCase().contains(kw) ||
+                l.source.toLowerCase().contains(kw),
+          )
           .toList();
     }
     // 级别过滤
@@ -187,11 +192,18 @@ class _LogsPageState extends ConsumerState<LogsPage> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: const Color(0xFFD8D8D8), width: 0.5),
+                  border: Border.all(
+                    color: const Color(0xFFD8D8D8),
+                    width: 0.5,
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.search, size: 16, color: Color(0xFF8E8E93)),
+                    const Icon(
+                      Icons.search,
+                      size: 16,
+                      color: Color(0xFF8E8E93),
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: TextField(
@@ -199,7 +211,10 @@ class _LogsPageState extends ConsumerState<LogsPage> {
                         onChanged: (v) => setState(() => _keyword = v),
                         decoration: const InputDecoration(
                           hintText: '搜索日志',
-                          hintStyle: TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+                          hintStyle: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF8E8E93),
+                          ),
                           isDense: true,
                           border: InputBorder.none,
                         ),
@@ -220,11 +235,15 @@ class _LogsPageState extends ConsumerState<LogsPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: ['all', 'debug', 'info', 'warn', 'error']
-                          .map((l) => ListTile(
-                                title: Text(l),
-                                trailing: l == _level ? const Icon(Icons.check) : null,
-                                onTap: () => Navigator.pop(ctx, l),
-                              ))
+                          .map(
+                            (l) => ListTile(
+                              title: Text(l),
+                              trailing: l == _level
+                                  ? const Icon(Icons.check)
+                                  : null,
+                              onTap: () => Navigator.pop(ctx, l),
+                            ),
+                          )
                           .toList(),
                     ),
                   ),
@@ -313,7 +332,11 @@ class _LogRow extends StatelessWidget {
             alignment: Alignment.center,
             child: Text(
               log.level,
-              style: TextStyle(fontSize: 10, color: levelColor, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                fontSize: 10,
+                color: levelColor,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           // 来源

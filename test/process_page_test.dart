@@ -25,13 +25,12 @@ class _FakeConnectionManager extends ConnectionManager {
 }
 
 Widget _wrap(RobotDataStore store) => ProviderScope(
-      overrides: [
-        robotDataProvider.overrideWith((ref) => store),
-        connectionManagerProvider
-            .overrideWith((ref) => _FakeConnectionManager()),
-      ],
-      child: const MaterialApp(home: ProcessPage()),
-    );
+  overrides: [
+    robotDataProvider.overrideWith((ref) => store),
+    connectionManagerProvider.overrideWith((ref) => _FakeConnectionManager()),
+  ],
+  child: const MaterialApp(home: ProcessPage()),
+);
 
 void main() {
   testWidgets('进程页显示运行中的服务与停止/重启按钮', (tester) async {
@@ -46,11 +45,7 @@ void main() {
         'pid': 1234,
         'uptime': 3600,
       },
-      {
-        'service_id': 'camera',
-        'name': 'camera_service',
-        'status': 'stopped',
-      },
+      {'service_id': 'camera', 'name': 'camera_service', 'status': 'stopped'},
     ]);
 
     await tester.pumpWidget(_wrap(store));

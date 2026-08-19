@@ -81,7 +81,9 @@ class AccountService {
     user = null;
   }
 
-  bool get isAuthenticated => accessToken != null && DateTime.now().millisecondsSinceEpoch < tokenExpiresAt;
+  bool get isAuthenticated =>
+      accessToken != null &&
+      DateTime.now().millisecondsSinceEpoch < tokenExpiresAt;
   String? get accountToken => isAuthenticated ? accessToken : null;
 
   /// 初始化 — 从 localStorage 加载 token
@@ -148,14 +150,16 @@ class AccountService {
       await prefs.setString('wobot_pkce_session', pkceSession);
 
       // 构建授权 URL — 跳转用户中心 /app-new-bind 授权确认页
-      final uri = Uri.parse('$_authWebUrl/app-new-bind').replace(queryParameters: {
-        'client_id': _clientId,
-        'redirect_uri': _redirectUri,
-        'scope': _scope,
-        'code_challenge': codeChallenge,
-        'code_challenge_method': 'S256',
-        'state': state,
-      });
+      final uri = Uri.parse('$_authWebUrl/app-new-bind').replace(
+        queryParameters: {
+          'client_id': _clientId,
+          'redirect_uri': _redirectUri,
+          'scope': _scope,
+          'code_challenge': codeChallenge,
+          'code_challenge_method': 'S256',
+          'state': state,
+        },
+      );
 
       debugPrint('[Account] 授权 URL: $uri');
       return uri.toString();
@@ -173,10 +177,7 @@ class AccountService {
     if (url == null) return false;
     try {
       final uri = Uri.parse(url);
-      final ok = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
       debugPrint('[Account] 已打开授权页: $ok');
       return ok;
     } catch (e) {
@@ -213,19 +214,23 @@ class AccountService {
       }
 
       // POST /api/oauth/token 换取 token
-      final response = await httpClient.post(
-        Uri.parse('$_apiBase/api/oauth/token'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'code': code,
-          'clientId': _clientId,
-          'redirectUri': _redirectUri,
-          'codeVerifier': codeVerifier,
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final response = await httpClient
+          .post(
+            Uri.parse('$_apiBase/api/oauth/token'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'code': code,
+              'clientId': _clientId,
+              'redirectUri': _redirectUri,
+              'codeVerifier': codeVerifier,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 200) {
-        debugPrint('[Account] token 换取失败: ${response.statusCode} ${response.body}');
+        debugPrint(
+          '[Account] token 换取失败: ${response.statusCode} ${response.body}',
+        );
         return false;
       }
 
@@ -243,7 +248,9 @@ class AccountService {
 
       // 保存 token
       await prefs.setString('wobot_access_token', accessToken!);
-      if (refreshToken != null) await prefs.setString('wobot_refresh_token', refreshToken!);
+      if (refreshToken != null) {
+        await prefs.setString('wobot_refresh_token', refreshToken!);
+      }
       await prefs.setInt('wobot_token_expires_at', tokenExpiresAt);
 
       // 清除 PKCE session
@@ -265,10 +272,12 @@ class AccountService {
   Future<void> _fetchUserInfo() async {
     if (accessToken == null) return;
     try {
-      final response = await httpClient.get(
-        Uri.parse('$_apiBase/api/oauth/userinfo'),
-        headers: {'Authorization': 'Bearer $accessToken'},
-      ).timeout(const Duration(seconds: 10));
+      final response = await httpClient
+          .get(
+            Uri.parse('$_apiBase/api/oauth/userinfo'),
+            headers: {'Authorization': 'Bearer $accessToken'},
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -286,14 +295,16 @@ class AccountService {
   Future<bool> _refresh() async {
     if (refreshToken == null) return false;
     try {
-      final response = await httpClient.post(
-        Uri.parse('$_apiBase/api/oauth/refresh'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'refreshToken': refreshToken,
-          'clientId': _clientId,
-        }),
-      ).timeout(const Duration(seconds: 10));
+      final response = await httpClient
+          .post(
+            Uri.parse('$_apiBase/api/oauth/refresh'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'refreshToken': refreshToken,
+              'clientId': _clientId,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode != 200) return false;
 
@@ -306,7 +317,9 @@ class AccountService {
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('wobot_access_token', accessToken!);
-      if (refreshToken != null) await prefs.setString('wobot_refresh_token', refreshToken!);
+      if (refreshToken != null) {
+        await prefs.setString('wobot_refresh_token', refreshToken!);
+      }
       await prefs.setInt('wobot_token_expires_at', tokenExpiresAt);
 
       _scheduleRefresh();
@@ -363,10 +376,9 @@ class AccountService {
   Future<List<Map<String, dynamic>>> getDevices() async {
     if (!isAuthenticated) return [];
     try {
-      final response = await httpClient.get(
-        Uri.parse('$_apiBase/api/devices'),
-        headers: authHeader,
-      ).timeout(const Duration(seconds: 10));
+      final response = await httpClient
+          .get(Uri.parse('$_apiBase/api/devices'), headers: authHeader)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final list = data['data'] as List? ?? [];
@@ -385,16 +397,22 @@ class AccountService {
   }
 
   /// 绑定设备到云端
-  Future<bool> bindDevice(String robotId, String robotName, {String? proof}) async {
+  Future<bool> bindDevice(
+    String robotId,
+    String robotName, {
+    String? proof,
+  }) async {
     if (!isAuthenticated) return false;
     try {
       final body = {'robotId': robotId, 'robotName': robotName};
       if (proof != null) body['proof'] = proof;
-      final response = await httpClient.post(
-        Uri.parse('$_apiBase/api/devices/bind'),
-        headers: {...authHeader, 'Content-Type': 'application/json'},
-        body: jsonEncode(body),
-      ).timeout(const Duration(seconds: 10));
+      final response = await httpClient
+          .post(
+            Uri.parse('$_apiBase/api/devices/bind'),
+            headers: {...authHeader, 'Content-Type': 'application/json'},
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 10));
       return response.statusCode == 200;
     } catch (e) {
       debugPrint('[Account] bindDevice 错误: $e');
@@ -406,10 +424,12 @@ class AccountService {
   Future<bool> unbindDevice(String robotId) async {
     if (!isAuthenticated) return false;
     try {
-      final response = await httpClient.delete(
-        Uri.parse('$_apiBase/api/devices/$robotId'),
-        headers: authHeader,
-      ).timeout(const Duration(seconds: 10));
+      final response = await httpClient
+          .delete(
+            Uri.parse('$_apiBase/api/devices/$robotId'),
+            headers: authHeader,
+          )
+          .timeout(const Duration(seconds: 10));
       return response.statusCode == 200;
     } catch (e) {
       debugPrint('[Account] unbindDevice 错误: $e');
@@ -421,11 +441,13 @@ class AccountService {
   Future<bool> renameDevice(String robotId, String robotName) async {
     if (!isAuthenticated) return false;
     try {
-      final response = await httpClient.patch(
-        Uri.parse('$_apiBase/api/devices/$robotId'),
-        headers: {...authHeader, 'Content-Type': 'application/json'},
-        body: jsonEncode({'robotName': robotName}),
-      ).timeout(const Duration(seconds: 10));
+      final response = await httpClient
+          .patch(
+            Uri.parse('$_apiBase/api/devices/$robotId'),
+            headers: {...authHeader, 'Content-Type': 'application/json'},
+            body: jsonEncode({'robotName': robotName}),
+          )
+          .timeout(const Duration(seconds: 10));
       return response.statusCode == 200;
     } catch (e) {
       debugPrint('[Account] renameDevice 错误: $e');

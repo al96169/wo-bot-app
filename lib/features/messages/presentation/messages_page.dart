@@ -34,10 +34,12 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
     if (_keyword.isNotEmpty) {
       final kw = _keyword.toLowerCase();
       messages = messages
-          .where((m) =>
-              m.subject.toLowerCase().contains(kw) ||
-              m.body.toLowerCase().contains(kw) ||
-              m.source.toLowerCase().contains(kw))
+          .where(
+            (m) =>
+                m.subject.toLowerCase().contains(kw) ||
+                m.body.toLowerCase().contains(kw) ||
+                m.source.toLowerCase().contains(kw),
+          )
           .toList();
     }
 
@@ -62,11 +64,18 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(15),
-                          border: Border.all(color: const Color(0xFFD8D8D8), width: 0.5),
+                          border: Border.all(
+                            color: const Color(0xFFD8D8D8),
+                            width: 0.5,
+                          ),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.search, size: 16, color: Color(0xFF8E8E93)),
+                            const Icon(
+                              Icons.search,
+                              size: 16,
+                              color: Color(0xFF8E8E93),
+                            ),
                             const SizedBox(width: 6),
                             Expanded(
                               child: TextField(
@@ -74,7 +83,10 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
                                 onChanged: (v) => setState(() => _keyword = v),
                                 decoration: const InputDecoration(
                                   hintText: '搜索消息',
-                                  hintStyle: TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+                                  hintStyle: TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF8E8E93),
+                                  ),
                                   isDense: true,
                                   border: InputBorder.none,
                                 ),
@@ -96,9 +108,18 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(15),
-                          border: Border.all(color: const Color(0xFFD8D8D8), width: 0.5),
+                          border: Border.all(
+                            color: const Color(0xFFD8D8D8),
+                            width: 0.5,
+                          ),
                         ),
-                        child: const Text('导出', style: TextStyle(fontSize: 13, color: Color(0xFF3D3D3D))),
+                        child: const Text(
+                          '导出',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF3D3D3D),
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -117,12 +138,19 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.all(40),
                         children: const [
-                          Icon(Icons.mail_outline, size: 40, color: Color(0xFFC7C7CC)),
+                          Icon(
+                            Icons.mail_outline,
+                            size: 40,
+                            color: Color(0xFFC7C7CC),
+                          ),
                           SizedBox(height: 12),
                           Text(
                             '暂无消息\n机器人服务通知将在此显示',
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF8E8E93),
+                            ),
                           ),
                         ],
                       )
@@ -161,7 +189,7 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
   /// 导出消息到剪贴板
   Future<void> _exportMessages(List<RobotMessage> messages) async {
     if (messages.isEmpty) {
-      AppToast.show('暂无可导出的消息', type: AppToastType.info);
+      AppToast.show('暂无可导出的消息');
       return;
     }
     final sb = StringBuffer();
@@ -174,7 +202,10 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
     }
     await Clipboard.setData(ClipboardData(text: sb.toString()));
     if (mounted) {
-      AppToast.show('已复制 ${messages.length} 条消息到剪贴板', type: AppToastType.success);
+      AppToast.show(
+        '已复制 ${messages.length} 条消息到剪贴板',
+        type: AppToastType.success,
+      );
     }
   }
 
@@ -199,10 +230,10 @@ class _MessageCard extends StatelessWidget {
     final dotColor = msg.read
         ? const Color(0xFFC7C7CC)
         : msg.severity == 'error'
-            ? const Color(0xFFFF3B30)
-            : msg.severity == 'warning'
-                ? const Color(0xFFFF9500)
-                : const Color(0xFF0256FF);
+        ? const Color(0xFFFF3B30)
+        : msg.severity == 'warning'
+        ? const Color(0xFFFF9500)
+        : const Color(0xFF0256FF);
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(15),
@@ -234,7 +265,11 @@ class _MessageCard extends StatelessWidget {
                   msg.subject,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: Color(0xFF3D3D3D)),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    color: Color(0xFF3D3D3D),
+                  ),
                 ),
               ),
               // 时间
@@ -266,7 +301,11 @@ class _MessageDetailSheet extends ConsumerWidget {
           children: [
             Text(
               msg.subject,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF1C1C1E)),
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1C1C1E),
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -279,7 +318,11 @@ class _MessageDetailSheet extends ConsumerWidget {
               child: SingleChildScrollView(
                 child: Text(
                   msg.body.isEmpty ? msg.summary : msg.body,
-                  style: const TextStyle(fontSize: 14, height: 1.7, color: Color(0xFF3D3D3D)),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.7,
+                    color: Color(0xFF3D3D3D),
+                  ),
                 ),
               ),
             ),
@@ -289,17 +332,24 @@ class _MessageDetailSheet extends ConsumerWidget {
               children: [
                 TextButton(
                   onPressed: () {
-                    ref.read(robotDataProvider.notifier).markMessageRead(msg.id, false);
+                    ref
+                        .read(robotDataProvider.notifier)
+                        .markMessageRead(msg.id, false);
                     Navigator.of(context).pop();
                   },
-                  child: const Text('标记未读', style: TextStyle(fontSize: 13, color: Color(0xFF3D3D3D))),
+                  child: const Text(
+                    '标记未读',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF3D3D3D)),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
                   onPressed: () => Navigator.of(context).pop(),
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF0256FF),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
                   ),
                   child: const Text('关闭', style: TextStyle(fontSize: 13)),
                 ),

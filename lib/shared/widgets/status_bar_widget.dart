@@ -25,7 +25,9 @@ class AppStatusBar extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: const BoxDecoration(
         color: AppColors.surface,
-        border: Border(bottom: BorderSide(color: AppColors.divider, width: 0.5)),
+        border: Border(
+          bottom: BorderSide(color: AppColors.divider, width: 0.5),
+        ),
       ),
       child: Row(
         children: [
@@ -38,9 +40,9 @@ class AppStatusBar extends ConsumerWidget {
             child: Text(
               device?.name ?? '未连接',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w500,
-                  ),
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w500,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -74,11 +76,16 @@ class AppStatusBar extends ConsumerWidget {
 
   Color _connectionColor(ConnState state) {
     switch (state) {
-      case ConnState.connected: return AppColors.success;
-      case ConnState.connecting: return AppColors.warning;
-      case ConnState.binding: return AppColors.warning;
-      case ConnState.error: return AppColors.error;
-      case ConnState.disconnected: return AppColors.textSecondary;
+      case ConnState.connected:
+        return AppColors.success;
+      case ConnState.connecting:
+        return AppColors.warning;
+      case ConnState.binding:
+        return AppColors.warning;
+      case ConnState.error:
+        return AppColors.error;
+      case ConnState.disconnected:
+        return AppColors.textSecondary;
     }
   }
 
@@ -91,9 +98,9 @@ class AppStatusBar extends ConsumerWidget {
           Text(
             status.batteryStatusText,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.batteryColor(status.batteryLevel),
-                  fontWeight: FontWeight.w600,
-                ),
+              color: AppColors.batteryColor(status.batteryLevel),
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(width: 4),
           _BatteryIcon(

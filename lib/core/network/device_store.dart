@@ -33,7 +33,9 @@ class DeviceStore extends StateNotifier<DeviceStoreState> {
         RobotDevice? current;
         if (json['currentDevice'] != null) {
           try {
-            current = RobotDevice.fromJson(json['currentDevice'] as Map<String, dynamic>);
+            current = RobotDevice.fromJson(
+              json['currentDevice'] as Map<String, dynamic>,
+            );
           } catch (_) {}
         }
         state = DeviceStoreState(devices: deduped, currentDevice: current);
@@ -62,7 +64,9 @@ class DeviceStore extends StateNotifier<DeviceStoreState> {
     devices.insert(0, device);
     state = state.copyWith(devices: devices);
     await _save();
-    debugPrint('[DeviceStore] 添加设备: ${device.name} @ ${device.ip}:${device.port}');
+    debugPrint(
+      '[DeviceStore] 添加设备: ${device.name} @ ${device.ip}:${device.port}',
+    );
   }
 
   /// 移除设备
@@ -88,17 +92,24 @@ class DeviceStore extends StateNotifier<DeviceStoreState> {
   /// 设置当前设备 (连接成功后更新)
   Future<void> setCurrentDevice(RobotDevice device) async {
     // 优先按 id 匹配，其次按 ip:port
-    final existing = state.devices.where((d) =>
-      d.id == device.id || (d.ip == device.ip && d.port == device.port)
-    ).firstOrNull;
+    final existing = state.devices
+        .where(
+          (d) =>
+              d.id == device.id || (d.ip == device.ip && d.port == device.port),
+        )
+        .firstOrNull;
 
     if (existing != null) {
       // 更新属性，保留 ip:port
       final updated = existing.copyWith(
         name: device.name.isNotEmpty ? device.name : existing.name,
-        capabilities: device.capabilities.isNotEmpty ? device.capabilities : existing.capabilities,
+        capabilities: device.capabilities.isNotEmpty
+            ? device.capabilities
+            : existing.capabilities,
       );
-      final devices = state.devices.map((d) => d.id == updated.id ? updated : d).toList();
+      final devices = state.devices
+          .map((d) => d.id == updated.id ? updated : d)
+          .toList();
       state = state.copyWith(devices: devices, currentDevice: updated);
     } else {
       await addDevice(device);
@@ -111,9 +122,9 @@ class DeviceStore extends StateNotifier<DeviceStoreState> {
   Future<void> updateDeviceRobotId(String robotId) async {
     if (state.currentDevice == null) return;
     final updated = state.currentDevice!.copyWith(id: robotId);
-    final devices = state.devices.map((d) =>
-      d.id == state.currentDevice!.id ? updated : d
-    ).toList();
+    final devices = state.devices
+        .map((d) => d.id == state.currentDevice!.id ? updated : d)
+        .toList();
     state = state.copyWith(devices: devices, currentDevice: updated);
     await _save();
   }
@@ -129,18 +140,18 @@ class DeviceStore extends StateNotifier<DeviceStoreState> {
   /// 添加发现的设备 (不保存，只是临时显示)
   void addDiscoveredDevices(List<RobotDevice> discovered) {
     final existing = {...state.devices.map((d) => '${d.ip}:${d.port}')};
-    final newDevices = discovered.where((d) =>
-      !existing.contains('${d.ip}:${d.port}')
-    ).toList();
+    final newDevices = discovered
+        .where((d) => !existing.contains('${d.ip}:${d.port}'))
+        .toList();
     state = state.copyWith(discovered: newDevices);
   }
 
   /// 从发现列表导入到设备列表
   Future<void> importDiscovered(RobotDevice device) async {
     await addDevice(device);
-    final discovered = state.discovered.where((d) =>
-      '${d.ip}:${d.port}' != '${device.ip}:${device.port}'
-    ).toList();
+    final discovered = state.discovered
+        .where((d) => '${d.ip}:${d.port}' != '${device.ip}:${device.port}')
+        .toList();
     state = state.copyWith(discovered: discovered);
   }
 
@@ -212,4 +223,7 @@ class DeviceStoreState {
   }
 }
 
-final deviceStoreProvider = StateNotifierProvider<DeviceStore, DeviceStoreState>((ref) => DeviceStore());
+final deviceStoreProvider =
+    StateNotifierProvider<DeviceStore, DeviceStoreState>(
+      (ref) => DeviceStore(),
+    );

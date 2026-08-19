@@ -87,14 +87,16 @@ class _JoystickWidgetState extends State<JoystickWidget> {
   }
 
   void _onPanUpdate(DragUpdateDetails details) {
-    final localPos = (context.findRenderObject() as RenderBox)
-        .globalToLocal(details.globalPosition);
+    final localPos = (context.findRenderObject() as RenderBox).globalToLocal(
+      details.globalPosition,
+    );
     _updateOffset(localPos);
   }
 
   void _onPanStart(DragStartDetails details) {
-    final localPos = (context.findRenderObject() as RenderBox)
-        .globalToLocal(details.globalPosition);
+    final localPos = (context.findRenderObject() as RenderBox).globalToLocal(
+      details.globalPosition,
+    );
     _updateOffset(localPos);
   }
 
@@ -108,8 +110,8 @@ class _JoystickWidgetState extends State<JoystickWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final baseColor = widget.backgroundColor ??
-        AppColors.card.withValues(alpha: 0.8);
+    final baseColor =
+        widget.backgroundColor ?? AppColors.card.withValues(alpha: 0.8);
     final knobColor = widget.knobColor ?? AppColors.primary;
 
     return SizedBox(
@@ -127,7 +129,9 @@ class _JoystickWidgetState extends State<JoystickWidget> {
             knobRadius: widget.knobRadius,
             baseColor: baseColor,
             knobColor: knobColor,
-            deadZone: AppConstants.joystickDeadZone * (widget.baseRadius - widget.knobRadius),
+            deadZone:
+                AppConstants.joystickDeadZone *
+                (widget.baseRadius - widget.knobRadius),
           ),
         ),
       ),

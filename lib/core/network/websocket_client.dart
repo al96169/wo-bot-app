@@ -26,7 +26,11 @@ class WsClient {
   void Function(String state)? onStateChanged;
 
   /// 连接到指定 IP:端口
-  Future<void> connect(String ip, {int port = 8765, Map<String, String>? extraParams}) async {
+  Future<void> connect(
+    String ip, {
+    int port = 8765,
+    Map<String, String>? extraParams,
+  }) async {
     _currentIp = ip;
     _currentPort = port;
     _currentExtra = extraParams;
@@ -48,7 +52,7 @@ class WsClient {
 
       _channel = WebSocketChannel.connect(uri);
       await _channel!.ready.timeout(
-        Duration(seconds: AppConstants.connectionTimeoutSec),
+        const Duration(seconds: AppConstants.connectionTimeoutSec),
       );
       debugPrint('[WS] 握手完成');
 
@@ -129,7 +133,9 @@ class WsClient {
       }
     } catch (e) {
       final s = data.toString();
-      debugPrint('[WS] 数据解码失败: $e → ${s.length > 120 ? s.substring(0, 120) : s}');
+      debugPrint(
+        '[WS] 数据解码失败: $e → ${s.length > 120 ? s.substring(0, 120) : s}',
+      );
       return;
     }
 
@@ -137,7 +143,9 @@ class WsClient {
     try {
       json = jsonDecode(text) as Map<String, dynamic>;
     } catch (e) {
-      debugPrint('[WS] JSON 解析失败: $e → ${text.length > 120 ? text.substring(0, 120) : text}');
+      debugPrint(
+        '[WS] JSON 解析失败: $e → ${text.length > 120 ? text.substring(0, 120) : text}',
+      );
       return;
     }
 
@@ -152,7 +160,7 @@ class WsClient {
   void _startHeartbeat() {
     _heartbeatTimer?.cancel();
     _heartbeatTimer = Timer.periodic(
-      Duration(seconds: AppConstants.heartbeatIntervalSec),
+      const Duration(seconds: AppConstants.heartbeatIntervalSec),
       (_) => sendRaw({'type': 'ping'}),
     );
   }
@@ -167,7 +175,8 @@ class WsClient {
       return;
     }
 
-    final delayMs = AppConstants.reconnectBaseDelayMs * (1 << _reconnectAttempts);
+    final delayMs =
+        AppConstants.reconnectBaseDelayMs * (1 << _reconnectAttempts);
     final cappedDelayMs = delayMs > AppConstants.reconnectMaxDelayMs
         ? AppConstants.reconnectMaxDelayMs
         : delayMs;

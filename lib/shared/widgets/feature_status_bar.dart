@@ -121,7 +121,8 @@ class _DeviceStatusIcons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasWifi = (system.wifiSSID?.isNotEmpty ?? false) || system.wifiSignal > 0;
+    final hasWifi =
+        (system.wifiSSID?.isNotEmpty ?? false) || system.wifiSignal > 0;
     final wifiColor = hasWifi
         ? const Color(0xFF232222)
         : const Color(0x33232222);
@@ -189,10 +190,7 @@ class _ConnectionStatus extends ConsumerWidget {
           Container(
             width: 6,
             height: 6,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color,
-            ),
+            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
           ),
           const SizedBox(width: 4),
           Text(

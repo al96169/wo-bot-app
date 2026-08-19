@@ -1,4 +1,6 @@
 /// Widget 测试 — 设备列表页 + 添加设备页跳转流程 + 绑定流程
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -66,7 +68,7 @@ void main() {
 
     // 模拟 auth_required
     final steps = <BindStep>[];
-    bind.onStepChanged = (s) => steps.add(s);
+    bind.onStepChanged = steps.add;
     bind.handleAuthRequired({
       'methods': ['display', 'tts', 'gimbal'],
     });

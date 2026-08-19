@@ -21,7 +21,12 @@ class AppLogger {
     _log('WARN', message, tag: tag);
   }
 
-  static void error(String message, {String? tag, Object? error, StackTrace? stackTrace}) {
+  static void error(
+    String message, {
+    String? tag,
+    Object? error,
+    StackTrace? stackTrace,
+  }) {
     _log('ERROR', message, tag: tag);
     if (error != null) {
       debugPrint('  ↳ $error');
@@ -44,7 +49,7 @@ class AppLogger {
     final tagStr = tag != null ? ' [$tag]' : '';
     final line = '[$level] $ts$tagStr - $message';
     debugPrint(line);
-    DebugLogBuffer.add(line);  // 同时写入可见调试面板
+    DebugLogBuffer.add(line); // 同时写入可见调试面板
     if (kDebugMode) {
       developer.log(message, name: tag ?? 'wo-bot', level: level.hashCode);
     }

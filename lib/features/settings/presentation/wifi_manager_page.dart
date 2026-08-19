@@ -12,9 +12,9 @@ class WifiManagerPage extends ConsumerStatefulWidget {
   const WifiManagerPage({super.key});
 
   static Future<void> open(BuildContext context) {
-    return Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const WifiManagerPage()),
-    );
+    return Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const WifiManagerPage()));
   }
 
   @override
@@ -52,12 +52,17 @@ class _WifiManagerPageState extends ConsumerState<WifiManagerPage> {
           decoration: const InputDecoration(hintText: 'WiFi 密码'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
           FilledButton(
             onPressed: () {
-              ref.read(connectionManagerProvider.notifier).sendWifiConnect(ssid, pwdC.text);
+              ref
+                  .read(connectionManagerProvider.notifier)
+                  .sendWifiConnect(ssid, pwdC.text);
               Navigator.pop(ctx);
-              AppToast.show('正在连接 $ssid...', type: AppToastType.info);
+              AppToast.show('正在连接 $ssid...');
             },
             child: const Text('连接'),
           ),
@@ -88,27 +93,41 @@ class _WifiManagerPageState extends ConsumerState<WifiManagerPage> {
                     child: currentSsid.isNotEmpty
                         ? Row(
                             children: [
-                              const Icon(Icons.wifi, size: 16, color: Color(0xFF34C759)),
+                              const Icon(
+                                Icons.wifi,
+                                size: 16,
+                                color: Color(0xFF34C759),
+                              ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   '已连接：$currentSsid',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 13, color: Color(0xFF34C759)),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF34C759),
+                                  ),
                                 ),
                               ),
                             ],
                           )
                         : const Text(
                             '扫描附近的 WiFi 热点',
-                            style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF8E8E93),
+                            ),
                           ),
                   ),
                   TextButton.icon(
                     onPressed: _scanning ? null : _scan,
                     icon: _scanning
-                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
                         : const Icon(Icons.refresh, size: 16),
                     label: Text(_scanning ? '扫描中' : '重新扫描'),
                     style: TextButton.styleFrom(
@@ -127,9 +146,19 @@ class _WifiManagerPageState extends ConsumerState<WifiManagerPage> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.wifi_off, size: 40, color: Color(0xFFC7C7CC)),
+                          Icon(
+                            Icons.wifi_off,
+                            size: 40,
+                            color: Color(0xFFC7C7CC),
+                          ),
                           SizedBox(height: 10),
-                          Text('未发现 WiFi 热点', style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93))),
+                          Text(
+                            '未发现 WiFi 热点',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF8E8E93),
+                            ),
+                          ),
                         ],
                       ),
                     )
@@ -147,24 +176,43 @@ class _WifiManagerPageState extends ConsumerState<WifiManagerPage> {
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(15),
                             border: Border.all(
-                              color: isCurrent ? const Color(0xFF34C759) : const Color(0xFFEEEEEE),
+                              color: isCurrent
+                                  ? const Color(0xFF34C759)
+                                  : const Color(0xFFEEEEEE),
                               width: isCurrent ? 1 : 0.5,
                             ),
                           ),
                           child: ListTile(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
                             leading: Icon(
                               signal >= -60 ? Icons.wifi : Icons.wifi_2_bar,
-                              color: isCurrent ? const Color(0xFF34C759) : const Color(0xFF3D3D3D),
+                              color: isCurrent
+                                  ? const Color(0xFF34C759)
+                                  : const Color(0xFF3D3D3D),
                             ),
-                            title: Text(ssid, style: const TextStyle(fontSize: 14)),
+                            title: Text(
+                              ssid,
+                              style: const TextStyle(fontSize: 14),
+                            ),
                             subtitle: Text(
                               isCurrent ? '已连接' : '${signal}dBm',
-                              style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF8E8E93),
+                              ),
                             ),
                             trailing: isCurrent
-                                ? const Icon(Icons.check_circle, size: 18, color: Color(0xFF34C759))
-                                : TextButton(onPressed: () => _connect(ssid), child: const Text('连接')),
+                                ? const Icon(
+                                    Icons.check_circle,
+                                    size: 18,
+                                    color: Color(0xFF34C759),
+                                  )
+                                : TextButton(
+                                    onPressed: () => _connect(ssid),
+                                    child: const Text('连接'),
+                                  ),
                             onTap: isCurrent ? null : () => _connect(ssid),
                           ),
                         );

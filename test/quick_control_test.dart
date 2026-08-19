@@ -20,7 +20,10 @@ class _RecorderConnectionManager extends ConnectionManager {
 
   @override
   void sendMusicVolume(int volume) {
-    musicCommands.add({'type': 'music_volume', 'data': {'volume': volume}});
+    musicCommands.add({
+      'type': 'music_volume',
+      'data': {'volume': volume},
+    });
   }
 }
 
@@ -31,9 +34,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          connectionManagerProvider.overrideWith((ref) => recorder),
-        ],
+        overrides: [connectionManagerProvider.overrideWith((ref) => recorder)],
         child: const MaterialApp(home: QuickControlPage()),
       ),
     );
@@ -73,9 +74,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          connectionManagerProvider.overrideWith((ref) => recorder),
-        ],
+        overrides: [connectionManagerProvider.overrideWith((ref) => recorder)],
         child: const MaterialApp(home: QuickControlPage()),
       ),
     );
@@ -88,7 +87,9 @@ void main() {
     await tester.tap(find.text('寻找设备'));
     await tester.pump(const Duration(milliseconds: 100));
     expect(
-      recorder.commands.any((c) => c['action'] == 'find_device' && c['enabled'] == true),
+      recorder.commands.any(
+        (c) => c['action'] == 'find_device' && c['enabled'] == true,
+      ),
       isTrue,
       reason: '应发送 find_device=true',
     );
@@ -104,7 +105,9 @@ void main() {
     await tester.tap(find.textContaining('停止'));
     await tester.pump(const Duration(milliseconds: 100));
     expect(
-      recorder.commands.any((c) => c['action'] == 'find_device' && c['enabled'] == false),
+      recorder.commands.any(
+        (c) => c['action'] == 'find_device' && c['enabled'] == false,
+      ),
       isTrue,
       reason: '应发送 find_device=false',
     );
@@ -123,9 +126,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          connectionManagerProvider.overrideWith((ref) => recorder),
-        ],
+        overrides: [connectionManagerProvider.overrideWith((ref) => recorder)],
         child: const MaterialApp(home: QuickControlPage()),
       ),
     );

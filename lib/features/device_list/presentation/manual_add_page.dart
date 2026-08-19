@@ -66,8 +66,10 @@ class _ManualAddPageState extends ConsumerState<ManualAddPage> {
             SizedBox(
               height: 74,
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 15,
+                  vertical: 15,
+                ),
                 child: Row(
                   children: [
                     // 返回按钮 44×44 无背景 (Pixso 1:3605/1:3211)
@@ -177,7 +179,11 @@ class _BackButton extends StatelessWidget {
           width: 44,
           height: 44,
           alignment: Alignment.center,
-          child: const Icon(Icons.arrow_back, size: 22, color: Color(0xFF6750A4)),
+          child: const Icon(
+            Icons.arrow_back,
+            size: 22,
+            color: Color(0xFF6750A4),
+          ),
         ),
       ),
     );
@@ -204,13 +210,12 @@ class _FormField extends StatelessWidget {
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(fontSize: 15.6, color: Color(0xFF8E8E93)),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
         filled: true,
         fillColor: Colors.white,
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
-          borderSide: const BorderSide(color: Color(0xFFD8D8D8), width: 1),
+          borderSide: const BorderSide(color: Color(0xFFD8D8D8)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
@@ -218,7 +223,7 @@ class _FormField extends StatelessWidget {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
-          borderSide: const BorderSide(color: Color(0xFFB00020), width: 1),
+          borderSide: const BorderSide(color: Color(0xFFB00020)),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
@@ -254,9 +259,7 @@ class _PillButton extends StatelessWidget {
           width: 124,
           height: 40,
           alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(21),
-          ),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(21)),
           child: submitting
               ? const SizedBox.square(
                   dimension: 18,
@@ -267,10 +270,7 @@ class _PillButton extends StatelessWidget {
                 )
               : Text(
                   label,
-                  style: const TextStyle(
-                    fontSize: 15.6,
-                    color: Colors.white,
-                  ),
+                  style: const TextStyle(fontSize: 15.6, color: Colors.white),
                 ),
         ),
       ),

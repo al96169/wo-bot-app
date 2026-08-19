@@ -55,7 +55,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('解绑设备'),
-        content: Text('确定解绑“${device.robotName ?? device.robotId}”吗？解绑后将无法远程控制该设备。'),
+        content: Text(
+          '确定解绑“${device.robotName ?? device.robotId}”吗？解绑后将无法远程控制该设备。',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -78,9 +80,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             .where((d) => d.robotId != device.robotId)
             .toList();
       });
-      ref
-          .read(deviceStoreProvider.notifier)
-          .setCloudDevices(_cloudDevices);
+      ref.read(deviceStoreProvider.notifier).setCloudDevices(_cloudDevices);
       AppToast.show('已解绑设备', type: AppToastType.success);
     } else {
       AppToast.show('解绑失败，请稍后重试', type: AppToastType.error);
@@ -126,9 +126,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 15),
-                child: isLoggedIn
-                    ? _buildLoggedIn(user)
-                    : _buildNotLoggedIn(),
+                child: isLoggedIn ? _buildLoggedIn(user) : _buildNotLoggedIn(),
               ),
             ),
             const SizedBox(height: 80),
@@ -191,9 +189,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 await _account.logout();
                 if (mounted) {
                   setState(() => _cloudDevices = const []);
-                  ref
-                      .read(deviceStoreProvider.notifier)
-                      .clearCloudDevices();
+                  ref.read(deviceStoreProvider.notifier).clearCloudDevices();
                 }
               },
             ),
@@ -281,7 +277,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       AppToast.show('无法打开授权页面，请稍后重试', type: AppToastType.error);
     }
   }
-
 }
 
 /// 个人页卡片容器 — 白底圆角，内边距 10px
@@ -313,7 +308,7 @@ class _ProfileRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 0),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         children: [
           Text(
@@ -365,11 +360,7 @@ class _LinkRow extends StatelessWidget {
   final String label;
   final String url;
   final VoidCallback onTap;
-  const _LinkRow({
-    required this.label,
-    required this.url,
-    required this.onTap,
-  });
+  const _LinkRow({required this.label, required this.url, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -444,7 +435,9 @@ class _CloudDeviceRow extends StatelessWidget {
                   online ? '在线' : '离线',
                   style: TextStyle(
                     fontSize: 12,
-                    color: online ? const Color(0xFF34C759) : const Color(0xFF8E8E93),
+                    color: online
+                        ? const Color(0xFF34C759)
+                        : const Color(0xFF8E8E93),
                   ),
                 ),
               ],

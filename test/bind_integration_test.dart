@@ -1,4 +1,6 @@
 /// 认证流程集成测试 — 模拟完整绑定交互
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,7 +27,7 @@ void main() {
 
     // 2. 模拟 auth_required 触发（通过 BindService 直接调）
     final steps = <BindStep>[];
-    bind.onStepChanged = (s) => steps.add(s);
+    bind.onStepChanged = steps.add;
 
     bind.handleAuthRequired({
       'methods': ['display', 'tts', 'gimbal'],
@@ -54,19 +56,25 @@ void main() {
 
     // 5. 模拟 bind_request_ack — 服务器签发新 requestToken（关键：必须覆盖本地 token）
     final localToken = bind.requestToken;
-    final serverToken = 'server-issued-token-123456';
+    const serverToken = 'server-issued-token-123456';
     bind.handleBindRequestAck({'requestToken': serverToken});
     expect(steps.last, BindStep.display); // 不改变 step
-    expect(bind.requestToken, serverToken,
-        reason: '必须使用服务器签发的 requestToken，否则 bind_verify 无法匹配');
+    expect(
+      bind.requestToken,
+      serverToken,
+      reason: '必须使用服务器签发的 requestToken，否则 bind_verify 无法匹配',
+    );
     expect(bind.requestToken, isNot(localToken));
 
     // 6. 获取 bind_verify — 应携带服务器签发的 token
     final verify = bind.getBindVerify('123456');
     expect(verify['type'], 'bind_verify');
     expect(verify['randomCode'], '123456');
-    expect(verify['requestToken'], serverToken,
-        reason: 'bind_verify 必须使用服务器签发的 requestToken');
+    expect(
+      verify['requestToken'],
+      serverToken,
+      reason: 'bind_verify 必须使用服务器签发的 requestToken',
+    );
 
     // 7. 模拟 bind_success
     await bind.handleBindSuccess(
@@ -85,7 +93,7 @@ void main() {
   testWidgets('云台认证流程', (tester) async {
     final bind = BindService.instance;
     final steps = <BindStep>[];
-    bind.onStepChanged = (s) => steps.add(s);
+    bind.onStepChanged = steps.add;
 
     bind.handleAuthRequired({
       'methods': ['gimbal'],
@@ -105,7 +113,7 @@ void main() {
   testWidgets('分享码认证流程', (tester) async {
     final bind = BindService.instance;
     final steps = <BindStep>[];
-    bind.onStepChanged = (s) => steps.add(s);
+    bind.onStepChanged = steps.add;
 
     bind.handleAuthRequired({
       'methods': ['display'],
@@ -123,7 +131,7 @@ void main() {
   testWidgets('绑定失败 + 重试', (tester) async {
     final bind = BindService.instance;
     final steps = <BindStep>[];
-    bind.onStepChanged = (s) => steps.add(s);
+    bind.onStepChanged = steps.add;
 
     bind.handleAuthRequired({
       'methods': ['tts'],
@@ -207,13 +215,15 @@ void main() {
 
     // 核心断言：选择方式后 isSubmitting 必须为 false（web-debug 一致），
     // 确认按钮可点击，不能出现转圈（否则用户永远无法输入验证码）
-    expect(bind.isSubmitting, false,
-        reason: '选择方式后 isSubmitting 应为 false，确认按钮应可用');
+    expect(
+      bind.isSubmitting,
+      false,
+      reason: '选择方式后 isSubmitting 应为 false，确认按钮应可用',
+    );
     final confirmBtn = tester.widget<ElevatedButton>(
       find.widgetWithText(ElevatedButton, '确认'),
     );
-    expect(confirmBtn.onPressed, isNotNull,
-        reason: '确认按钮应可点击，不能禁用转圈');
+    expect(confirmBtn.onPressed, isNotNull, reason: '确认按钮应可点击，不能禁用转圈');
     // 不应出现 CircularProgressIndicator
     expect(find.byType(CircularProgressIndicator), findsNothing);
 

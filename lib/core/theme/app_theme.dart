@@ -10,7 +10,6 @@ class AppTheme {
     brightness: Brightness.light,
     colorScheme: ColorScheme.fromSeed(
       seedColor: AppColors.primary,
-      brightness: Brightness.light,
       primary: AppColors.primary,
       onPrimary: AppColors.onPrimary,
       error: AppColors.error,
@@ -73,7 +72,7 @@ class AppTheme {
     ),
 
     // NavigationBar
-    navigationBarTheme: NavigationBarThemeData(
+    navigationBarTheme: const NavigationBarThemeData(
       backgroundColor: AppColors.surface,
       indicatorColor: AppColors.primaryContainer,
       elevation: 0,

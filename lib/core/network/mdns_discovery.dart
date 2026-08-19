@@ -86,8 +86,9 @@ class MdnsDiscovery {
 
           // 4. 解析 IP 地址
           final target = srvResults.first.target;
-          final addresses = await InternetAddress.lookup(target)
-              .timeout(const Duration(seconds: 3));
+          final addresses = await InternetAddress.lookup(
+            target,
+          ).timeout(const Duration(seconds: 3));
 
           if (addresses.isEmpty) continue;
 

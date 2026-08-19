@@ -8,8 +8,20 @@ void main() {
     store.updateLogs({
       'mode': 'tail',
       'logs': [
-        {'line_no': 81279, 'timestamp': '2026-08-19 06:52:07,882', 'level': 'INFO', 'source': 'wobot', 'message': 'DHT11: 30.5°C, 62.0%'},
-        {'line_no': 81280, 'timestamp': '2026-08-19 06:52:08,001', 'level': 'DEBUG', 'source': 'wobot', 'message': 'heartbeat'},
+        {
+          'line_no': 81279,
+          'timestamp': '2026-08-19 06:52:07,882',
+          'level': 'INFO',
+          'source': 'wobot',
+          'message': 'DHT11: 30.5°C, 62.0%',
+        },
+        {
+          'line_no': 81280,
+          'timestamp': '2026-08-19 06:52:08,001',
+          'level': 'DEBUG',
+          'source': 'wobot',
+          'message': 'heartbeat',
+        },
       ],
       'total_lines': 2,
       'next_since': 81280,
@@ -31,7 +43,13 @@ void main() {
     store.updateLogs({
       'mode': 'tail',
       'logs': [
-        {'line_no': 1, 'timestamp': 't1', 'level': 'INFO', 'source': 's', 'message': 'first'},
+        {
+          'line_no': 1,
+          'timestamp': 't1',
+          'level': 'INFO',
+          'source': 's',
+          'message': 'first',
+        },
       ],
     }, mode: 'tail');
     expect(store.logs.length, 1);
@@ -54,8 +72,15 @@ void main() {
   test('无 mode 的单条推送由 ConnectionManager 判定为 push', () {
     final store = RobotDataStore();
     // 模拟 ConnectionManager 判定：d['mode']==null 且 line_no 存在 → push
-    final d = {'line_no': 5, 'timestamp': 't5', 'level': 'WARN', 'source': 's', 'message': 'warn msg'};
-    final isPush = d['mode'] == null && d['logs'] is! List && d['line_no'] != null;
+    final d = {
+      'line_no': 5,
+      'timestamp': 't5',
+      'level': 'WARN',
+      'source': 's',
+      'message': 'warn msg',
+    };
+    final isPush =
+        d['mode'] == null && d['logs'] is! List && d['line_no'] != null;
     expect(isPush, true);
     store.updateLogs(d, mode: isPush ? 'push' : 'tail');
     expect(store.logs.length, 1);

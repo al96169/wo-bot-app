@@ -23,15 +23,24 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
   Timer? _motionTimer;
 
   // 摇杆状态
-  final ValueNotifier<JoystickValue> _moveStick = ValueNotifier(const JoystickValue());
-  final ValueNotifier<JoystickValue> _yawStick = ValueNotifier(const JoystickValue());
-  final ValueNotifier<JoystickValue> _gimbalStick = ValueNotifier(const JoystickValue());
+  final ValueNotifier<JoystickValue> _moveStick = ValueNotifier(
+    const JoystickValue(),
+  );
+  final ValueNotifier<JoystickValue> _yawStick = ValueNotifier(
+    const JoystickValue(),
+  );
+  final ValueNotifier<JoystickValue> _gimbalStick = ValueNotifier(
+    const JoystickValue(),
+  );
 
   @override
   void initState() {
     super.initState();
     // 50ms 运动发送循环 — 匹配 web-debug
-    _motionTimer = Timer.periodic(const Duration(milliseconds: 50), (_) => _sendMergedMotion());
+    _motionTimer = Timer.periodic(
+      const Duration(milliseconds: 50),
+      (_) => _sendMergedMotion(),
+    );
   }
 
   @override
@@ -81,7 +90,9 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     double rawTilt = -((stick.y - cy) / (cy - knobR));
 
     double pan = rawPan.abs() < deadzone ? 0 : rawPan.sign * sqrt(rawPan.abs());
-    double tilt = rawTilt.abs() < deadzone ? 0 : rawTilt.sign * sqrt(rawTilt.abs());
+    double tilt = rawTilt.abs() < deadzone
+        ? 0
+        : rawTilt.sign * sqrt(rawTilt.abs());
 
     return (pan: pan, tilt: tilt);
   }
@@ -225,7 +236,9 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                     // 云台居中按钮
                     ElevatedButton.icon(
                       onPressed: () {
-                        ref.read(connectionManagerProvider.notifier).sendGimbalCenter();
+                        ref
+                            .read(connectionManagerProvider.notifier)
+                            .sendGimbalCenter();
                       },
                       icon: const Icon(Icons.center_focus_strong, size: 16),
                       label: const Text('居中', style: TextStyle(fontSize: 12)),
@@ -263,8 +276,10 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                 children: [
                   _DPadButton(
                     icon: Icons.keyboard_arrow_left,
-                    onPress: () => _motion.value = _motion.value.copyWith(vy: 0.6),
-                    onRelease: () => _motion.value = _motion.value.copyWith(vy: 0),
+                    onPress: () =>
+                        _motion.value = _motion.value.copyWith(vy: 0.6),
+                    onRelease: () =>
+                        _motion.value = _motion.value.copyWith(vy: 0),
                   ),
                   const SizedBox(width: 8),
                   _DPadButton(
@@ -276,8 +291,10 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                   const SizedBox(width: 8),
                   _DPadButton(
                     icon: Icons.keyboard_arrow_right,
-                    onPress: () => _motion.value = _motion.value.copyWith(vy: -0.6),
-                    onRelease: () => _motion.value = _motion.value.copyWith(vy: 0),
+                    onPress: () =>
+                        _motion.value = _motion.value.copyWith(vy: -0.6),
+                    onRelease: () =>
+                        _motion.value = _motion.value.copyWith(vy: 0),
                   ),
                 ],
               ),
@@ -295,8 +312,10 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                   _DPadButton(
                     icon: Icons.rotate_left,
                     size: 56,
-                    onPress: () => _motion.value = _motion.value.copyWith(vz: 2.5),
-                    onRelease: () => _motion.value = _motion.value.copyWith(vz: 0),
+                    onPress: () =>
+                        _motion.value = _motion.value.copyWith(vz: 2.5),
+                    onRelease: () =>
+                        _motion.value = _motion.value.copyWith(vz: 0),
                   ),
                   const SizedBox(width: 24),
                   _DPadButton(
@@ -304,7 +323,9 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                     size: 56,
                     color: Colors.teal,
                     onPress: () {
-                      ref.read(connectionManagerProvider.notifier).sendGimbalCenter();
+                      ref
+                          .read(connectionManagerProvider.notifier)
+                          .sendGimbalCenter();
                     },
                     onRelease: () {},
                   ),
@@ -312,8 +333,10 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                   _DPadButton(
                     icon: Icons.rotate_right,
                     size: 56,
-                    onPress: () => _motion.value = _motion.value.copyWith(vz: -2.5),
-                    onRelease: () => _motion.value = _motion.value.copyWith(vz: 0),
+                    onPress: () =>
+                        _motion.value = _motion.value.copyWith(vz: -2.5),
+                    onRelease: () =>
+                        _motion.value = _motion.value.copyWith(vz: 0),
                   ),
                 ],
               ),
@@ -337,11 +360,7 @@ class MotionState {
   const MotionState({this.vx = 0, this.vy = 0, this.vz = 0});
 
   MotionState copyWith({double? vx, double? vy, double? vz}) {
-    return MotionState(
-      vx: vx ?? this.vx,
-      vy: vy ?? this.vy,
-      vz: vz ?? this.vz,
-    );
+    return MotionState(vx: vx ?? this.vx, vy: vy ?? this.vy, vz: vz ?? this.vz);
   }
 }
 
@@ -424,7 +443,9 @@ class _JoystickWidgetState extends State<JoystickWidget> {
           height: _size,
           child: GestureDetector(
             onPanStart: (details) {
-              widget.onStart?.call(JoystickValue(x: _knobX, y: _knobY, dragging: true));
+              widget.onStart?.call(
+                JoystickValue(x: _knobX, y: _knobY, dragging: true),
+              );
               _updateFromDetails(details.localPosition);
             },
             onPanUpdate: (details) => _updateFromDetails(details.localPosition),
@@ -441,7 +462,10 @@ class _JoystickWidgetState extends State<JoystickWidget> {
           ),
         ),
         const SizedBox(height: 4),
-        Text(widget.label, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        Text(
+          widget.label,
+          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+        ),
       ],
     );
   }
@@ -482,9 +506,17 @@ class _JoystickPainter extends CustomPainter {
     final linePaint = Paint()
       ..color = color.withValues(alpha: 0.15)
       ..strokeWidth = 1;
-    canvas.drawLine(Offset(cx - outerR, cy), Offset(cx + outerR, cy), linePaint);
+    canvas.drawLine(
+      const Offset(cx - outerR, cy),
+      const Offset(cx + outerR, cy),
+      linePaint,
+    );
     if (!horizontalOnly) {
-      canvas.drawLine(Offset(cx, cy - outerR), Offset(cx, cy + outerR), linePaint);
+      canvas.drawLine(
+        const Offset(cx, cy - outerR),
+        const Offset(cx, cy + outerR),
+        linePaint,
+      );
     }
 
     // 旋钮
@@ -502,7 +534,7 @@ class _JoystickPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _JoystickPainter oldDelegate) =>
-    knobX != oldDelegate.knobX || knobY != oldDelegate.knobY;
+      knobX != oldDelegate.knobX || knobY != oldDelegate.knobY;
 }
 
 /// D-Pad 按钮
@@ -548,7 +580,9 @@ class _DPadButtonState extends State<_DPadButton> {
         width: widget.size,
         height: widget.size,
         decoration: BoxDecoration(
-          color: _pressed ? widget.color.withValues(alpha: 0.3) : AppColors.card,
+          color: _pressed
+              ? widget.color.withValues(alpha: 0.3)
+              : AppColors.card,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: _pressed ? widget.color : AppColors.divider,

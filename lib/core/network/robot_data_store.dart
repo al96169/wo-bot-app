@@ -68,7 +68,9 @@ class RobotDataStore extends StateNotifier<int> {
     cameras.clear();
     if (list is List) {
       for (final c in list) {
-        if (c is Map) cameras.add(CameraInfo.fromJson(c.cast<String, dynamic>()));
+        if (c is Map) {
+          cameras.add(CameraInfo.fromJson(c.cast<String, dynamic>()));
+        }
       }
     }
     notify();
@@ -100,7 +102,9 @@ class RobotDataStore extends StateNotifier<int> {
   void setServices(List<dynamic> list) {
     services.clear();
     for (final s in list) {
-      if (s is Map) services.add(ServiceInfo.fromJson(s.cast<String, dynamic>()));
+      if (s is Map) {
+        services.add(ServiceInfo.fromJson(s.cast<String, dynamic>()));
+      }
     }
     notify();
   }
@@ -113,7 +117,12 @@ class RobotDataStore extends StateNotifier<int> {
     notify();
   }
 
-  void setDanceStatus(String s, {String? danceId, double? progress, bool? loop}) {
+  void setDanceStatus(
+    String s, {
+    String? danceId,
+    double? progress,
+    bool? loop,
+  }) {
     danceStatus = s;
     if (danceId != null) danceCurrentId = danceId;
     if (progress != null) danceProgress = progress;
@@ -129,7 +138,9 @@ class RobotDataStore extends StateNotifier<int> {
   void setMusicSongs(List<dynamic> list) {
     musicSongs.clear();
     for (final t in list) {
-      if (t is Map) musicSongs.add(MusicTrack.fromJson(t.cast<String, dynamic>()));
+      if (t is Map) {
+        musicSongs.add(MusicTrack.fromJson(t.cast<String, dynamic>()));
+      }
     }
     notify();
   }
@@ -156,7 +167,9 @@ class RobotDataStore extends StateNotifier<int> {
 
   void appendGalleryItems(List<dynamic> items) {
     for (final i in items) {
-      if (i is Map) galleryItems.add(GalleryItem.fromJson(i.cast<String, dynamic>()));
+      if (i is Map) {
+        galleryItems.add(GalleryItem.fromJson(i.cast<String, dynamic>()));
+      }
     }
     notify();
   }
@@ -220,13 +233,15 @@ class RobotDataStore extends StateNotifier<int> {
         : (data['line_no'] != null ? [data] : const []);
 
     final items = rawLogs.map((e) {
-      final m = e is Map ? Map<String, dynamic>.from(e) : const <String, dynamic>{};
+      final m = e is Map
+          ? Map<String, dynamic>.from(e)
+          : const <String, dynamic>{};
       final rawLevel = (m['level'] as String? ?? 'info').toLowerCase();
       final level = rawLevel == 'warning'
           ? 'warn'
           : ['debug', 'info', 'warn', 'error'].contains(rawLevel)
-              ? rawLevel
-              : 'info';
+          ? rawLevel
+          : 'info';
       final lineNo = m['line_no'] is num ? (m['line_no'] as num).toInt() : 0;
       return LogEntry(
         id: m['id'] as String? ?? 'ln-$lineNo',
@@ -239,7 +254,9 @@ class RobotDataStore extends StateNotifier<int> {
     }).toList();
 
     // 游标：服务端返回 next_since（对齐 web-debug）
-    final cursor = data['next_since'] is num ? (data['next_since'] as num).toInt() : 0;
+    final cursor = data['next_since'] is num
+        ? (data['next_since'] as num).toInt()
+        : 0;
     final hasMore = data['has_more'] as bool? ?? false;
 
     switch (mode) {
@@ -280,4 +297,6 @@ class RobotDataStore extends StateNotifier<int> {
   }
 }
 
-final robotDataProvider = StateNotifierProvider<RobotDataStore, int>((ref) => RobotDataStore());
+final robotDataProvider = StateNotifierProvider<RobotDataStore, int>(
+  (ref) => RobotDataStore(),
+);

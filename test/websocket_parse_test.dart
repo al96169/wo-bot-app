@@ -16,7 +16,8 @@ String _sanitize(String text) {
 
 void main() {
   test('NaN/Infinity 数值替换后可正常解析', () {
-    const raw = '{"type": "status", "data": {"battery": NaN, "temp": Infinity, "x": -Infinity, "ok": 1}}';
+    const raw =
+        '{"type": "status", "data": {"battery": NaN, "temp": Infinity, "x": -Infinity, "ok": 1}}';
     final fixed = _sanitize(raw);
     final json = jsonDecode(fixed) as Map<String, dynamic>;
     final data = json['data'] as Map<String, dynamic>;

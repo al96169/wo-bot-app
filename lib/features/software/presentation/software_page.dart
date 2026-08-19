@@ -37,17 +37,17 @@ class _SoftwarePageState extends ConsumerState<SoftwarePage> {
 
   void _install(Software s) {
     ref.read(connectionManagerProvider.notifier).sendSoftwareInstall(s.name);
-    AppToast.show('正在安装 ${s.displayName}...', type: AppToastType.info);
+    AppToast.show('正在安装 ${s.displayName}...');
   }
 
   void _uninstall(Software s) {
     ref.read(connectionManagerProvider.notifier).sendSoftwareUninstall(s.name);
-    AppToast.show('正在卸载 ${s.displayName}...', type: AppToastType.info);
+    AppToast.show('正在卸载 ${s.displayName}...');
   }
 
   void _upgrade(Software s) {
     ref.read(connectionManagerProvider.notifier).sendSoftwareUpgrade(s.name);
-    AppToast.show('正在升级 ${s.displayName}...', type: AppToastType.info);
+    AppToast.show('正在升级 ${s.displayName}...');
   }
 
   @override
@@ -64,7 +64,13 @@ class _SoftwarePageState extends ConsumerState<SoftwarePage> {
     }
     if (_keyword.isNotEmpty) {
       final kw = _keyword.toLowerCase();
-      list = list.where((s) => s.name.toLowerCase().contains(kw) || s.displayName.toLowerCase().contains(kw)).toList();
+      list = list
+          .where(
+            (s) =>
+                s.name.toLowerCase().contains(kw) ||
+                s.displayName.toLowerCase().contains(kw),
+          )
+          .toList();
     }
     if (_onlyInstalled) {
       list = list.where((s) => s.installed).toList();
@@ -94,7 +100,10 @@ class _SoftwarePageState extends ConsumerState<SoftwarePage> {
                           Text(
                             '暂无软件\n下拉刷新重试',
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF8E8E93),
+                            ),
                           ),
                         ],
                       )
@@ -134,11 +143,18 @@ class _SoftwarePageState extends ConsumerState<SoftwarePage> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: const Color(0xFFD8D8D8), width: 0.5),
+                  border: Border.all(
+                    color: const Color(0xFFD8D8D8),
+                    width: 0.5,
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.search, size: 16, color: Color(0xFF8E8E93)),
+                    const Icon(
+                      Icons.search,
+                      size: 16,
+                      color: Color(0xFF8E8E93),
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: TextField(
@@ -146,7 +162,10 @@ class _SoftwarePageState extends ConsumerState<SoftwarePage> {
                         onChanged: (v) => setState(() => _keyword = v),
                         decoration: const InputDecoration(
                           hintText: '搜索软件',
-                          hintStyle: TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+                          hintStyle: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF8E8E93),
+                          ),
                           isDense: true,
                           border: InputBorder.none,
                         ),
@@ -188,7 +207,10 @@ class _FilterChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(15),
           border: Border.all(color: const Color(0xFFD8D8D8), width: 0.5),
         ),
-        child: Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF3D3D3D))),
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 13, color: Color(0xFF3D3D3D)),
+        ),
       ),
     );
   }
@@ -231,7 +253,10 @@ class _SoftwareCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(15),
             ),
             child: Text(
-              software.icon ?? (software.name.isNotEmpty ? software.name[0].toUpperCase() : '?'),
+              software.icon ??
+                  (software.name.isNotEmpty
+                      ? software.name[0].toUpperCase()
+                      : '?'),
               style: const TextStyle(fontSize: 24, color: Color(0xFF6750A4)),
             ),
           ),
@@ -243,19 +268,29 @@ class _SoftwareCard extends StatelessWidget {
               children: [
                 Text(
                   software.displayName,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF1C1C1E)),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF1C1C1E),
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   installed ? '当前版本 ${software.version ?? "--"}' : '未安装',
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93)),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF8E8E93),
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   software.description ?? '',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF898989)),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF898989),
+                  ),
                 ),
               ],
             ),
@@ -289,9 +324,12 @@ class _ActionBtn extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFF0256FF), width: 1),
+          border: Border.all(color: const Color(0xFF0256FF)),
         ),
-        child: Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF0256FF))),
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 13, color: Color(0xFF0256FF)),
+        ),
       ),
     );
   }

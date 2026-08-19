@@ -1,4 +1,5 @@
 /// 自动化认证流程测试 (使用 stream subscription)
+library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';

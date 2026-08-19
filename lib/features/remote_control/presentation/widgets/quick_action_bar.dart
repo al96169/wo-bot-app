@@ -9,10 +9,21 @@ import '../../../../core/utils/app_toast.dart';
 class QuickActionState extends StateNotifier<QuickActionData> {
   QuickActionState() : super(const QuickActionData());
 
-  void toggleFlashlight(bool v) { state = state.copyWith(flashlight: v); }
-  void toggleMute(bool v) { state = state.copyWith(mute: v); }
-  void toggleEco(bool v) { state = state.copyWith(eco: v); }
-  void setVolume(int v) { state = state.copyWith(volume: v); }
+  void toggleFlashlight(bool v) {
+    state = state.copyWith(flashlight: v);
+  }
+
+  void toggleMute(bool v) {
+    state = state.copyWith(mute: v);
+  }
+
+  void toggleEco(bool v) {
+    state = state.copyWith(eco: v);
+  }
+
+  void setVolume(int v) {
+    state = state.copyWith(volume: v);
+  }
 }
 
 class QuickActionData {
@@ -43,7 +54,10 @@ class QuickActionData {
   }
 }
 
-final quickActionProvider = StateNotifierProvider<QuickActionState, QuickActionData>((ref) => QuickActionState());
+final quickActionProvider =
+    StateNotifierProvider<QuickActionState, QuickActionData>(
+      (ref) => QuickActionState(),
+    );
 
 /// 快捷操作栏 — 匹配 web-debug QuickActionsView.vue
 ///
@@ -128,7 +142,7 @@ class _QuickActionBarState extends ConsumerState<QuickActionBar> {
             activeColor: Colors.green,
             onTap: () {
               manager.sendDeviceControl('charge', true);
-              AppToast.show('已发送充电指令', type: AppToastType.info);
+              AppToast.show('已发送充电指令');
             },
           ),
           // 静音

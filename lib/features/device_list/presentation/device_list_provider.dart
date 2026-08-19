@@ -10,7 +10,7 @@ class DeviceListNotifier extends StateNotifier<AsyncValue<List<RobotDevice>>> {
   final ConnectionManager _connectionManager;
 
   DeviceListNotifier(this._connectionManager)
-      : super(const AsyncValue.loading()) {
+    : super(const AsyncValue.loading()) {
     startScan();
   }
 
@@ -27,7 +27,7 @@ class DeviceListNotifier extends StateNotifier<AsyncValue<List<RobotDevice>>> {
       debugPrint('[DLP] scan error: $e');
       AppLogger.error('设备扫描失败', error: e);
       // 扫描失败不阻断，返回空列表
-      state = AsyncValue.data([]);
+      state = const AsyncValue.data([]);
     }
   }
 }
@@ -35,5 +35,5 @@ class DeviceListNotifier extends StateNotifier<AsyncValue<List<RobotDevice>>> {
 /// DeviceListNotifier 的 Riverpod Provider
 final deviceListProvider =
     StateNotifierProvider<DeviceListNotifier, AsyncValue<List<RobotDevice>>>(
-  (ref) => DeviceListNotifier(ref.read(connectionManagerProvider.notifier)),
-);
+      (ref) => DeviceListNotifier(ref.read(connectionManagerProvider.notifier)),
+    );

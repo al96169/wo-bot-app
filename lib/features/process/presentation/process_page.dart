@@ -24,14 +24,21 @@ class _ProcessPageState extends ConsumerState<ProcessPage> {
   }
 
   void _control(String serviceId, String action, String name) {
-    ref.read(connectionManagerProvider.notifier).sendServiceControl(serviceId, action);
+    ref
+        .read(connectionManagerProvider.notifier)
+        .sendServiceControl(serviceId, action);
     AppToast.show(
-      action == 'start' ? '正在启动 $name...' : action == 'stop' ? '正在停止 $name...' : '正在重启 $name...',
-      type: AppToastType.info,
+      action == 'start'
+          ? '正在启动 $name...'
+          : action == 'stop'
+          ? '正在停止 $name...'
+          : '正在重启 $name...',
     );
     // 延迟刷新状态
     Future.delayed(const Duration(milliseconds: 800), () {
-      if (mounted) ref.read(connectionManagerProvider.notifier).sendGetServiceStatus();
+      if (mounted) {
+        ref.read(connectionManagerProvider.notifier).sendGetServiceStatus();
+      }
     });
   }
 
@@ -49,19 +56,27 @@ class _ProcessPageState extends ConsumerState<ProcessPage> {
             const FeatureStatusBar(title: '进程'),
             Expanded(
               child: RefreshIndicator(
-                onRefresh: () async =>
-                    ref.read(connectionManagerProvider.notifier).sendGetServiceStatus(),
+                onRefresh: () async => ref
+                    .read(connectionManagerProvider.notifier)
+                    .sendGetServiceStatus(),
                 child: services.isEmpty
                     ? ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.all(40),
                         children: const [
-                          Icon(Icons.memory, size: 40, color: Color(0xFFC7C7CC)),
+                          Icon(
+                            Icons.memory,
+                            size: 40,
+                            color: Color(0xFFC7C7CC),
+                          ),
                           SizedBox(height: 12),
                           Text(
                             '暂无服务数据\n下拉刷新重试',
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF8E8E93),
+                            ),
                           ),
                         ],
                       )
@@ -73,18 +88,37 @@ class _ProcessPageState extends ConsumerState<ProcessPage> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(15),
-                              border: Border.all(color: const Color(0xFFEEEEEE), width: 0.5),
+                              border: Border.all(
+                                color: const Color(0xFFEEEEEE),
+                                width: 0.5,
+                              ),
                             ),
                             child: Column(
                               children: [
                                 for (var i = 0; i < services.length; i++) ...[
                                   if (i > 0)
-                                    const Divider(height: 0.5, thickness: 0.5, color: Color(0xFFD8D8D8)),
+                                    const Divider(
+                                      height: 0.5,
+                                      thickness: 0.5,
+                                      color: Color(0xFFD8D8D8),
+                                    ),
                                   _ServiceRow(
                                     service: services[i],
-                                    onStart: () => _control(services[i].serviceId, 'start', services[i].name),
-                                    onStop: () => _control(services[i].serviceId, 'stop', services[i].name),
-                                    onRestart: () => _control(services[i].serviceId, 'restart', services[i].name),
+                                    onStart: () => _control(
+                                      services[i].serviceId,
+                                      'start',
+                                      services[i].name,
+                                    ),
+                                    onStop: () => _control(
+                                      services[i].serviceId,
+                                      'stop',
+                                      services[i].name,
+                                    ),
+                                    onRestart: () => _control(
+                                      services[i].serviceId,
+                                      'restart',
+                                      services[i].name,
+                                    ),
                                   ),
                                 ],
                               ],
@@ -132,7 +166,9 @@ class _ServiceRow extends StatelessWidget {
               height: 8,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: running ? const Color(0xFF34C759) : const Color(0xFFC7C7CC),
+                color: running
+                    ? const Color(0xFF34C759)
+                    : const Color(0xFFC7C7CC),
               ),
             ),
             const SizedBox(width: 10),
@@ -176,7 +212,7 @@ class _ActionBtn extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFF0256FF), width: 1),
+          border: Border.all(color: const Color(0xFF0256FF)),
         ),
         child: Text(
           label,

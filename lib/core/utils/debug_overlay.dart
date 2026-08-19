@@ -78,14 +78,24 @@ class _DebugLogOverlayState extends State<DebugLogOverlay> {
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       child: Row(
         children: [
-          const Text('📋 DEBUG LOG', style: TextStyle(color: Colors.green, fontSize: 9, fontWeight: FontWeight.bold)),
+          const Text(
+            '📋 DEBUG LOG',
+            style: TextStyle(
+              color: Colors.green,
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const Spacer(),
           GestureDetector(
             onTap: () {
               DebugLogBuffer.clear();
               setState(() {});
             },
-            child: const Text('CLEAR', style: TextStyle(color: Colors.red, fontSize: 9)),
+            child: const Text(
+              'CLEAR',
+              style: TextStyle(color: Colors.red, fontSize: 9),
+            ),
           ),
         ],
       ),
@@ -94,7 +104,9 @@ class _DebugLogOverlayState extends State<DebugLogOverlay> {
 
   Color _logColor(String msg) {
     if (msg.contains('[WS]') || msg.contains('[CM]')) return Colors.cyan;
-    if (msg.contains('ERROR') || msg.contains('失败') || msg.contains('error')) return Colors.red;
+    if (msg.contains('ERROR') || msg.contains('失败') || msg.contains('error')) {
+      return Colors.red;
+    }
     if (msg.contains('成功') || msg.contains('OK')) return Colors.green;
     return Colors.white70;
   }

@@ -49,7 +49,9 @@ class ConnectionManager extends StateNotifier<ConnState> {
         state = ConnState.disconnected;
         _statusTimer?.cancel();
       }
-      ..onError = (e) { state = ConnState.error; }
+      ..onError = (e) {
+        state = ConnState.error;
+      }
       ..onStateChanged = (wsState) {
         switch (wsState) {
           case 'connected':
@@ -70,7 +72,7 @@ class ConnectionManager extends StateNotifier<ConnState> {
       };
   }
 
-  Future<List<RobotDevice>> discoverDevices() => _mdns.discover(timeout: AppConstants.mdnsDiscoveryTimeout);
+  Future<List<RobotDevice>> discoverDevices() => _mdns.discover();
 
   /// 连接到设备
   Future<void> connectToDevice(RobotDevice device) async {
@@ -118,18 +120,19 @@ class ConnectionManager extends StateNotifier<ConnState> {
   void sendEmergencyRelease() => send('emergency_release');
 
   // ---- 系统操作 (匹配 web-debug sendSystemAction) ----
-  void sendSystemAction(String action) =>
-      send('system', {'action': action});
+  void sendSystemAction(String action) => send('system', {'action': action});
 
   // ---- 云台控制 (匹配 web-debug gimbal action) ----
-  void sendGimbalMoveBegin(double panSpeed, double tiltSpeed) =>
-      send('gimbal', {'action': 'move_begin', 'pan_speed': panSpeed, 'tilt_speed': tiltSpeed});
-  void sendGimbalMoveUpdate(double panSpeed, double tiltSpeed) =>
-      send('gimbal', {'action': 'move_update', 'pan_speed': panSpeed, 'tilt_speed': tiltSpeed});
-  void sendGimbalMoveEnd() =>
-      send('gimbal', {'action': 'move_end'});
-  void sendGimbalCenter() =>
-      send('gimbal', {'action': 'center'});
+  void sendGimbalMoveBegin(double panSpeed, double tiltSpeed) => send(
+    'gimbal',
+    {'action': 'move_begin', 'pan_speed': panSpeed, 'tilt_speed': tiltSpeed},
+  );
+  void sendGimbalMoveUpdate(double panSpeed, double tiltSpeed) => send(
+    'gimbal',
+    {'action': 'move_update', 'pan_speed': panSpeed, 'tilt_speed': tiltSpeed},
+  );
+  void sendGimbalMoveEnd() => send('gimbal', {'action': 'move_end'});
+  void sendGimbalCenter() => send('gimbal', {'action': 'center'});
 
   // ---- 设备控制 (匹配 web-debug device_control) ----
   void sendDeviceControl(String action, bool enabled) =>
@@ -141,9 +144,13 @@ class ConnectionManager extends StateNotifier<ConnState> {
   void sendCameraCapture([String quality = 'high']) =>
       send('camera_capture', {'quality': quality});
   void sendCameraRecordStart(int cameraId, [String quality = 'high']) =>
-      send('camera_record_start', {'camera_id': cameraId, 'quality': quality, 'resolution': '1080p', 'segment_duration_s': 60});
-  void sendCameraRecordStop() =>
-      send('camera_record_stop');
+      send('camera_record_start', {
+        'camera_id': cameraId,
+        'quality': quality,
+        'resolution': '1080p',
+        'segment_duration_s': 60,
+      });
+  void sendCameraRecordStop() => send('camera_record_stop');
   void sendStreamQuality(String mode) =>
       send('camera_stream_quality', {'mode': mode});
 
@@ -153,8 +160,7 @@ class ConnectionManager extends StateNotifier<ConnState> {
   void sendMusicPause() => send('music_pause');
   void sendMusicNext() => send('music_next');
   void sendMusicPrev() => send('music_previous');
-  void sendMusicVolume(int volume) =>
-      send('music_volume', {'volume': volume});
+  void sendMusicVolume(int volume) => send('music_volume', {'volume': volume});
 
   // ---- 舞蹈 (对齐 web-debug: {type:"dance", data:{command}}) ----
   void sendDancePlay(String danceId) =>
@@ -213,14 +219,16 @@ class ConnectionManager extends StateNotifier<ConnState> {
   void sendBindShareCreate() => send('bind_share_create');
 
   // ---- WebRTC 信令 ----
-  void sendWebRtcOffer(String sdp) =>
-      send('webrtc_offer', {'sdp': sdp});
-  void sendWebRtcIceCandidate(dynamic candidate, String? sdpMid, int? sdpMLineIndex) =>
-      send('webrtc_ice_candidate', {
-        'candidate': candidate,
-        'sdpMid': sdpMid,
-        'sdpMLineIndex': sdpMLineIndex,
-      });
+  void sendWebRtcOffer(String sdp) => send('webrtc_offer', {'sdp': sdp});
+  void sendWebRtcIceCandidate(
+    dynamic candidate,
+    String? sdpMid,
+    int? sdpMLineIndex,
+  ) => send('webrtc_ice_candidate', {
+    'candidate': candidate,
+    'sdpMid': sdpMid,
+    'sdpMLineIndex': sdpMLineIndex,
+  });
 
   // ---- 订阅 ----
   void sendSubscribe(List<String> events) =>
@@ -245,8 +253,7 @@ class ConnectionManager extends StateNotifier<ConnState> {
   }
 
   // ---- exec ----
-  void sendExec(String command) =>
-      send('exec', {'command': command});
+  void sendExec(String command) => send('exec', {'command': command});
 
   // ===================== 内部方法 =====================
 
@@ -270,7 +277,10 @@ class ConnectionManager extends StateNotifier<ConnState> {
 
   void _handleMessage(Map<String, dynamic> msg) {
     final type = msg['type'] as String? ?? '';
-    final d = msg['data'] as Map<String, dynamic>? ?? msg['payload'] as Map<String, dynamic>? ?? msg;
+    final d =
+        msg['data'] as Map<String, dynamic>? ??
+        msg['payload'] as Map<String, dynamic>? ??
+        msg;
 
     switch (type) {
       // ---- 连接与认证 ----
@@ -283,7 +293,9 @@ class ConnectionManager extends StateNotifier<ConnState> {
         }
         // 检查是否已有 clientToken (分享码自动绑定成功)
         final clientToken = d['clientToken'] as String?;
-        if (clientToken != null && clientToken.isNotEmpty && currentDevice != null) {
+        if (clientToken != null &&
+            clientToken.isNotEmpty &&
+            currentDevice != null) {
           _bind.handleBindSuccess(d, currentDevice!.ip, currentDevice!.port);
         }
         isBound = true;
@@ -291,7 +303,9 @@ class ConnectionManager extends StateNotifier<ConnState> {
         state = ConnState.connected;
         _startStatusPolling();
         // 连接后请求初始数据（对齐 web-debug connected：subscribe + camera list + 模块/服务）
-        send('subscribe', {'events': ['status']});
+        send('subscribe', {
+          'events': ['status'],
+        });
         send('camera', {'action': 'list'});
         sendGetModuleList();
         sendGetServiceStatus();
@@ -359,7 +373,9 @@ class ConnectionManager extends StateNotifier<ConnState> {
         }
         // power_policy 内嵌解析（对齐 web-debug DC 路径）
         if (d['power_policy'] is Map) {
-          _data.setPowerPolicy(Map<String, dynamic>.from(d['power_policy'] as Map));
+          _data.setPowerPolicy(
+            Map<String, dynamic>.from(d['power_policy'] as Map),
+          );
         }
         try {
           _data.updateFromStatus(d);
@@ -398,18 +414,19 @@ class ConnectionManager extends StateNotifier<ConnState> {
         break;
       case 'service_message':
         // 机器人服务管理器推送的通知（对齐 web-debug handleSignalingMessage）
-        _data.addMessage(RobotMessage(
-          id: d['id'] as String? ?? _genMessageId(),
-          subject: d['subject'] as String? ?? '服务通知',
-          time: DateTime.now(),
-          summary: d['summary'] as String? ?? '',
-          body: d['body'] as String? ?? '',
-          read: false,
-          source: d['source'] as String? ?? 'service_manager',
-          severity: ['info', 'warning', 'error'].contains(d['severity'])
-              ? d['severity'] as String
-              : 'info',
-        ));
+        _data.addMessage(
+          RobotMessage(
+            id: d['id'] as String? ?? _genMessageId(),
+            subject: d['subject'] as String? ?? '服务通知',
+            time: DateTime.now(),
+            summary: d['summary'] as String? ?? '',
+            body: d['body'] as String? ?? '',
+            source: d['source'] as String? ?? 'service_manager',
+            severity: ['info', 'warning', 'error'].contains(d['severity'])
+                ? d['severity'] as String
+                : 'info',
+          ),
+        );
         break;
 
       // ---- 舞蹈 ----
@@ -436,7 +453,8 @@ class ConnectionManager extends StateNotifier<ConnState> {
         _data.setMusicSongs(d['songs'] as List? ?? []);
         break;
       case 'music_volume':
-        _data.music.volume = (d['volume'] as num?)?.toInt() ?? _data.music.volume;
+        _data.music.volume =
+            (d['volume'] as num?)?.toInt() ?? _data.music.volume;
         _data.notify();
         break;
 
@@ -454,11 +472,15 @@ class ConnectionManager extends StateNotifier<ConnState> {
         break;
       case 'camera_record_result':
         // 对齐 web-debug：data.is_recording / data.success
-        _data.isRecording = d['is_recording'] as bool? ?? d['success'] as bool? ?? false;
+        _data.isRecording =
+            d['is_recording'] as bool? ?? d['success'] as bool? ?? false;
         _data.notify();
         break;
       case 'camera_record_status':
-        _data.isRecording = d['is_recording'] as bool? ?? d['recording'] as bool? ?? _data.isRecording;
+        _data.isRecording =
+            d['is_recording'] as bool? ??
+            d['recording'] as bool? ??
+            _data.isRecording;
         _data.notify();
         break;
       case 'camera_media_list_result':
@@ -494,10 +516,14 @@ class ConnectionManager extends StateNotifier<ConnState> {
 
       // ---- 软件 ----
       case 'software_list':
-        _data.setSoftwareInstalled(d['packages'] as List? ?? d['software'] as List? ?? []);
+        _data.setSoftwareInstalled(
+          d['packages'] as List? ?? d['software'] as List? ?? [],
+        );
         break;
       case 'software_available':
-        _data.setSoftwareAvailable(d['packages'] as List? ?? d['software'] as List? ?? []);
+        _data.setSoftwareAvailable(
+          d['packages'] as List? ?? d['software'] as List? ?? [],
+        );
         break;
       case 'software_progress':
         debugPrint('[CM] sw_progress: ${d['progress']}');
@@ -559,10 +585,16 @@ class ConnectionManager extends StateNotifier<ConnState> {
       // ---- 日志 ----
       case 'logs':
         debugPrint('[CM] logs 消息: keys=${d.keys.toList()}');
-        debugPrint('[CM] logs 条数=${(d['logs'] as List?)?.length ?? (d['line_no'] != null ? '单条推送' : '0')}');
+        debugPrint(
+          '[CM] logs 条数=${(d['logs'] as List?)?.length ?? (d['line_no'] != null ? '单条推送' : '0')}',
+        );
         // 无 mode 字段且非批量数组 → 流式推送，追加而非覆盖
-        final isPush = d['mode'] == null && d['logs'] is! List && d['line_no'] != null;
-        _data.updateLogs(d, mode: isPush ? 'push' : (d['mode'] as String? ?? 'tail'));
+        final isPush =
+            d['mode'] == null && d['logs'] is! List && d['line_no'] != null;
+        _data.updateLogs(
+          d,
+          mode: isPush ? 'push' : (d['mode'] as String? ?? 'tail'),
+        );
         break;
 
       // ---- 错误 ----
@@ -588,15 +620,21 @@ class ConnectionManager extends StateNotifier<ConnState> {
 /// 兼容旧代码 — 连接状态
 AppConnectionState connStateToAppState(ConnState s) {
   switch (s) {
-    case ConnState.disconnected: return AppConnectionState.disconnected;
-    case ConnState.connecting: return AppConnectionState.connecting;
-    case ConnState.connected: return AppConnectionState.connected;
-    case ConnState.binding: return AppConnectionState.connecting;
-    case ConnState.error: return AppConnectionState.error;
+    case ConnState.disconnected:
+      return AppConnectionState.disconnected;
+    case ConnState.connecting:
+      return AppConnectionState.connecting;
+    case ConnState.connected:
+      return AppConnectionState.connected;
+    case ConnState.binding:
+      return AppConnectionState.connecting;
+    case ConnState.error:
+      return AppConnectionState.error;
   }
 }
 
 // ConnectionManager 与 RobotDataStore 共享同一实例（web-debug 单一 store 模式）
-final connectionManagerProvider = StateNotifierProvider<ConnectionManager, ConnState>(
-  (ref) => ConnectionManager(data: ref.read(robotDataProvider.notifier)),
-);
+final connectionManagerProvider =
+    StateNotifierProvider<ConnectionManager, ConnState>(
+      (ref) => ConnectionManager(data: ref.read(robotDataProvider.notifier)),
+    );

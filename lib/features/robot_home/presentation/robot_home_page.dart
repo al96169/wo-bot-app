@@ -52,15 +52,40 @@ class RobotHomePage extends ConsumerWidget {
   Widget _buildNavList(BuildContext context, List<String> features) {
     // 全部功能入口（对齐 web-debug ALL_NAV_ITEMS，按 features 过滤）
     final items = <_NavEntry>[
-      _NavEntry('快捷控制', Icons.bolt, () => _push(context, const QuickControlPage()), feature: null),
+      _NavEntry(
+        '快捷控制',
+        Icons.bolt,
+        () => _push(context, const QuickControlPage()),
+      ),
       const _NavEntry('遥控', Icons.gamepad, null, feature: 'motion'),
       const _NavEntry('SSH', Icons.terminal, null, feature: 'exec'),
-      _NavEntry('日志', Icons.receipt_long, () => _push(context, const LogsPage()), feature: null),
-      _NavEntry('消息', Icons.mail_outline, () => _push(context, const MessagesPage()), feature: null),
-      _NavEntry('状态', Icons.monitor_heart, () => _push(context, const RobotStatusPage()), feature: null),
-      _NavEntry('设置', Icons.settings_outlined, () => _push(context, const SettingsPage()), feature: null),
-      _NavEntry('进程', Icons.memory, () => _push(context, const ProcessPage()), feature: null),
-      _NavEntry('软件管理', Icons.apps, () => _push(context, const SoftwarePage()), feature: 'exec'),
+      _NavEntry(
+        '日志',
+        Icons.receipt_long,
+        () => _push(context, const LogsPage()),
+      ),
+      _NavEntry(
+        '消息',
+        Icons.mail_outline,
+        () => _push(context, const MessagesPage()),
+      ),
+      _NavEntry(
+        '状态',
+        Icons.monitor_heart,
+        () => _push(context, const RobotStatusPage()),
+      ),
+      _NavEntry(
+        '设置',
+        Icons.settings_outlined,
+        () => _push(context, const SettingsPage()),
+      ),
+      _NavEntry('进程', Icons.memory, () => _push(context, const ProcessPage())),
+      _NavEntry(
+        '软件管理',
+        Icons.apps,
+        () => _push(context, const SoftwarePage()),
+        feature: 'exec',
+      ),
     ];
 
     final visible = items.where((e) {
@@ -78,7 +103,11 @@ class RobotHomePage extends ConsumerWidget {
         children: [
           for (var i = 0; i < visible.length; i++) ...[
             if (i > 0)
-              const Divider(height: 0.5, thickness: 0.5, color: Color(0xFFD8D8D8)),
+              const Divider(
+                height: 0.5,
+                thickness: 0.5,
+                color: Color(0xFFD8D8D8),
+              ),
             _NavRow(entry: visible[i]),
           ],
         ],
@@ -119,7 +148,11 @@ class _NavRow extends StatelessWidget {
                 width: 30,
                 height: 30,
                 alignment: Alignment.center,
-                child: Icon(entry.icon, size: 24, color: const Color(0xFF0256FF)),
+                child: Icon(
+                  entry.icon,
+                  size: 24,
+                  color: const Color(0xFF0256FF),
+                ),
               ),
               const SizedBox(width: 12),
               // 名称 14sp (Pixso 1:49)

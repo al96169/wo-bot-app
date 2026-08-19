@@ -11,7 +11,16 @@ class CameraInfo {
   final String status; // active/inactive/error
   final String? streamUrl;
 
-  const CameraInfo({required this.cameraId, required this.name, this.devicePath, this.width, this.height, this.fps, this.status = 'inactive', this.streamUrl});
+  const CameraInfo({
+    required this.cameraId,
+    required this.name,
+    this.devicePath,
+    this.width,
+    this.height,
+    this.fps,
+    this.status = 'inactive',
+    this.streamUrl,
+  });
 
   factory CameraInfo.fromJson(Map<String, dynamic> json) => CameraInfo(
     cameraId: json['camera_id'] as int? ?? json['id'] as int? ?? 0,
@@ -54,10 +63,19 @@ class SystemStatusData {
   String? version;
 
   SystemStatusData({
-    this.batteryLevel = 0, this.batteryCharging = false,
-    this.cpuUsage = 0, this.memoryUsage = 0, this.diskUsage = 0,
-    this.wifiSSID, this.wifiSignal = 0, this.ip, this.hostname,
-    this.uptime = 0, this.cpuTemp, this.model, this.version,
+    this.batteryLevel = 0,
+    this.batteryCharging = false,
+    this.cpuUsage = 0,
+    this.memoryUsage = 0,
+    this.diskUsage = 0,
+    this.wifiSSID,
+    this.wifiSignal = 0,
+    this.ip,
+    this.hostname,
+    this.uptime = 0,
+    this.cpuTemp,
+    this.model,
+    this.version,
   });
 
   void updateFromJson(Map<String, dynamic> json) {
@@ -71,24 +89,52 @@ class SystemStatusData {
     final sys = obj(json['system']);
     final net = obj(json['network']);
 
-    batteryLevel = _num(batt['level']) ?? _num(json['battery']) ?? _num(json['batteryLevel']) ?? batteryLevel;
-    batteryCharging = batt['status'] == 'charging' ||
+    batteryLevel =
+        _num(batt['level']) ??
+        _num(json['battery']) ??
+        _num(json['batteryLevel']) ??
+        batteryLevel;
+    batteryCharging =
+        batt['status'] == 'charging' ||
         batt['charging'] == true ||
         json['battery_charging'] == true ||
         json['batteryCharging'] == true ||
         batteryCharging;
-    cpuUsage = _num(sys['cpu_percent']) ?? _num(json['cpu']) ?? _num(json['cpuUsage']) ?? cpuUsage;
-    memoryUsage = _num(sys['memory_percent']) ?? _num(json['memory']) ?? _num(json['memoryUsage']) ?? memoryUsage;
-    diskUsage = _num(sys['disk_percent']) ?? _num(json['disk']) ?? _num(json['diskUsage']) ?? diskUsage;
-    wifiSSID = net['ssid'] as String? ?? json['wifi_ssid'] as String? ?? json['wifiSSID'] as String? ?? wifiSSID;
-    wifiSignal = (net['signal_strength'] as num?)?.toInt() ??
+    cpuUsage =
+        _num(sys['cpu_percent']) ??
+        _num(json['cpu']) ??
+        _num(json['cpuUsage']) ??
+        cpuUsage;
+    memoryUsage =
+        _num(sys['memory_percent']) ??
+        _num(json['memory']) ??
+        _num(json['memoryUsage']) ??
+        memoryUsage;
+    diskUsage =
+        _num(sys['disk_percent']) ??
+        _num(json['disk']) ??
+        _num(json['diskUsage']) ??
+        diskUsage;
+    wifiSSID =
+        net['ssid'] as String? ??
+        json['wifi_ssid'] as String? ??
+        json['wifiSSID'] as String? ??
+        wifiSSID;
+    wifiSignal =
+        (net['signal_strength'] as num?)?.toInt() ??
         _num(json['wifi_signal'])?.toInt() ??
         _num(json['wifiSignal'])?.toInt() ??
         wifiSignal;
     ip = net['ip'] as String? ?? json['ip'] as String? ?? ip;
-    hostname = sys['hostname'] as String? ?? json['hostname'] as String? ?? hostname;
-    uptime = _num(sys['uptime'])?.toInt() ?? _num(json['uptime'])?.toInt() ?? uptime;
-    cpuTemp = _num(sys['temperature']) ?? _num(json['cpu_temp']) ?? _num(json['cpuTemp']) ?? cpuTemp;
+    hostname =
+        sys['hostname'] as String? ?? json['hostname'] as String? ?? hostname;
+    uptime =
+        _num(sys['uptime'])?.toInt() ?? _num(json['uptime'])?.toInt() ?? uptime;
+    cpuTemp =
+        _num(sys['temperature']) ??
+        _num(json['cpu_temp']) ??
+        _num(json['cpuTemp']) ??
+        cpuTemp;
     model = json['model'] as String? ?? model;
     version = json['version'] as String? ?? version;
   }
@@ -161,7 +207,13 @@ class Module {
   final String status;
   final bool enabled;
 
-  const Module({required this.id, required this.name, required this.version, this.status = 'stopped', this.enabled = true});
+  const Module({
+    required this.id,
+    required this.name,
+    required this.version,
+    this.status = 'stopped',
+    this.enabled = true,
+  });
 
   factory Module.fromJson(Map<String, dynamic> json) => Module(
     id: json['id'] as String? ?? '',
@@ -182,7 +234,15 @@ class ServiceInfo {
   final String? lastError;
   final int? uptime;
 
-  const ServiceInfo({required this.serviceId, required this.name, this.status = 'stopped', this.pid, this.restartCount = 0, this.lastError, this.uptime});
+  const ServiceInfo({
+    required this.serviceId,
+    required this.name,
+    this.status = 'stopped',
+    this.pid,
+    this.restartCount = 0,
+    this.lastError,
+    this.uptime,
+  });
 
   factory ServiceInfo.fromJson(Map<String, dynamic> json) => ServiceInfo(
     serviceId: json['service_id'] as String? ?? '',
@@ -202,7 +262,12 @@ class DanceInfo {
   final String? icon;
   final double durationSec;
 
-  const DanceInfo({required this.id, required this.name, this.icon, this.durationSec = 0});
+  const DanceInfo({
+    required this.id,
+    required this.name,
+    this.icon,
+    this.durationSec = 0,
+  });
 
   factory DanceInfo.fromJson(Map<String, dynamic> json) => DanceInfo(
     id: json['id'] as String? ?? '',
@@ -221,7 +286,14 @@ class MusicTrack {
   final String? format;
   final double? duration;
 
-  const MusicTrack({required this.name, required this.filename, this.path, this.size, this.format, this.duration});
+  const MusicTrack({
+    required this.name,
+    required this.filename,
+    this.path,
+    this.size,
+    this.format,
+    this.duration,
+  });
 
   factory MusicTrack.fromJson(Map<String, dynamic> json) => MusicTrack(
     name: json['name'] as String? ?? '',
@@ -245,9 +317,15 @@ class MusicStatus {
   String? activeSource;
 
   MusicStatus({
-    this.status = 'stopped', this.volume = 75, this.position = 0,
-    this.currentTrack, this.playlist = const [], this.streaming = false,
-    this.streamType, this.activeServices = const [], this.activeSource,
+    this.status = 'stopped',
+    this.volume = 75,
+    this.position = 0,
+    this.currentTrack,
+    this.playlist = const [],
+    this.streaming = false,
+    this.streamType,
+    this.activeServices = const [],
+    this.activeSource,
   });
 
   void updateFromJson(Map<String, dynamic> json) {
@@ -255,16 +333,22 @@ class MusicStatus {
     volume = (json['volume'] as num?)?.toInt() ?? volume;
     position = (json['position'] as num?)?.toDouble() ?? position;
     if (json['current_track'] != null) {
-      currentTrack = MusicTrack.fromJson(json['current_track'] as Map<String, dynamic>);
+      currentTrack = MusicTrack.fromJson(
+        json['current_track'] as Map<String, dynamic>,
+      );
     }
     if (json['playlist'] != null) {
-      playlist = (json['playlist'] as List).map((t) => MusicTrack.fromJson(t as Map<String, dynamic>)).toList();
+      playlist = (json['playlist'] as List)
+          .map((t) => MusicTrack.fromJson(t as Map<String, dynamic>))
+          .toList();
     }
     streaming = json['streaming'] as bool? ?? streaming;
     streamType = json['stream_type'] as String? ?? streamType;
     activeSource = json['active_source'] as String? ?? activeSource;
     if (json['active_services'] is List) {
-      activeServices = (json['active_services'] as List).map((e) => e.toString()).toList();
+      activeServices = (json['active_services'] as List)
+          .map((e) => e.toString())
+          .toList();
     }
   }
 }
@@ -281,13 +365,25 @@ class Software {
   bool installed;
   bool? upgradable;
 
-  Software({required this.name, required this.displayName, this.description, this.version, this.category, this.critical = false, this.icon, this.installed = false, this.upgradable});
+  Software({
+    required this.name,
+    required this.displayName,
+    this.description,
+    this.version,
+    this.category,
+    this.critical = false,
+    this.icon,
+    this.installed = false,
+    this.upgradable,
+  });
 
   factory Software.fromJson(Map<String, dynamic> json) => Software(
     name: json['name'] as String? ?? '',
-    displayName: json['display_name'] as String? ?? json['name'] as String? ?? '',
+    displayName:
+        json['display_name'] as String? ?? json['name'] as String? ?? '',
     description: json['description'] as String?,
-    version: json['version'] as String? ??
+    version:
+        json['version'] as String? ??
         json['current_version'] as String? ??
         json['installed_version'] as String? ??
         json['version_name'] as String?,
@@ -295,11 +391,13 @@ class Software {
     critical: json['critical'] as bool? ?? false,
     icon: json['icon'] as String?,
     // 真机用 status: "installed" 而非 installed: true（对齐 web-debug packages 直传）
-    installed: json['installed'] as bool? ??
+    installed:
+        json['installed'] as bool? ??
         (json['status'] == 'installed' ? true : null) ??
         (json['installed_status'] == 'installed' ? true : null) ??
         false,
-    upgradable: json['upgradable'] as bool? ??
+    upgradable:
+        json['upgradable'] as bool? ??
         json['update_available'] as bool? ??
         json['has_update'] as bool?,
   );
@@ -316,7 +414,16 @@ class GalleryItem {
   final String? cameraId;
   final String? timestamp;
 
-  const GalleryItem({required this.id, required this.name, required this.type, this.thumbnailBase64, this.fileSize, this.durationSec, this.cameraId, this.timestamp});
+  const GalleryItem({
+    required this.id,
+    required this.name,
+    required this.type,
+    this.thumbnailBase64,
+    this.fileSize,
+    this.durationSec,
+    this.cameraId,
+    this.timestamp,
+  });
 
   factory GalleryItem.fromJson(Map<String, dynamic> json) {
     // 对齐 web-debug：id/name = file_name ?? name ?? id；size = size_bytes ?? file_size；camera_id 为数字
@@ -326,9 +433,15 @@ class GalleryItem {
       name: fileName ?? json['name'] as String? ?? '',
       type: json['type'] as String? ?? 'photo',
       thumbnailBase64: json['thumbnail_base64'] as String?,
-      fileSize: (json['size_bytes'] as num?)?.toInt() ?? (json['file_size'] as num?)?.toInt(),
-      durationSec: (json['duration_s'] as num?)?.toDouble() ?? (json['duration_sec'] as num?)?.toDouble(),
-      cameraId: (json['camera_id'] as num?)?.toInt().toString() ?? json['camera_id'] as String?,
+      fileSize:
+          (json['size_bytes'] as num?)?.toInt() ??
+          (json['file_size'] as num?)?.toInt(),
+      durationSec:
+          (json['duration_s'] as num?)?.toDouble() ??
+          (json['duration_sec'] as num?)?.toDouble(),
+      cameraId:
+          (json['camera_id'] as num?)?.toInt().toString() ??
+          json['camera_id'] as String?,
       timestamp: json['timestamp'] as String?,
     );
   }
@@ -338,7 +451,11 @@ class GalleryStorage {
   final int totalBytes;
   final int usedBytes;
   final int availableBytes;
-  const GalleryStorage({required this.totalBytes, required this.usedBytes, required this.availableBytes});
+  const GalleryStorage({
+    required this.totalBytes,
+    required this.usedBytes,
+    required this.availableBytes,
+  });
 
   factory GalleryStorage.fromJson(Map<String, dynamic> json) => GalleryStorage(
     totalBytes: (json['total_bytes'] as num?)?.toInt() ?? 0,

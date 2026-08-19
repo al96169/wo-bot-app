@@ -40,8 +40,8 @@ class _WoBotAppState extends ConsumerState<WoBotApp> {
                 index: _tab,
                 children: [
                   const DeviceListPage(),
-                  _PlaceholderPage('自动化', '敬请期待'),
-                  _PlaceholderPage('发现', '敬请期待'),
+                  const _PlaceholderPage('自动化', '敬请期待'),
+                  const _PlaceholderPage('发现', '敬请期待'),
                   const ProfilePage(),
                 ],
               ),

@@ -1,5 +1,6 @@
 /// Flutter 集成测试 — 测试完整 App 流程
 /// 运行方式: flutter test integration_test/app_test.dart -d chrome
+library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';

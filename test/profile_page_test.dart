@@ -35,8 +35,9 @@ void main() {
     SharedPreferences.setMockInitialValues({
       'wobot_access_token': 't',
       'wobot_refresh_token': 'r',
-      'wobot_token_expires_at':
-          DateTime.now().add(const Duration(hours: 1)).millisecondsSinceEpoch,
+      'wobot_token_expires_at': DateTime.now()
+          .add(const Duration(hours: 1))
+          .millisecondsSinceEpoch,
     });
     await tester.pumpWidget(
       const ProviderScope(child: MaterialApp(home: ProfilePage())),

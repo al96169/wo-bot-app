@@ -22,9 +22,7 @@ class _AddDevicePageState extends ConsumerState<AddDevicePage> {
   void initState() {
     super.initState();
     // 进入页面即开始扫描
-    Future.microtask(
-      () => ref.read(deviceListProvider.notifier).startScan(),
-    );
+    Future.microtask(() => ref.read(deviceListProvider.notifier).startScan());
   }
 
   Future<void> _saveAndConnect(RobotDevice device) async {
@@ -43,9 +41,9 @@ class _AddDevicePageState extends ConsumerState<AddDevicePage> {
   }
 
   void _openManualAdd() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const ManualAddPage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const ManualAddPage()));
   }
 
   @override
@@ -69,8 +67,10 @@ class _AddDevicePageState extends ConsumerState<AddDevicePage> {
             SizedBox(
               height: 74,
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 15,
+                  vertical: 15,
+                ),
                 child: Row(
                   children: [
                     // 返回按钮 44×44 无背景 (Pixso 1:3595/1:3211)
@@ -165,7 +165,11 @@ class _BackButton extends StatelessWidget {
           width: 44,
           height: 44,
           alignment: Alignment.center,
-          child: const Icon(Icons.arrow_back, size: 22, color: Color(0xFF6750A4)),
+          child: const Icon(
+            Icons.arrow_back,
+            size: 22,
+            color: Color(0xFF6750A4),
+          ),
         ),
       ),
     );
@@ -213,7 +217,10 @@ class _DiscoverCard extends StatelessWidget {
               // Row 3: IP 和端口 (Pixso 1:2950, 11.6sp 注释文本)
               Text(
                 '${device.ip}:${device.port}',
-                style: const TextStyle(fontSize: 11.6, color: Color(0xFF8E8E93)),
+                style: const TextStyle(
+                  fontSize: 11.6,
+                  color: Color(0xFF8E8E93),
+                ),
               ),
             ],
           ),
@@ -232,20 +239,24 @@ class _StatusRow extends StatelessWidget {
   Widget build(BuildContext context) {
     const style = TextStyle(fontSize: 11.6, color: Color(0xFF6750A4));
     const sep = TextStyle(fontSize: 11.6, color: Color(0xFF000000));
-    final signal =
-        device.signalDbm != null ? '信号强度 ${device.signalDbm}' : '信号强度 --';
-    final battery =
-        device.batteryLevel != null ? '电量 ${device.batteryLevel}%' : '电量 --';
-    final latency =
-        device.latencyMs > 0 ? '延迟 ${device.latencyMs}' : '延迟 --';
+    final signal = device.signalDbm != null
+        ? '信号强度 ${device.signalDbm}'
+        : '信号强度 --';
+    final battery = device.batteryLevel != null
+        ? '电量 ${device.batteryLevel}%'
+        : '电量 --';
+    final latency = device.latencyMs > 0 ? '延迟 ${device.latencyMs}' : '延迟 --';
     return Text.rich(
-      TextSpan(style: style, children: [
-        TextSpan(text: signal),
-        const TextSpan(text: ' | ', style: sep),
-        TextSpan(text: battery),
-        const TextSpan(text: ' ▎', style: sep),
-        TextSpan(text: latency),
-      ]),
+      TextSpan(
+        style: style,
+        children: [
+          TextSpan(text: signal),
+          const TextSpan(text: ' | ', style: sep),
+          TextSpan(text: battery),
+          const TextSpan(text: ' ▎', style: sep),
+          TextSpan(text: latency),
+        ],
+      ),
     );
   }
 }
@@ -333,9 +344,7 @@ class _PillButton extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(21),
-            border: filled
-                ? null
-                : Border.all(color: const Color(0xFFE5E5E5), width: 1),
+            border: filled ? null : Border.all(color: const Color(0xFFE5E5E5)),
           ),
           child: Text(
             label,

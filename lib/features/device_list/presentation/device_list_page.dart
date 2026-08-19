@@ -63,7 +63,8 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
   Future<void> _connect(RobotDevice device) async {
     final store = ref.read(deviceStoreProvider);
     final current = store.currentDevice;
-    final sameDevice = current != null &&
+    final sameDevice =
+        current != null &&
         (current.id == device.id ||
             (current.ip == device.ip && current.port == device.port));
 
@@ -83,9 +84,7 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('确认切换设备'),
-          content: Text(
-            '确定要断开当前连接并切换到 ${device.name} 吗？',
-          ),
+          content: Text('确定要断开当前连接并切换到 ${device.name} 吗？'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -107,17 +106,17 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
 
     final conn = ref.read(connectionManagerProvider);
     if (conn == ConnState.connected) {
-      AppToast.show('已连接该设备', type: AppToastType.info);
+      AppToast.show('已连接该设备');
       // 已连接的设备 → 直接进入设备主页
       if (mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const RobotHomePage()),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (_) => const RobotHomePage()));
       }
       return;
     }
     if (conn == ConnState.connecting) {
-      AppToast.show('正在连接中...', type: AppToastType.info);
+      AppToast.show('正在连接中...');
       return;
     }
     // 同一设备其他状态 → 重新连接
@@ -191,14 +190,14 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
   /// 断开当前连接
   void _disconnect() {
     ref.read(connectionManagerProvider.notifier).disconnect();
-    AppToast.show('连接已断开', type: AppToastType.info);
+    AppToast.show('连接已断开');
   }
 
   /// 右上角加号 → 跳转设备发现界面 (Pixso 1:3365)
   void _openAddPage() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const AddDevicePage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const AddDevicePage()));
   }
 
   Future<void> _remove(RobotDevice device) async {
@@ -232,7 +231,9 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
 
     // 连接成功后跳转机器人主页（对齐 web-debug：连接后进入功能主页）
     ref.listen<ConnState>(connectionManagerProvider, (prev, next) {
-      if (prev != ConnState.connected && next == ConnState.connected && mounted) {
+      if (prev != ConnState.connected &&
+          next == ConnState.connected &&
+          mounted) {
         // 延迟跳转，避免绑定流程中的 connected 误触发
         Future.delayed(const Duration(milliseconds: 400), () {
           if (!context.mounted) return;
@@ -297,10 +298,7 @@ class _Header extends StatelessWidget {
   final VoidCallback onRefresh;
   final VoidCallback onAdd;
 
-  const _Header({
-    required this.onRefresh,
-    required this.onAdd,
-  });
+  const _Header({required this.onRefresh, required this.onAdd});
 
   @override
   Widget build(BuildContext context) {
@@ -498,7 +496,10 @@ class _DeviceCard extends StatelessWidget {
               // Row 3: IP 和端口 (Pixso 1:2950, 11.6sp 注释文本)
               Text(
                 '${device.ip}:${device.port}',
-                style: const TextStyle(fontSize: 11.6, color: Color(0xFF8E8E93)),
+                style: const TextStyle(
+                  fontSize: 11.6,
+                  color: Color(0xFF8E8E93),
+                ),
               ),
               const SizedBox(height: 10),
               // Row 4: 状态胶囊 (Pixso 1:2962, 灰底圆角胶囊)
@@ -536,20 +537,24 @@ class _StatusRow extends StatelessWidget {
   Widget build(BuildContext context) {
     const style = TextStyle(fontSize: 11.6, color: Color(0xFF6750A4));
     const sep = TextStyle(fontSize: 11.6, color: Color(0xFF000000));
-    final signal =
-        device.signalDbm != null ? '信号强度 ${device.signalDbm}' : '信号强度 --';
-    final battery =
-        device.batteryLevel != null ? '电量 ${device.batteryLevel}%' : '电量 --';
-    final latency =
-        device.latencyMs > 0 ? '延迟 ${device.latencyMs}' : '延迟 --';
+    final signal = device.signalDbm != null
+        ? '信号强度 ${device.signalDbm}'
+        : '信号强度 --';
+    final battery = device.batteryLevel != null
+        ? '电量 ${device.batteryLevel}%'
+        : '电量 --';
+    final latency = device.latencyMs > 0 ? '延迟 ${device.latencyMs}' : '延迟 --';
     return Text.rich(
-      TextSpan(style: style, children: [
-        TextSpan(text: signal),
-        const TextSpan(text: ' | ', style: sep),
-        TextSpan(text: battery),
-        const TextSpan(text: ' ▎', style: sep),
-        TextSpan(text: latency),
-      ]),
+      TextSpan(
+        style: style,
+        children: [
+          TextSpan(text: signal),
+          const TextSpan(text: ' | ', style: sep),
+          TextSpan(text: battery),
+          const TextSpan(text: ' ▎', style: sep),
+          TextSpan(text: latency),
+        ],
+      ),
     );
   }
 }

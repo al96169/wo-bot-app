@@ -60,7 +60,8 @@ class RobotDevice {
       ip: json['ip'] as String,
       port: json['port'] as int,
       serviceName: json['serviceName'] as String,
-      capabilities: (json['capabilities'] as List<dynamic>?)
+      capabilities:
+          (json['capabilities'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],

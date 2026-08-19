@@ -17,14 +17,23 @@ void main() {
     final uiStore = container.read(robotDataProvider.notifier);
 
     // 两者必须是同一实例（关键断言）
-    expect(identical(manager.dataStore, uiStore), isTrue,
-        reason: 'ConnectionManager 与 UI 必须共享同一 RobotDataStore，否则日志/状态不同步');
+    expect(
+      identical(manager.dataStore, uiStore),
+      isTrue,
+      reason: 'ConnectionManager 与 UI 必须共享同一 RobotDataStore，否则日志/状态不同步',
+    );
 
     // ConnectionManager 更新 logs → UI 立即可读
     manager.dataStore.updateLogs({
       'mode': 'tail',
       'logs': [
-        {'line_no': 1, 'timestamp': 't', 'level': 'INFO', 'source': 'wobot', 'message': '共享实例测试'},
+        {
+          'line_no': 1,
+          'timestamp': 't',
+          'level': 'INFO',
+          'source': 'wobot',
+          'message': '共享实例测试',
+        },
       ],
     }, mode: 'tail');
 

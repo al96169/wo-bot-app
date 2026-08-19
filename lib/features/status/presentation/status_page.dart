@@ -40,7 +40,7 @@ class StatusPage extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => manager.sendGetStatus(),
+            onPressed: manager.sendGetStatus,
           ),
         ],
       ),
@@ -52,47 +52,51 @@ class StatusPage extends ConsumerWidget {
             title: '运行状态',
             icon: Icons.dashboard,
             children: [
-              _StatusGrid(children: [
-                _MetricTile(
-                  icon: Icons.battery_charging_full,
-                  label: '电池电量',
-                  value: '${system.batteryLevel.toStringAsFixed(0)}%',
-                  color: _batteryColor(system.batteryLevel),
-                  subtitle: system.batteryCharging ? '充电中' : '使用中',
-                ),
-                _MetricTile(
-                  icon: Icons.wifi,
-                  label: 'WiFi',
-                  value: system.wifiSSID ?? '未知',
-                  color: _wifiColor(system.wifiSignal),
-                  subtitle: _wifiSignalText(system.wifiSignal),
-                ),
-                _MetricTile(
-                  icon: Icons.memory,
-                  label: 'CPU',
-                  value: '${system.cpuUsage.toStringAsFixed(1)}%',
-                  color: _usageColor(system.cpuUsage),
-                  subtitle: system.cpuTemp != null ? '${system.cpuTemp!.toStringAsFixed(0)}°C' : null,
-                ),
-                _MetricTile(
-                  icon: Icons.storage,
-                  label: '内存',
-                  value: '${system.memoryUsage.toStringAsFixed(1)}%',
-                  color: _usageColor(system.memoryUsage),
-                ),
-                _MetricTile(
-                  icon: Icons.sd_storage,
-                  label: '磁盘',
-                  value: '${system.diskUsage.toStringAsFixed(1)}%',
-                  color: _usageColor(system.diskUsage),
-                ),
-                _MetricTile(
-                  icon: Icons.timer,
-                  label: '运行时间',
-                  value: _uptimeText(system.uptime),
-                  color: AppColors.primary,
-                ),
-              ]),
+              _StatusGrid(
+                children: [
+                  _MetricTile(
+                    icon: Icons.battery_charging_full,
+                    label: '电池电量',
+                    value: '${system.batteryLevel.toStringAsFixed(0)}%',
+                    color: _batteryColor(system.batteryLevel),
+                    subtitle: system.batteryCharging ? '充电中' : '使用中',
+                  ),
+                  _MetricTile(
+                    icon: Icons.wifi,
+                    label: 'WiFi',
+                    value: system.wifiSSID ?? '未知',
+                    color: _wifiColor(system.wifiSignal),
+                    subtitle: _wifiSignalText(system.wifiSignal),
+                  ),
+                  _MetricTile(
+                    icon: Icons.memory,
+                    label: 'CPU',
+                    value: '${system.cpuUsage.toStringAsFixed(1)}%',
+                    color: _usageColor(system.cpuUsage),
+                    subtitle: system.cpuTemp != null
+                        ? '${system.cpuTemp!.toStringAsFixed(0)}°C'
+                        : null,
+                  ),
+                  _MetricTile(
+                    icon: Icons.storage,
+                    label: '内存',
+                    value: '${system.memoryUsage.toStringAsFixed(1)}%',
+                    color: _usageColor(system.memoryUsage),
+                  ),
+                  _MetricTile(
+                    icon: Icons.sd_storage,
+                    label: '磁盘',
+                    value: '${system.diskUsage.toStringAsFixed(1)}%',
+                    color: _usageColor(system.diskUsage),
+                  ),
+                  _MetricTile(
+                    icon: Icons.timer,
+                    label: '运行时间',
+                    value: _uptimeText(system.uptime),
+                    color: AppColors.primary,
+                  ),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -112,32 +116,36 @@ class StatusPage extends ConsumerWidget {
             title: '环境信息',
             icon: Icons.thermostat,
             children: [
-              _StatusGrid(children: [
-                _MetricTile(
-                  icon: Icons.thermostat,
-                  label: '温度',
-                  value: system.cpuTemp != null ? '${system.cpuTemp!.toStringAsFixed(1)}°C' : '--',
-                  color: AppColors.primary,
-                ),
-                _MetricTile(
-                  icon: Icons.water_drop,
-                  label: '湿度',
-                  value: '--',
-                  color: Colors.blue,
-                ),
-                _MetricTile(
-                  icon: Icons.gas_meter,
-                  label: '燃气',
-                  value: '--',
-                  color: Colors.green,
-                ),
-                _MetricTile(
-                  icon: Icons.light_mode,
-                  label: '光照',
-                  value: '--',
-                  color: Colors.amber,
-                ),
-              ]),
+              _StatusGrid(
+                children: [
+                  _MetricTile(
+                    icon: Icons.thermostat,
+                    label: '温度',
+                    value: system.cpuTemp != null
+                        ? '${system.cpuTemp!.toStringAsFixed(1)}°C'
+                        : '--',
+                    color: AppColors.primary,
+                  ),
+                  const _MetricTile(
+                    icon: Icons.water_drop,
+                    label: '湿度',
+                    value: '--',
+                    color: Colors.blue,
+                  ),
+                  const _MetricTile(
+                    icon: Icons.gas_meter,
+                    label: '燃气',
+                    value: '--',
+                    color: Colors.green,
+                  ),
+                  const _MetricTile(
+                    icon: Icons.light_mode,
+                    label: '光照',
+                    value: '--',
+                    color: Colors.amber,
+                  ),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -159,36 +167,50 @@ class StatusPage extends ConsumerWidget {
 
   List<Widget> _buildDeviceDetails(Map<String, dynamic> info) {
     final fields = <String, String>{};
-    if (info['robot_id'] != null) fields['机器人 ID'] = info['robot_id'].toString();
+    if (info['robot_id'] != null) {
+      fields['机器人 ID'] = info['robot_id'].toString();
+    }
     if (info['name'] != null) fields['名称'] = info['name'].toString();
     if (info['model'] != null) fields['型号'] = info['model'].toString();
     if (info['version'] != null) fields['版本'] = info['version'].toString();
-    if (info['serialNumber'] != null) fields['序列号'] = info['serialNumber'].toString();
-    if (info['firmwareVersion'] != null) fields['固件版本'] = info['firmwareVersion'].toString();
-    if (info['sdkVersion'] != null) fields['SDK 版本'] = info['sdkVersion'].toString();
+    if (info['serialNumber'] != null) {
+      fields['序列号'] = info['serialNumber'].toString();
+    }
+    if (info['firmwareVersion'] != null) {
+      fields['固件版本'] = info['firmwareVersion'].toString();
+    }
+    if (info['sdkVersion'] != null) {
+      fields['SDK 版本'] = info['sdkVersion'].toString();
+    }
     if (info['os'] != null) fields['操作系统'] = info['os'].toString();
     if (info['hostname'] != null) fields['主机名'] = info['hostname'].toString();
 
-    return fields.entries.map((e) => _DetailRow(label: e.key, value: e.value)).toList();
+    return fields.entries
+        .map((e) => _DetailRow(label: e.key, value: e.value))
+        .toList();
   }
 
   List<Widget> _buildSubsystems(RobotDataStore data) {
     final items = <Widget>[];
     for (final m in data.modules) {
-      items.add(_SubsystemTile(
-        name: m.name,
-        status: m.status,
-        version: m.version,
-        enabled: m.enabled,
-      ));
+      items.add(
+        _SubsystemTile(
+          name: m.name,
+          status: m.status,
+          version: m.version,
+          enabled: m.enabled,
+        ),
+      );
     }
     for (final s in data.services) {
-      items.add(_SubsystemTile(
-        name: s.name,
-        status: s.status,
-        version: '',
-        enabled: s.status == 'running',
-      ));
+      items.add(
+        _SubsystemTile(
+          name: s.name,
+          status: s.status,
+          version: '',
+          enabled: s.status == 'running',
+        ),
+      );
     }
     return items;
   }
@@ -233,7 +255,11 @@ class _StatusCard extends StatelessWidget {
   final IconData icon;
   final List<Widget> children;
 
-  const _StatusCard({required this.title, required this.icon, required this.children});
+  const _StatusCard({
+    required this.title,
+    required this.icon,
+    required this.children,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -247,10 +273,13 @@ class _StatusCard extends StatelessWidget {
               children: [
                 Icon(icon, size: 18, color: AppColors.primary),
                 const SizedBox(width: 8),
-                Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                )),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -272,7 +301,14 @@ class _StatusGrid extends StatelessWidget {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: children.map((c) => SizedBox(width: (MediaQuery.of(context).size.width - 64) / 2, child: c)).toList(),
+      children: children
+          .map(
+            (c) => SizedBox(
+              width: (MediaQuery.of(context).size.width - 64) / 2,
+              child: c,
+            ),
+          )
+          .toList(),
     );
   }
 }
@@ -309,10 +345,30 @@ class _MetricTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: color), overflow: TextOverflow.ellipsis),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
                 if (subtitle != null)
-                  Text(subtitle!, style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+                  Text(
+                    subtitle!,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -333,9 +389,27 @@ class _DetailRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          SizedBox(width: 80, child: Text(label, style: TextStyle(fontSize: 13, color: AppColors.textSecondary))),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
-          Icon(Icons.copy, size: 14, color: AppColors.textSecondary.withValues(alpha: 0.5)),
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+          ),
+          Icon(
+            Icons.copy,
+            size: 14,
+            color: AppColors.textSecondary.withValues(alpha: 0.5),
+          ),
         ],
       ),
     );
@@ -348,7 +422,12 @@ class _SubsystemTile extends StatelessWidget {
   final String version;
   final bool enabled;
 
-  const _SubsystemTile({required this.name, required this.status, required this.version, required this.enabled});
+  const _SubsystemTile({
+    required this.name,
+    required this.status,
+    required this.version,
+    required this.enabled,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -361,8 +440,22 @@ class _SubsystemTile extends StatelessWidget {
         size: 20,
       ),
       title: Text(name, style: const TextStyle(fontSize: 13)),
-      subtitle: version.isNotEmpty ? Text('v$version', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)) : null,
-      trailing: Text(status, style: TextStyle(fontSize: 11, color: isOnline ? Colors.green : AppColors.error)),
+      subtitle: version.isNotEmpty
+          ? Text(
+              'v$version',
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.textSecondary,
+              ),
+            )
+          : null,
+      trailing: Text(
+        status,
+        style: TextStyle(
+          fontSize: 11,
+          color: isOnline ? Colors.green : AppColors.error,
+        ),
+      ),
     );
   }
 }

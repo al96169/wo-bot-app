@@ -15,8 +15,8 @@ Future<AccountService> _loggedInService(MockClient client) async {
     'wobot_access_token': 'test-access-token',
     'wobot_refresh_token': 'test-refresh-token',
     'wobot_token_expires_at': DateTime.now()
-            .add(const Duration(hours: 1))
-            .millisecondsSinceEpoch,
+        .add(const Duration(hours: 1))
+        .millisecondsSinceEpoch,
   });
   final service = AccountService.instance;
   // 重置单例状态，避免跨测试残留

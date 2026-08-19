@@ -25,8 +25,9 @@ Widget _wrap(RobotDataStore store, {ConnectionManager? manager}) =>
     ProviderScope(
       overrides: [
         robotDataProvider.overrideWith((ref) => store),
-        connectionManagerProvider
-            .overrideWith((ref) => manager ?? _FakeConnectionManager()),
+        connectionManagerProvider.overrideWith(
+          (ref) => manager ?? _FakeConnectionManager(),
+        ),
       ],
       child: const MaterialApp(home: MessagesPage()),
     );
@@ -40,24 +41,27 @@ RobotMessage _msg({
   bool read = false,
   String severity = 'info',
   DateTime? time,
-}) =>
-    RobotMessage(
-      id: id,
-      subject: subject,
-      time: time ?? DateTime(2026, 8, 19, 10, 30),
-      summary: summary,
-      body: body,
-      read: read,
-      source: source,
-      severity: severity,
-    );
+}) => RobotMessage(
+  id: id,
+  subject: subject,
+  time: time ?? DateTime(2026, 8, 19, 10, 30),
+  summary: summary,
+  body: body,
+  read: read,
+  source: source,
+  severity: severity,
+);
 
 void main() {
   testWidgets('消息列表显示机器人推送的消息与空状态', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final store = RobotDataStore();
-    store.addMessage(_msg(id: 'm1', subject: '设备固件更新通知', body: '固件已更新至 v2.1.0'));
-    store.addMessage(_msg(id: 'm2', subject: '低电量提醒', body: '电量低于 20%', read: true));
+    store.addMessage(
+      _msg(id: 'm1', subject: '设备固件更新通知', body: '固件已更新至 v2.1.0'),
+    );
+    store.addMessage(
+      _msg(id: 'm2', subject: '低电量提醒', body: '电量低于 20%', read: true),
+    );
 
     await tester.pumpWidget(_wrap(store));
     await tester.pump(const Duration(milliseconds: 500));
@@ -93,12 +97,14 @@ void main() {
   testWidgets('点击消息 → 详情显示正文，标记未读生效', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final store = RobotDataStore();
-    store.addMessage(_msg(
-      id: 'm1',
-      subject: '设备固件更新通知',
-      body: '固件已更新至 v2.1.0，新增云台自动校准功能',
-      source: 'ota',
-    ));
+    store.addMessage(
+      _msg(
+        id: 'm1',
+        subject: '设备固件更新通知',
+        body: '固件已更新至 v2.1.0，新增云台自动校准功能',
+        source: 'ota',
+      ),
+    );
 
     await tester.pumpWidget(_wrap(store));
     await tester.pump(const Duration(milliseconds: 500));

@@ -1,5 +1,6 @@
 /// 完整协议测试 — 测试 web-debug 的全部 80+ 消息类型
 /// 对比 web-debug 的 handleSignalingMessage，确保 App 实现了所有消息处理
+library;
 import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
@@ -131,7 +132,7 @@ Future<void> main(List<String> args) async {
       try { msgs.add(jsonDecode(data as String)); } catch (_) {}
     });
     
-    await Future.delayed(Duration(seconds: 2));
+    await Future.delayed(const Duration(seconds: 2));
     check('收到消息', msgs.isNotEmpty, 'got ${msgs.length} messages');
     
     if (msgs.isNotEmpty) {
@@ -167,7 +168,7 @@ Future<void> main(List<String> args) async {
           'method': 'display',
         }));
         
-        await Future.delayed(Duration(seconds: 1));
+        await Future.delayed(const Duration(seconds: 1));
         
         final ack = msgs.firstWhere(
           (m) => m['type'] == 'bind_request_ack',
@@ -190,7 +191,7 @@ Future<void> main(List<String> args) async {
             'randomCode': code.toString(),
           }));
           
-          await Future.delayed(Duration(seconds: 1));
+          await Future.delayed(const Duration(seconds: 1));
           
           final success = msgs.any((m) => m['type'] == 'bind_success');
           check('收到 bind_success', success);
@@ -212,7 +213,7 @@ Future<void> main(List<String> args) async {
           'method': 'gimbal',
         }));
         
-        await Future.delayed(Duration(seconds: 1));
+        await Future.delayed(const Duration(seconds: 1));
         
         final ack = msgs.any((m) => m['type'] == 'bind_request_ack');
         check('收到 bind_request_ack (gimbal)', ack);
@@ -224,7 +225,7 @@ Future<void> main(List<String> args) async {
           'sequence': ['up', 'down', 'left', 'right'],
         }));
         
-        await Future.delayed(Duration(seconds: 1));
+        await Future.delayed(const Duration(seconds: 1));
         
         final result = msgs.any((m) => m['type'] == 'bind_success' || m['type'] == 'bind_failed');
         check('收到绑定结果 (success 或 failed)', result);
@@ -240,14 +241,14 @@ Future<void> main(List<String> args) async {
         'clientId': 'test-client-001',
         'method': 'display',
       }));
-      await Future.delayed(Duration(seconds: 1));
+      await Future.delayed(const Duration(seconds: 1));
       
       ws.add(jsonEncode({
         'type': 'bind_verify',
         'requestToken': rt,
         'randomCode': '000000',
       }));
-      await Future.delayed(Duration(seconds: 1));
+      await Future.delayed(const Duration(seconds: 1));
       
       final bindFailed = msgs.any((m) => m['type'] == 'bind_failed');
       check('错误验证码 → bind_failed', bindFailed);
@@ -262,35 +263,35 @@ Future<void> main(List<String> args) async {
       // ping
       msgs.clear();
       ws.add(jsonEncode({'type': 'ping'}));
-      await Future.delayed(Duration(seconds: 1));
+      await Future.delayed(const Duration(seconds: 1));
       check('ping → pong', msgs.any((m) => m['type'] == 'pong'));
       
       // get_status
       msgs.clear();
       ws.add(jsonEncode({'type': 'get_status'}));
-      await Future.delayed(Duration(seconds: 1));
+      await Future.delayed(const Duration(seconds: 1));
       check('get_status → status', msgs.any((m) => m['type'] == 'status'));
       
       // motion
       ws.add(jsonEncode({'type': 'motion', 'payload': {'v_x': 0.5, 'v_y': 0.0, 'v_z': 0.0}}));
-      await Future.delayed(Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 500));
       check('motion 命令发送', true);
       
       // motion_stop
       ws.add(jsonEncode({'type': 'motion_stop'}));
-      await Future.delayed(Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 500));
       check('motion_stop 命令发送', true);
       
       // gimbal
       ws.add(jsonEncode({'type': 'gimbal', 'payload': {'pan': 90.0, 'tilt': 45.0}}));
-      await Future.delayed(Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 500));
       check('gimbal 命令发送', true);
       
       // 多次 ping (心跳)
       msgs.clear();
       for (int i = 0; i < 3; i++) {
         ws.add(jsonEncode({'type': 'ping'}));
-        await Future.delayed(Duration(milliseconds: 300));
+        await Future.delayed(const Duration(milliseconds: 300));
       }
       final pongCount = msgs.where((m) => m['type'] == 'pong').length;
       check('心跳 3x ping → 3x pong', pongCount >= 3, 'got $pongCount pongs');

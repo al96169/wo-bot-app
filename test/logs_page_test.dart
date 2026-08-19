@@ -29,8 +29,20 @@ void main() {
     store.updateLogs({
       'mode': 'tail',
       'logs': [
-        {'line_no': 101, 'timestamp': '2026-08-19 10:00:00', 'level': 'info', 'source': 'system', 'message': '启动完成'},
-        {'line_no': 102, 'timestamp': '2026-08-19 10:00:01', 'level': 'warning', 'source': 'camera', 'message': '温度偏高'},
+        {
+          'line_no': 101,
+          'timestamp': '2026-08-19 10:00:00',
+          'level': 'info',
+          'source': 'system',
+          'message': '启动完成',
+        },
+        {
+          'line_no': 102,
+          'timestamp': '2026-08-19 10:00:01',
+          'level': 'warning',
+          'source': 'camera',
+          'message': '温度偏高',
+        },
       ],
       'has_more': false,
     }, mode: 'tail');
@@ -39,7 +51,9 @@ void main() {
       ProviderScope(
         overrides: [
           robotDataProvider.overrideWith((ref) => store),
-          connectionManagerProvider.overrideWith((ref) => _FakeConnectionManager()),
+          connectionManagerProvider.overrideWith(
+            (ref) => _FakeConnectionManager(),
+          ),
         ],
         child: const MaterialApp(home: LogsPage()),
       ),
@@ -66,7 +80,9 @@ void main() {
       ProviderScope(
         overrides: [
           robotDataProvider.overrideWith((ref) => store),
-          connectionManagerProvider.overrideWith((ref) => _FakeConnectionManager()),
+          connectionManagerProvider.overrideWith(
+            (ref) => _FakeConnectionManager(),
+          ),
         ],
         child: const MaterialApp(home: LogsPage()),
       ),

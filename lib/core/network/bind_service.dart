@@ -249,8 +249,9 @@ class BindService {
       methods = rawMethods
           .map((m) {
             if (m is String) return BindMethodExt.fromServer(m);
-            if (m is Map)
+            if (m is Map) {
               return BindMethodExt.fromServer(m['id'] as String? ?? '');
+            }
             return BindMethod.password;
           })
           .where((m) => m != BindMethod.shareCode)

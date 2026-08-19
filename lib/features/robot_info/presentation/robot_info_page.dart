@@ -41,13 +41,22 @@ class RobotInfoPage extends ConsumerWidget {
                   height: 8,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: connState == ConnState.connected ? Colors.green : Colors.orange,
+                    color: connState == ConnState.connected
+                        ? Colors.green
+                        : Colors.orange,
                   ),
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  connState == ConnState.connected ? '已连接' : connState == ConnState.binding ? '认证中' : '连接中',
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  connState == ConnState.connected
+                      ? '已连接'
+                      : connState == ConnState.binding
+                      ? '认证中'
+                      : '连接中',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -77,19 +86,25 @@ class RobotInfoPage extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () => Navigator.pushNamed(context, '/remote-control'),
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/remote-control'),
                         icon: const Icon(Icons.gamepad),
                         label: const Text('遥控'),
-                        style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () => Navigator.pushNamed(context, '/status'),
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/status'),
                         icon: const Icon(Icons.dashboard),
                         label: const Text('状态'),
-                        style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
                       ),
                     ),
                   ],
@@ -100,7 +115,12 @@ class RobotInfoPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildContent(BuildContext context, SystemStatusData system, Map<String, dynamic>? robotInfo, WidgetRef ref) {
+  Widget _buildContent(
+    BuildContext context,
+    SystemStatusData system,
+    Map<String, dynamic>? robotInfo,
+    WidgetRef ref,
+  ) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -111,31 +131,54 @@ class RobotInfoPage extends ConsumerWidget {
             child: Row(
               children: [
                 Container(
-                  width: 72, height: 72,
+                  width: 72,
+                  height: 72,
                   decoration: BoxDecoration(
-                    color: _batteryColor(system.batteryLevel).withValues(alpha: 0.15),
+                    color: _batteryColor(
+                      system.batteryLevel,
+                    ).withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    system.batteryCharging ? Icons.battery_charging_full : Icons.battery_full,
-                    size: 40, color: _batteryColor(system.batteryLevel),
+                    system.batteryCharging
+                        ? Icons.battery_charging_full
+                        : Icons.battery_full,
+                    size: 40,
+                    color: _batteryColor(system.batteryLevel),
                   ),
                 ),
                 const SizedBox(width: 20),
-                Expanded(child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('电池', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: AppColors.textSecondary)),
-                    const SizedBox(height: 4),
-                    Text('${system.batteryLevel.toStringAsFixed(0)}%',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: _batteryColor(system.batteryLevel), fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text(system.batteryCharging ? '充电中 ⚡' : '使用中',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: system.batteryCharging ? _batteryColor(system.batteryLevel) : AppColors.textSecondary)),
-                  ],
-                )),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '电池',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${system.batteryLevel.toStringAsFixed(0)}%',
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(
+                              color: _batteryColor(system.batteryLevel),
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        system.batteryCharging ? '充电中 ⚡' : '使用中',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: system.batteryCharging
+                              ? _batteryColor(system.batteryLevel)
+                              : AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -149,13 +192,30 @@ class RobotInfoPage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('系统资源', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: AppColors.textSecondary)),
+                Text(
+                  '系统资源',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
                 const SizedBox(height: 16),
-                _ResourceBar(label: 'CPU', value: system.cpuUsage, color: _usageColor(system.cpuUsage)),
+                _ResourceBar(
+                  label: 'CPU',
+                  value: system.cpuUsage,
+                  color: _usageColor(system.cpuUsage),
+                ),
                 const SizedBox(height: 12),
-                _ResourceBar(label: '内存', value: system.memoryUsage, color: _usageColor(system.memoryUsage)),
+                _ResourceBar(
+                  label: '内存',
+                  value: system.memoryUsage,
+                  color: _usageColor(system.memoryUsage),
+                ),
                 const SizedBox(height: 12),
-                _ResourceBar(label: '磁盘', value: system.diskUsage, color: _usageColor(system.diskUsage)),
+                _ResourceBar(
+                  label: '磁盘',
+                  value: system.diskUsage,
+                  color: _usageColor(system.diskUsage),
+                ),
               ],
             ),
           ),
@@ -169,22 +229,54 @@ class RobotInfoPage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('网络', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: AppColors.textSecondary)),
+                Text(
+                  '网络',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
                 const SizedBox(height: 16),
                 if (system.wifiSSID != null)
-                  Row(children: [
-                    Icon(Icons.wifi, size: 20, color: _wifiColor(system.wifiSignal)),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text(system.wifiSSID!, style: Theme.of(context).textTheme.bodyLarge)),
-                    Text(_wifiSignalText(system.wifiSignal), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _wifiColor(system.wifiSignal))),
-                  ]),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.wifi,
+                        size: 20,
+                        color: _wifiColor(system.wifiSignal),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          system.wifiSSID!,
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                      ),
+                      Text(
+                        _wifiSignalText(system.wifiSignal),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: _wifiColor(system.wifiSignal),
+                        ),
+                      ),
+                    ],
+                  ),
                 const SizedBox(height: 8),
                 if (system.ip != null)
-                  Row(children: [
-                    const Icon(Icons.language, size: 20, color: AppColors.textSecondary),
-                    const SizedBox(width: 12),
-                    Text('IP: ${system.ip}', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
-                  ]),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.language,
+                        size: 20,
+                        color: AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'IP: ${system.ip}',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),
@@ -199,10 +291,18 @@ class RobotInfoPage extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('设备信息', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: AppColors.textSecondary)),
+                  Text(
+                    '设备信息',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   if (robotInfo['robot_id'] != null)
-                    _InfoRow(label: '机器人 ID', value: '${robotInfo['robot_id']}'),
+                    _InfoRow(
+                      label: '机器人 ID',
+                      value: '${robotInfo['robot_id']}',
+                    ),
                   if (robotInfo['model'] != null) ...[
                     const SizedBox(height: 8),
                     _InfoRow(label: '型号', value: '${robotInfo['model']}'),
@@ -265,27 +365,46 @@ class _ResourceBar extends StatelessWidget {
   final String label;
   final double value;
   final Color color;
-  const _ResourceBar({required this.label, required this.value, required this.color});
+  const _ResourceBar({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Row(children: [
-      SizedBox(width: 40, child: Text(label, style: Theme.of(context).textTheme.bodyMedium)),
-      const SizedBox(width: 12),
-      Expanded(child: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: LinearProgressIndicator(
-          value: value / 100.0,
-          backgroundColor: AppColors.divider,
-          valueColor: AlwaysStoppedAnimation(color),
-          minHeight: 8,
+    return Row(
+      children: [
+        SizedBox(
+          width: 40,
+          child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
         ),
-      )),
-      const SizedBox(width: 12),
-      SizedBox(width: 50, child: Text('${value.toStringAsFixed(1)}%',
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: color, fontWeight: FontWeight.w600),
-        textAlign: TextAlign.right)),
-    ]);
+        const SizedBox(width: 12),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: value / 100.0,
+              backgroundColor: AppColors.divider,
+              valueColor: AlwaysStoppedAnimation(color),
+              minHeight: 8,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 50,
+          child: Text(
+            '${value.toStringAsFixed(1)}%',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.right,
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -296,10 +415,22 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(children: [
-      Text(label, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
-      const Spacer(),
-      Text(value, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-    ]);
+    return Row(
+      children: [
+        Text(
+          label,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+        ),
+        const Spacer(),
+        Text(
+          value,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+      ],
+    );
   }
 }

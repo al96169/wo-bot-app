@@ -39,6 +39,7 @@ class _BindViewState extends ConsumerState<BindView> {
         if (mounted) setState(() {});
       };
   }
+
   @override
   void dispose() {
     _codeController.dispose();
@@ -53,15 +54,24 @@ class _BindViewState extends ConsumerState<BindView> {
   @override
   Widget build(BuildContext context) {
     switch (_bind.step) {
-      case BindStep.select: return _buildMethodSelect();
-      case BindStep.display: return _buildCodeInput('屏幕显示配对数字', 6, '查看机器人屏幕上的数字并输入');
-      case BindStep.tts: return _buildCodeInput('语音播报配对数字', 4, '听取机器人播报的数字并输入');
-      case BindStep.gimbal: return _buildGimbalInput();
-      case BindStep.shareCode: return _buildShareCodeInput();
-      case BindStep.password: return _buildPasswordInput();
-      case BindStep.verifying: return _buildVerifying();
-      case BindStep.success: return _buildSuccess();
-      case BindStep.failed: return _buildFailed();
+      case BindStep.select:
+        return _buildMethodSelect();
+      case BindStep.display:
+        return _buildCodeInput('屏幕显示配对数字', 6, '查看机器人屏幕上的数字并输入');
+      case BindStep.tts:
+        return _buildCodeInput('语音播报配对数字', 4, '听取机器人播报的数字并输入');
+      case BindStep.gimbal:
+        return _buildGimbalInput();
+      case BindStep.shareCode:
+        return _buildShareCodeInput();
+      case BindStep.password:
+        return _buildPasswordInput();
+      case BindStep.verifying:
+        return _buildVerifying();
+      case BindStep.success:
+        return _buildSuccess();
+      case BindStep.failed:
+        return _buildFailed();
     }
   }
 
@@ -77,18 +87,26 @@ class _BindViewState extends ConsumerState<BindView> {
       children: [
         const Padding(
           padding: EdgeInsets.all(16),
-          child: Text('选择认证方式', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          child: Text(
+            '选择认证方式',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
         ),
-        ...methods.map((m) => _MethodCard(
-          icon: m.icon,
-          title: m.label,
-          subtitle: m.description,
-          onTap: () => _onSelectMethod(m),
-        )),
+        ...methods.map(
+          (m) => _MethodCard(
+            icon: m.icon,
+            title: m.label,
+            subtitle: m.description,
+            onTap: () => _onSelectMethod(m),
+          ),
+        ),
         if (_bind.errorMessage.isNotEmpty)
           Padding(
             padding: const EdgeInsets.all(8),
-            child: Text(_bind.errorMessage, style: const TextStyle(color: AppColors.error, fontSize: 13)),
+            child: Text(
+              _bind.errorMessage,
+              style: const TextStyle(color: AppColors.error, fontSize: 13),
+            ),
           ),
       ],
     );
@@ -96,7 +114,9 @@ class _BindViewState extends ConsumerState<BindView> {
 
   void _onSelectMethod(BindMethod method) {
     _bind.selectMethod(method);
-    if (method == BindMethod.shareCode) return; // share_code doesn't need bind_request
+    if (method == BindMethod.shareCode) {
+      return; // share_code doesn't need bind_request
+    }
 
     // 对齐 web-debug selectMethod：发送 bind_request 后 isSubmitting 保持 false，
     // 确认按钮保持可用，等待用户输入验证码后再提交（提交时才置 true）
@@ -114,9 +134,21 @@ class _BindViewState extends ConsumerState<BindView> {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 8),
-              Text(hint, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+              Text(
+                hint,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
+              ),
             ],
           ),
         ),
@@ -146,7 +178,11 @@ class _BindViewState extends ConsumerState<BindView> {
             ElevatedButton(
               onPressed: _bind.isSubmitting ? null : _submitCode,
               child: _bind.isSubmitting
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Text('确认'),
             ),
           ],
@@ -154,7 +190,10 @@ class _BindViewState extends ConsumerState<BindView> {
         if (_bind.errorMessage.isNotEmpty)
           Padding(
             padding: const EdgeInsets.all(8),
-            child: Text(_bind.errorMessage, style: const TextStyle(color: AppColors.error)),
+            child: Text(
+              _bind.errorMessage,
+              style: const TextStyle(color: AppColors.error),
+            ),
           ),
       ],
     );
@@ -178,9 +217,15 @@ class _BindViewState extends ConsumerState<BindView> {
           padding: EdgeInsets.all(16),
           child: Column(
             children: [
-              Text('云台动作认证', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(
+                '云台动作认证',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
               SizedBox(height: 8),
-              Text('观察云台转动方向，依次点击对应方向', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+              Text(
+                '观察云台转动方向，依次点击对应方向',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
             ],
           ),
         ),
@@ -190,15 +235,26 @@ class _BindViewState extends ConsumerState<BindView> {
           children: List.generate(BindService.gimbalSequenceLength, (i) {
             final filled = i < inputs.length;
             return Container(
-              width: 48, height: 48,
+              width: 48,
+              height: 48,
               margin: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
-                border: Border.all(color: filled ? AppColors.primary : AppColors.divider, width: 2),
+                border: Border.all(
+                  color: filled ? AppColors.primary : AppColors.divider,
+                  width: 2,
+                ),
                 borderRadius: BorderRadius.circular(8),
-                color: filled ? AppColors.primary.withValues(alpha: 0.15) : null,
+                color: filled
+                    ? AppColors.primary.withValues(alpha: 0.15)
+                    : null,
               ),
               child: filled
-                  ? Center(child: Text(_dirIcon(inputs[i]), style: const TextStyle(fontSize: 20)))
+                  ? Center(
+                      child: Text(
+                        _dirIcon(inputs[i]),
+                        style: const TextStyle(fontSize: 20),
+                      ),
+                    )
                   : null,
             );
           }),
@@ -243,7 +299,10 @@ class _BindViewState extends ConsumerState<BindView> {
         if (_bind.errorMessage.isNotEmpty)
           Padding(
             padding: const EdgeInsets.all(8),
-            child: Text(_bind.errorMessage, style: const TextStyle(color: AppColors.error)),
+            child: Text(
+              _bind.errorMessage,
+              style: const TextStyle(color: AppColors.error),
+            ),
           ),
       ],
     );
@@ -262,11 +321,16 @@ class _BindViewState extends ConsumerState<BindView> {
 
   String _dirIcon(String dir) {
     switch (dir) {
-      case 'up': return '↑';
-      case 'down': return '↓';
-      case 'left': return '←';
-      case 'right': return '→';
-      default: return '?';
+      case 'up':
+        return '↑';
+      case 'down':
+        return '↓';
+      case 'left':
+        return '←';
+      case 'right':
+        return '→';
+      default:
+        return '?';
     }
   }
 
@@ -279,9 +343,15 @@ class _BindViewState extends ConsumerState<BindView> {
           padding: EdgeInsets.all(16),
           child: Column(
             children: [
-              Text('输入绑定码', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(
+                '输入绑定码',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
               SizedBox(height: 8),
-              Text('输入从其他设备获取的 6 位分享码', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+              Text(
+                '输入从其他设备获取的 6 位分享码',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
             ],
           ),
         ),
@@ -292,7 +362,10 @@ class _BindViewState extends ConsumerState<BindView> {
             maxLength: 6,
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 32, letterSpacing: 8),
-            decoration: const InputDecoration(counterText: '', border: OutlineInputBorder()),
+            decoration: const InputDecoration(
+              counterText: '',
+              border: OutlineInputBorder(),
+            ),
           ),
         ),
         const SizedBox(height: 16),
@@ -305,15 +378,21 @@ class _BindViewState extends ConsumerState<BindView> {
             ),
             const SizedBox(width: 16),
             ElevatedButton(
-              onPressed: _bind.isSubmitting ? null : () {
-                final code = _shareCodeController.text.trim();
-                if (code.isEmpty) return;
-                _bind.setVerifying();
-                final msg = _bind.buildBindShareUse(code);
-                ref.read(connectionManagerProvider.notifier).sendRaw(msg);
-              },
+              onPressed: _bind.isSubmitting
+                  ? null
+                  : () {
+                      final code = _shareCodeController.text.trim();
+                      if (code.isEmpty) return;
+                      _bind.setVerifying();
+                      final msg = _bind.buildBindShareUse(code);
+                      ref.read(connectionManagerProvider.notifier).sendRaw(msg);
+                    },
               child: _bind.isSubmitting
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Text('绑定'),
             ),
           ],
@@ -329,7 +408,10 @@ class _BindViewState extends ConsumerState<BindView> {
       children: [
         const Padding(
           padding: EdgeInsets.all(16),
-          child: Text('密码绑定', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          child: Text(
+            '密码绑定',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -352,13 +434,15 @@ class _BindViewState extends ConsumerState<BindView> {
             ),
             const SizedBox(width: 16),
             ElevatedButton(
-              onPressed: _bind.isSubmitting ? null : () {
-                final pwd = _passwordController.text.trim();
-                if (pwd.isEmpty) return;
-                _bind.setVerifying();
-                final msg = _bind.buildBindPassword(pwd);
-                ref.read(connectionManagerProvider.notifier).sendRaw(msg);
-              },
+              onPressed: _bind.isSubmitting
+                  ? null
+                  : () {
+                      final pwd = _passwordController.text.trim();
+                      if (pwd.isEmpty) return;
+                      _bind.setVerifying();
+                      final msg = _bind.buildBindPassword(pwd);
+                      ref.read(connectionManagerProvider.notifier).sendRaw(msg);
+                    },
               child: const Text('确认'),
             ),
           ],
@@ -366,7 +450,10 @@ class _BindViewState extends ConsumerState<BindView> {
         if (_bind.errorMessage.isNotEmpty)
           Padding(
             padding: const EdgeInsets.all(8),
-            child: Text(_bind.errorMessage, style: const TextStyle(color: AppColors.error)),
+            child: Text(
+              _bind.errorMessage,
+              style: const TextStyle(color: AppColors.error),
+            ),
           ),
       ],
     );
@@ -380,7 +467,10 @@ class _BindViewState extends ConsumerState<BindView> {
         children: [
           Icon(Icons.check_circle, color: Colors.green, size: 64),
           SizedBox(height: 16),
-          Text('绑定成功！', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Text(
+            '绑定成功！',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );
@@ -392,9 +482,16 @@ class _BindViewState extends ConsumerState<BindView> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(width: 48, height: 48, child: CircularProgressIndicator(strokeWidth: 3)),
+          SizedBox(
+            width: 48,
+            height: 48,
+            child: CircularProgressIndicator(strokeWidth: 3),
+          ),
           SizedBox(height: 16),
-          Text('正在验证...', style: TextStyle(fontSize: 16, color: AppColors.textSecondary)),
+          Text(
+            '正在验证...',
+            style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
+          ),
         ],
       ),
     );
@@ -410,14 +507,21 @@ class _BindViewState extends ConsumerState<BindView> {
             children: [
               Icon(Icons.error, color: AppColors.error, size: 48),
               SizedBox(height: 8),
-              Text('绑定失败', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(
+                '绑定失败',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
             ],
           ),
         ),
         if (_bind.errorMessage.isNotEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Text(_bind.errorMessage, style: const TextStyle(color: AppColors.error), textAlign: TextAlign.center),
+            child: Text(
+              _bind.errorMessage,
+              style: const TextStyle(color: AppColors.error),
+              textAlign: TextAlign.center,
+            ),
           ),
         const SizedBox(height: 16),
         Row(
@@ -441,7 +545,12 @@ class _MethodCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onTap;
-  const _MethodCard({required this.icon, required this.title, required this.subtitle, required this.onTap});
+  const _MethodCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -467,12 +576,15 @@ class _DirButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 64, height: 64,
+      width: 64,
+      height: 64,
       child: ElevatedButton(
         onPressed: onTap,
         style: ElevatedButton.styleFrom(
           padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
         child: Text(label, style: const TextStyle(fontSize: 28)),
       ),

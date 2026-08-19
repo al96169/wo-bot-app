@@ -5,3 +5,10 @@ linter:
     prefer_const_constructors: true
     prefer_const_declarations: true
     avoid_print: false
+    # ---- 质量控制增强（CI 门禁：analyze 必须 0 issues）----
+    always_declare_return_types: true
+    avoid_redundant_argument_values: true
+    prefer_final_in_for_each: true
+    prefer_initializing_formals: true
+    unnecessary_lambdas: true
+    unnecessary_null_checks: true

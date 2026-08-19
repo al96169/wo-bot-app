@@ -30,7 +30,7 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: WoBotApp()));
     await tester.pump(const Duration(milliseconds: 300));
 
-    AppToast.show('测试提示', type: AppToastType.info);
+    AppToast.show('测试提示');
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.text('测试提示'), findsOneWidget);
 
@@ -67,8 +67,9 @@ void main() {
       ProviderScope(
         overrides: [
           deviceStoreProvider.overrideWith((ref) => store),
-          connectionManagerProvider
-              .overrideWith((ref) => _FakeConnectionManager()),
+          connectionManagerProvider.overrideWith(
+            (ref) => _FakeConnectionManager(),
+          ),
         ],
         child: const WoBotApp(),
       ),
@@ -157,8 +158,9 @@ void main() {
       ProviderScope(
         overrides: [
           deviceStoreProvider.overrideWith((ref) => store),
-          connectionManagerProvider
-              .overrideWith((ref) => _FakeConnectionManager()),
+          connectionManagerProvider.overrideWith(
+            (ref) => _FakeConnectionManager(),
+          ),
         ],
         child: const WoBotApp(),
       ),

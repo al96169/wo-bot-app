@@ -21,7 +21,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   void _sendSystemAction(String action, String name) {
     ref.read(connectionManagerProvider.notifier).sendSystemAction(action);
-    AppToast.show('已发送$name指令', type: AppToastType.info);
+    AppToast.show('已发送$name指令');
   }
 
   void _setPowerPolicy(String mode, int threshold) {
@@ -47,7 +47,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: const Color(0xFFEEEEEE), width: 0.5),
+                    border: Border.all(
+                      color: const Color(0xFFEEEEEE),
+                      width: 0.5,
+                    ),
                   ),
                   child: Column(
                     children: [
@@ -62,7 +65,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       _NavRow(
                         label: '蓝牙',
                         value: '待接入',
-                        onTap: () => AppToast.show('蓝牙功能待接入', type: AppToastType.info),
+                        onTap: () => AppToast.show('蓝牙功能待接入'),
                       ),
                       _Divider(),
                       // 省电模式阈值 (Pixso 5:4254)
@@ -78,28 +81,37 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         label: '自动充电阈值',
                         value: _chargeThreshold,
                         onChanged: (v) => setState(() => _chargeThreshold = v),
-                        onSave: () => _setPowerPolicy('charge', _chargeThreshold),
+                        onSave: () =>
+                            _setPowerPolicy('charge', _chargeThreshold),
                       ),
                       _Divider(),
                       // 重启 (Pixso 5:4329)
                       _SystemRow(
                         label: '重启',
                         icon: Icons.restart_alt,
-                        onTap: () => _confirmSystemAction('重启', '确定要重启机器人吗？此操作将断开当前连接。', 'reboot'),
+                        onTap: () => _confirmSystemAction(
+                          '重启',
+                          '确定要重启机器人吗？此操作将断开当前连接。',
+                          'reboot',
+                        ),
                       ),
                       _Divider(),
                       // 关机 (Pixso 5:4347)
                       _SystemRow(
                         label: '关机',
                         icon: Icons.power_settings_new,
-                        onTap: () => _confirmSystemAction('关机', '确定要关闭机器人吗？', 'shutdown'),
+                        onTap: () => _confirmSystemAction(
+                          '关机',
+                          '确定要关闭机器人吗？',
+                          'shutdown',
+                        ),
                       ),
                       _Divider(),
                       // 删除此机器人 + 解除绑定 (Pixso 5:4360)
                       _NavRow(
                         label: '删除此机器人',
                         value: '解除绑定',
-                        onTap: () => _confirmUnbind(),
+                        onTap: _confirmUnbind,
                       ),
                     ],
                   ),
@@ -112,15 +124,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  Future<void> _confirmSystemAction(String name, String message, String action) async {
+  Future<void> _confirmSystemAction(
+    String name,
+    String message,
+    String action,
+  ) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(name),
         content: Text(message),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('确认')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('确认'),
+          ),
         ],
       ),
     );
@@ -134,8 +156,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         title: const Text('删除此机器人'),
         content: const Text('确定要删除此机器人并解除绑定吗？此操作将删除设备的连接记录。'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('删除')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除'),
+          ),
         ],
       ),
     );
@@ -157,7 +185,11 @@ class _Divider extends StatelessWidget {
 class _NavRow extends StatelessWidget {
   final String label, value;
   final VoidCallback onTap;
-  const _NavRow({required this.label, required this.value, required this.onTap});
+  const _NavRow({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -169,11 +201,21 @@ class _NavRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 15),
           child: Row(
             children: [
-              Text(label, style: const TextStyle(fontSize: 14, color: Color(0xFF3D3D3D))),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 14, color: Color(0xFF3D3D3D)),
+              ),
               const Spacer(),
-              Text(value, style: const TextStyle(fontSize: 14, color: Color(0xFF898989))),
+              Text(
+                value,
+                style: const TextStyle(fontSize: 14, color: Color(0xFF898989)),
+              ),
               const SizedBox(width: 4),
-              const Icon(Icons.chevron_right, size: 20, color: Color(0xFFC7C7CC)),
+              const Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: Color(0xFFC7C7CC),
+              ),
             ],
           ),
         ),
@@ -187,7 +229,11 @@ class _SystemRow extends StatelessWidget {
   final String label;
   final IconData icon;
   final VoidCallback onTap;
-  const _SystemRow({required this.label, required this.icon, required this.onTap});
+  const _SystemRow({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -199,7 +245,10 @@ class _SystemRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 15),
           child: Row(
             children: [
-              Text(label, style: const TextStyle(fontSize: 14, color: Color(0xFF3D3D3D))),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 14, color: Color(0xFF3D3D3D)),
+              ),
               const Spacer(),
               Container(
                 width: 30,
@@ -240,7 +289,10 @@ class _StepperRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 15),
         child: Row(
           children: [
-            Text(label, style: const TextStyle(fontSize: 14, color: Color(0xFF3D3D3D))),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF3D3D3D)),
+            ),
             const Spacer(),
             // stepper (Pixso 5:4309, 124×32)
             Container(
@@ -251,16 +303,25 @@ class _StepperRow extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  _StepBtn(icon: Icons.remove, onTap: () => onChanged((value - 5).clamp(0, 100))),
+                  _StepBtn(
+                    icon: Icons.remove,
+                    onTap: () => onChanged((value - 5).clamp(0, 100)),
+                  ),
                   SizedBox(
                     width: 44,
                     child: Text(
                       '$value%',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 13, color: Color(0xFF1C1C1E)),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF1C1C1E),
+                      ),
                     ),
                   ),
-                  _StepBtn(icon: Icons.add, onTap: () => onChanged((value + 5).clamp(0, 100))),
+                  _StepBtn(
+                    icon: Icons.add,
+                    onTap: () => onChanged((value + 5).clamp(0, 100)),
+                  ),
                 ],
               ),
             ),

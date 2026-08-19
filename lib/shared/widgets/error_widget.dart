@@ -27,11 +27,10 @@ class AppErrorWidget extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.7),
-                  ),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
             ),
             if (onRetry != null) ...[
               const SizedBox(height: 24),
@@ -74,28 +73,23 @@ class AppEmptyWidget extends StatelessWidget {
             Icon(
               icon,
               size: 64,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.3),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
               message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.5),
-                  ),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 16),
-              TextButton(
-                onPressed: onAction,
-                child: Text(actionLabel!),
-              ),
+              TextButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],
         ),

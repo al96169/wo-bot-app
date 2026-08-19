@@ -53,8 +53,10 @@ class _QuickControlPageState extends ConsumerState<QuickControlPage> {
   }
 
   void _toggle(String action, bool value) {
-    ref.read(connectionManagerProvider.notifier).sendDeviceControl(action, value);
-    AppToast.show(value ? '已开启' : '已关闭', type: AppToastType.info);
+    ref
+        .read(connectionManagerProvider.notifier)
+        .sendDeviceControl(action, value);
+    AppToast.show(value ? '已开启' : '已关闭');
   }
 
   /// 寻找设备 — 二态切换（再次点击取消），对齐 web-debug handleFind
@@ -69,7 +71,7 @@ class _QuickControlPageState extends ConsumerState<QuickControlPage> {
       _findTimer?.cancel();
       _findTimer = null;
       manager.sendDeviceControl('find_device', false);
-      AppToast.show('已停止寻找设备', type: AppToastType.info);
+      AppToast.show('已停止寻找设备');
     } else {
       // 空闲 → 开始寻找
       setState(() {
@@ -77,7 +79,7 @@ class _QuickControlPageState extends ConsumerState<QuickControlPage> {
         _findRemaining = _findDuration;
       });
       manager.sendDeviceControl('find_device', true);
-      AppToast.show('正在寻找设备...', type: AppToastType.info);
+      AppToast.show('正在寻找设备...');
       // 30s 倒计时（服务端到时自动停止，前端仅复位 UI）
       _findTimer?.cancel();
       _findTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -107,7 +109,7 @@ class _QuickControlPageState extends ConsumerState<QuickControlPage> {
       body: SafeArea(
         child: Column(
           children: [
-            FeatureStatusBar(title: '快捷操作'),
+            const FeatureStatusBar(title: '快捷操作'),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(15, 15, 15, 20),
@@ -141,11 +143,11 @@ class _QuickControlPageState extends ConsumerState<QuickControlPage> {
                       },
                       onCharge: () {
                         manager.sendDeviceControl('charge', true);
-                        AppToast.show('已发送充电指令', type: AppToastType.info);
+                        AppToast.show('已发送充电指令');
                       },
                       onFind: _handleFind,
                       onRemote: () {
-                        AppToast.show('手动控制请前往遥控页', type: AppToastType.info);
+                        AppToast.show('手动控制请前往遥控页');
                       },
                     ),
                   ],
@@ -166,7 +168,11 @@ class _VolumeCard extends StatelessWidget {
   final int volume;
   final ValueChanged<int> onChanged;
   final ValueChanged<int>? onChangeEnd;
-  const _VolumeCard({required this.volume, required this.onChanged, this.onChangeEnd});
+  const _VolumeCard({
+    required this.volume,
+    required this.onChanged,
+    this.onChangeEnd,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -198,21 +204,22 @@ class _VolumeCard extends StatelessWidget {
           const Spacer(),
           // 可拖动音量条
           SliderTheme(
-            data: SliderThemeData(
+            data: const SliderThemeData(
               trackHeight: 6,
-              activeTrackColor: const Color(0xFF0256FF),
-              inactiveTrackColor: const Color(0xFF9E9E9E),
-              thumbColor: const Color(0xFF0256FF),
-              overlayColor: const Color(0x1A0256FF),
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
+              activeTrackColor: Color(0xFF0256FF),
+              inactiveTrackColor: Color(0xFF9E9E9E),
+              thumbColor: Color(0xFF0256FF),
+              overlayColor: Color(0x1A0256FF),
+              thumbShape: RoundSliderThumbShape(),
+              overlayShape: RoundSliderOverlayShape(overlayRadius: 18),
             ),
             child: Slider(
               value: volume.toDouble().clamp(0, 100),
-              min: 0,
               max: 100,
               onChanged: (v) => onChanged(v.round()),
-              onChangeEnd: onChangeEnd == null ? null : (v) => onChangeEnd!(v.round()),
+              onChangeEnd: onChangeEnd == null
+                  ? null
+                  : (v) => onChangeEnd!(v.round()),
             ),
           ),
         ],
@@ -257,8 +264,6 @@ class _QuickGrid extends StatelessWidget {
         crossAxisCount: 3,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        mainAxisSpacing: 0,
-        crossAxisSpacing: 0,
         childAspectRatio: 99.5 / 110,
         children: [
           // 寻找设备：二态 + 倒计时标签（对齐 web-debug）
@@ -268,11 +273,34 @@ class _QuickGrid extends StatelessWidget {
             active: findActive,
             onTap: onFind,
           ),
-          _QuickButton(icon: Icons.lightbulb_outline, label: '手电', active: flashlight, onTap: () => onFlashlight(!flashlight)),
-          _QuickButton(icon: Icons.power_settings_new, label: '去充电', onTap: onCharge),
-          _QuickButton(icon: Icons.videogame_asset_outlined, label: '手动控制', onTap: onRemote),
-          _QuickButton(icon: Icons.battery_charging_full, label: '省电模式', active: eco, onTap: () => onEco(!eco)),
-          _QuickButton(icon: mute ? Icons.volume_off : Icons.volume_up, label: '静音', active: mute, onTap: () => onMute(!mute)),
+          _QuickButton(
+            icon: Icons.lightbulb_outline,
+            label: '手电',
+            active: flashlight,
+            onTap: () => onFlashlight(!flashlight),
+          ),
+          _QuickButton(
+            icon: Icons.power_settings_new,
+            label: '去充电',
+            onTap: onCharge,
+          ),
+          _QuickButton(
+            icon: Icons.videogame_asset_outlined,
+            label: '手动控制',
+            onTap: onRemote,
+          ),
+          _QuickButton(
+            icon: Icons.battery_charging_full,
+            label: '省电模式',
+            active: eco,
+            onTap: () => onEco(!eco),
+          ),
+          _QuickButton(
+            icon: mute ? Icons.volume_off : Icons.volume_up,
+            label: '静音',
+            active: mute,
+            onTap: () => onMute(!mute),
+          ),
         ],
       ),
     );
@@ -314,10 +342,10 @@ class _QuickButton extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w400,
-              color: const Color(0xFF232222),
+              color: Color(0xFF232222),
             ),
           ),
         ],

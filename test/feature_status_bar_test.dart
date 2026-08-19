@@ -25,13 +25,9 @@ class _FakeConnectionManager extends ConnectionManager {
 }
 
 Widget _wrap(Widget child, ConnectionManager fake) => ProviderScope(
-      overrides: [
-        connectionManagerProvider.overrideWith((ref) => fake),
-      ],
-      child: MaterialApp(
-        home: Scaffold(body: child),
-      ),
-    );
+  overrides: [connectionManagerProvider.overrideWith((ref) => fake)],
+  child: MaterialApp(home: Scaffold(body: child)),
+);
 
 void main() {
   testWidgets('未连接时：显示页面名 + 未连接胶囊', (tester) async {
@@ -78,15 +74,17 @@ void main() {
       'network': {'ssid': 'MyWiFi', 'signal_strength': -45},
     });
 
-    await tester.pumpWidget(ProviderScope(
-      overrides: [
-        connectionManagerProvider.overrideWith((ref) => fake),
-        robotDataProvider.overrideWith((ref) => store),
-      ],
-      child: const MaterialApp(
-        home: Scaffold(body: FeatureStatusBar(title: '日志')),
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          connectionManagerProvider.overrideWith((ref) => fake),
+          robotDataProvider.overrideWith((ref) => store),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: FeatureStatusBar(title: '日志')),
+        ),
       ),
-    ));
+    );
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('85%'), findsOneWidget);

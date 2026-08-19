@@ -9,11 +9,16 @@ enum WebRtcState { idle, connecting, connected, disconnected, failed }
 extension WebRtcStateExt on WebRtcState {
   String get label {
     switch (this) {
-      case WebRtcState.idle: return '未连接';
-      case WebRtcState.connecting: return '连接中';
-      case WebRtcState.connected: return '已连接';
-      case WebRtcState.disconnected: return '已断开';
-      case WebRtcState.failed: return '连接失败';
+      case WebRtcState.idle:
+        return '未连接';
+      case WebRtcState.connecting:
+        return '连接中';
+      case WebRtcState.connected:
+        return '已连接';
+      case WebRtcState.disconnected:
+        return '已断开';
+      case WebRtcState.failed:
+        return '连接失败';
     }
   }
 }
@@ -55,7 +60,8 @@ class WebRtcService {
   void Function(Map<String, dynamic> msg)? onDataChannelMessage;
   void Function(bool ready)? onDataChannelReady;
 
-  bool get isDataChannelReady => _dc?.state == RTCDataChannelState.RTCDataChannelOpen;
+  bool get isDataChannelReady =>
+      _dc?.state == RTCDataChannelState.RTCDataChannelOpen;
   bool get isConnected => state == WebRtcState.connected;
 
   /// 建立 WebRTC 连接
@@ -64,7 +70,12 @@ class WebRtcService {
   /// [sendIceCandidate] 回调: 发送 webrtc_ice_candidate 消息到 WebSocket
   Future<bool> establishConnection({
     required void Function(String sdp) sendOffer,
-    required void Function(dynamic candidate, String? sdpMid, int? sdpMLineIndex) sendIceCandidate,
+    required void Function(
+      dynamic candidate,
+      String? sdpMid,
+      int? sdpMLineIndex,
+    )
+    sendIceCandidate,
   }) async {
     try {
       state = WebRtcState.connecting;
@@ -82,8 +93,10 @@ class WebRtcService {
       _pc = await createPeerConnection(config, {});
 
       // 创建 DataChannel "wobot-control"
-      _dc = await _pc!.createDataChannel('wobot-control', RTCDataChannelInit()
-        ..ordered = true);
+      _dc = await _pc!.createDataChannel(
+        'wobot-control',
+        RTCDataChannelInit()..ordered = true,
+      );
       _setupDataChannel();
 
       // 添加 2 个 Video Transceiver (recvonly) — 双摄像头
@@ -99,7 +112,11 @@ class WebRtcService {
       // ICE 候选事件
       _pc!.onIceCandidate = (candidate) {
         localCandidates.add(candidate.candidate ?? '');
-        sendIceCandidate(candidate.candidate, candidate.sdpMid, candidate.sdpMLineIndex);
+        sendIceCandidate(
+          candidate.candidate,
+          candidate.sdpMid,
+          candidate.sdpMLineIndex,
+        );
       };
 
       // ICE 状态变化
@@ -126,7 +143,7 @@ class WebRtcService {
         if (s == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
           _checkConnected();
         } else if (s == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
-                   s == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
+            s == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
           state = WebRtcState.disconnected;
           onStateChanged?.call(state);
         }
@@ -139,7 +156,9 @@ class WebRtcService {
       // 接收视频轨道
       int videoIndex = 0;
       _pc!.onTrack = (RTCTrackEvent event) {
-        debugPrint('[WebRTC] onTrack: kind=${event.track.kind} id=${event.track.id}');
+        debugPrint(
+          '[WebRTC] onTrack: kind=${event.track.kind} id=${event.track.id}',
+        );
         if (event.track.kind == 'video') {
           final stream = event.streams.isNotEmpty ? event.streams[0] : null;
           if (stream != null) {
@@ -193,7 +212,11 @@ class WebRtcService {
   }
 
   /// 处理远程 ICE 候选
-  Future<void> handleRemoteIceCandidate(dynamic candidate, String? sdpMid, int? sdpMLineIndex) async {
+  Future<void> handleRemoteIceCandidate(
+    dynamic candidate,
+    String? sdpMid,
+    int? sdpMLineIndex,
+  ) async {
     if (_pc == null) return;
     try {
       final cand = RTCIceCandidate(
@@ -237,7 +260,9 @@ class WebRtcService {
           onDataChannelReady?.call(true);
 
           // 发送初始订阅
-          sendViaDataChannel('subscribe', {'events': ['status']});
+          sendViaDataChannel('subscribe', {
+            'events': ['status'],
+          });
 
           // 延迟请求初始数据
           Future.delayed(const Duration(milliseconds: 500), () {

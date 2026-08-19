@@ -1,5 +1,6 @@
 /// 独立测试脚本 — 直接测 WebSocket 连接 + 完整协议交互
 /// 运行: dart run test_connection.dart
+library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
