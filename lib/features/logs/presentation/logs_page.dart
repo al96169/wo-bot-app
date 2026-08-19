@@ -20,7 +20,8 @@ class LogsPage extends ConsumerStatefulWidget {
 class _LogsPageState extends ConsumerState<LogsPage> {
   String _keyword = '';
   String _level = 'all';
-  bool _sortAsc = false;
+  /// 是否倒序显示（最新在上）。默认倒序。
+  bool _descending = true;
   final _searchC = TextEditingController();
 
   @override
@@ -103,8 +104,8 @@ class _LogsPageState extends ConsumerState<LogsPage> {
     if (_level != 'all') {
       logs = logs.where((l) => l.level == _level).toList();
     }
-    // 顺序
-    if (_sortAsc) logs = logs.reversed.toList();
+    // 顺序：默认倒序（最新在上），点击切换正序（最早在上）
+    if (_descending) logs = logs.reversed.toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9F9),
@@ -238,8 +239,8 @@ class _LogsPageState extends ConsumerState<LogsPage> {
             const SizedBox(width: 8),
             // 顺序切换 (Pixso 5:2555)
             _FilterChip(
-              label: '顺序',
-              onTap: () => setState(() => _sortAsc = !_sortAsc),
+              label: _descending ? '倒序' : '顺序',
+              onTap: () => setState(() => _descending = !_descending),
             ),
             const SizedBox(width: 8),
             // 导出 (Pixso 5:2558)
