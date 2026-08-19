@@ -348,7 +348,6 @@ class ConnectionManager extends StateNotifier<ConnState> {
 
       // ---- 状态 ----
       case 'status':
-        debugPrint('[CM] status: services=${d['services'] is List ? '${(d['services'] as List).length}个' : '无'} battery=${d['battery']}');
         // 先同步服务列表（对齐 web-debug），状态解析异常不阻断服务更新
         if (d['services'] is List) {
           _data.setServices(d['services'] as List);
@@ -395,7 +394,6 @@ class ConnectionManager extends StateNotifier<ConnState> {
         _data.setModules(d['modules'] as List? ?? []);
         break;
       case 'service_status':
-        debugPrint('[CM] service_status data: $d');
         _data.setServices(d['services'] as List? ?? []);
         break;
       case 'service_message':
@@ -496,11 +494,9 @@ class ConnectionManager extends StateNotifier<ConnState> {
 
       // ---- 软件 ----
       case 'software_list':
-        debugPrint('[CM] software_list 完整数据: $d');
         _data.setSoftwareInstalled(d['packages'] as List? ?? d['software'] as List? ?? []);
         break;
       case 'software_available':
-        debugPrint('[CM] software_available 完整数据: $d');
         _data.setSoftwareAvailable(d['packages'] as List? ?? d['software'] as List? ?? []);
         break;
       case 'software_progress':
