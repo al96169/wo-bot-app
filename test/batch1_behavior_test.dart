@@ -101,6 +101,46 @@ void main() {
     AppToast.dismiss();
   });
 
+  testWidgets('点击已连接的设备 → 直接进入机器人主页', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final deviceA = RobotDevice(
+      id: 'a',
+      name: '设备A',
+      ip: '192.168.1.10',
+      port: 8765,
+      serviceName: '_wobot._tcp.local',
+    );
+    final store = DeviceStore();
+    await store.addDevice(deviceA);
+    await store.setCurrentDevice(deviceA);
+
+    final fake = _FakeConnectionManager();
+    // 先置为已连接（在 pumpWidget 之前，避免 ref.listen 自动跳转干扰）
+    await fake.connectToDevice(deviceA);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          deviceStoreProvider.overrideWith((ref) => store),
+          connectionManagerProvider.overrideWith((ref) => fake),
+        ],
+        child: const WoBotApp(),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 600));
+
+    expect(find.text('设备A'), findsOneWidget);
+
+    // 点击已连接的设备 → Toast 提示 + 进入机器人主页
+    await tester.tap(find.text('设备A'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('已连接该设备'), findsOneWidget);
+    expect(find.text('快捷控制'), findsOneWidget);
+
+    AppToast.dismiss();
+  });
+
   testWidgets('已连接设备卡片菜单包含断开/忘记，未连接包含移除', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final deviceC = RobotDevice(

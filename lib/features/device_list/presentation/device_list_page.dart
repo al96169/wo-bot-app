@@ -108,6 +108,12 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
     final conn = ref.read(connectionManagerProvider);
     if (conn == ConnState.connected) {
       AppToast.show('已连接该设备', type: AppToastType.info);
+      // 已连接的设备 → 直接进入设备主页
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const RobotHomePage()),
+        );
+      }
       return;
     }
     if (conn == ConnState.connecting) {
@@ -229,7 +235,8 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
       if (prev != ConnState.connected && next == ConnState.connected && mounted) {
         // 延迟跳转，避免绑定流程中的 connected 误触发
         Future.delayed(const Duration(milliseconds: 400), () {
-          if (mounted && ref.read(connectionManagerProvider) == ConnState.connected) {
+          if (!context.mounted) return;
+          if (ref.read(connectionManagerProvider) == ConnState.connected) {
             Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const RobotHomePage()),
             );
