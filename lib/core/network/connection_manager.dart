@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/app_constants.dart';
@@ -11,6 +12,7 @@ import 'mdns_discovery.dart';
 import 'websocket_client.dart';
 import 'bind_service.dart';
 import 'robot_data_store.dart';
+import 'webrtc_service.dart';
 
 /// 连接状态枚举 — 匹配 web-debug ConnectionStatus
 enum ConnState { disconnected, connecting, connected, binding, error }
@@ -26,6 +28,9 @@ class ConnectionManager extends StateNotifier<ConnState> {
   Timer? _statusTimer;
   final BindService _bind = BindService.instance;
   late final RobotDataStore _data;
+
+  /// WebRTC 服务（视频 + DataChannel 业务通道）— 对齐 web-debug useWebRTC
+  final WebRtcService webrtc = WebRtcService.instance;
 
   RobotDevice? currentDevice;
   RobotStatus? robotStatus;
@@ -43,6 +48,11 @@ class ConnectionManager extends StateNotifier<ConnState> {
   ConnectionManager({RobotDataStore? data}) : super(ConnState.disconnected) {
     _data = data ?? RobotDataStore();
     _bind.init();
+    // WebRTC DataChannel 消息与 WebSocket 消息同格式 {type, data}，统一分发
+    webrtc.onDataChannelMessage = (msg) {
+      debugPrint('[CM] DC 消息: ${msg['type']}');
+      _handleMessage(msg);
+    };
     _ws
       ..onMessage = _handleMessage
       ..onDisconnected = () {
@@ -113,26 +123,49 @@ class ConnectionManager extends StateNotifier<ConnState> {
   void sendRaw(Map<String, dynamic> msg) => _ws.sendRaw(msg);
 
   // ---- 运动控制 ----
-  void sendMotion(double vx, double vy, double vz) =>
+  /// 发送运动指令 — DataChannel 就绪时优先走 P2P（对齐 web-debug sendViaDataChannel），WS 兜底
+  void sendMotion(double vx, double vy, double vz) {
+    if (webrtc.isDataChannelReady) {
+      webrtc.sendViaDataChannel('motion', {'v_x': vx, 'v_y': vy, 'v_z': vz});
+    } else {
       send('motion', {'v_x': vx, 'v_y': vy, 'v_z': vz});
-  void sendMotionStop() => send('motion_stop');
+    }
+  }
+
+  void sendMotionStop() {
+    if (webrtc.isDataChannelReady) {
+      webrtc.sendViaDataChannel('motion_stop');
+    } else {
+      send('motion_stop');
+    }
+  }
+
   void sendEmergencyStop() => send('emergency_stop');
   void sendEmergencyRelease() => send('emergency_release');
 
   // ---- 系统操作 (匹配 web-debug sendSystemAction) ----
   void sendSystemAction(String action) => send('system', {'action': action});
 
-  // ---- 云台控制 (匹配 web-debug gimbal action) ----
-  void sendGimbalMoveBegin(double panSpeed, double tiltSpeed) => send(
+  // ---- 云台控制 (匹配 web-debug gimbal action) — DataChannel 优先 ----
+  void sendGimbalMoveBegin(double panSpeed, double tiltSpeed) => _sendHighFreq(
     'gimbal',
     {'action': 'move_begin', 'pan_speed': panSpeed, 'tilt_speed': tiltSpeed},
   );
-  void sendGimbalMoveUpdate(double panSpeed, double tiltSpeed) => send(
+  void sendGimbalMoveUpdate(double panSpeed, double tiltSpeed) => _sendHighFreq(
     'gimbal',
     {'action': 'move_update', 'pan_speed': panSpeed, 'tilt_speed': tiltSpeed},
   );
-  void sendGimbalMoveEnd() => send('gimbal', {'action': 'move_end'});
-  void sendGimbalCenter() => send('gimbal', {'action': 'center'});
+  void sendGimbalMoveEnd() => _sendHighFreq('gimbal', {'action': 'move_end'});
+  void sendGimbalCenter() => _sendHighFreq('gimbal', {'action': 'center'});
+
+  /// 高频命令：DataChannel 就绪时优先走 P2P（motion/gimbal 对齐 web-debug），WS 兜底
+  void _sendHighFreq(String type, [Map<String, dynamic>? data]) {
+    if (webrtc.isDataChannelReady) {
+      webrtc.sendViaDataChannel(type, data);
+    } else {
+      send(type, data);
+    }
+  }
 
   // ---- 设备控制 (匹配 web-debug device_control) ----
   void sendDeviceControl(String action, bool enabled) =>
@@ -229,6 +262,43 @@ class ConnectionManager extends StateNotifier<ConnState> {
     'sdpMid': sdpMid,
     'sdpMLineIndex': sdpMLineIndex,
   });
+
+  /// 建立 WebRTC 连接（视频 + DataChannel）— 对齐 web-debug establishConnection
+  /// 服务端 features 不含 "webrtc" 时跳过；offer/ICE 经 WebSocket 信令交换
+  Future<void> startWebRtc() async {
+    if (!remoteFeatures.contains('webrtc')) {
+      debugPrint('[CM] 设备不支持 webrtc feature，跳过');
+      return;
+    }
+    await webrtc.establishConnection(
+      sendOffer: sendWebRtcOffer,
+      sendIceCandidate: sendWebRtcIceCandidate,
+    );
+  }
+
+  /// 发送二进制消息（语音对讲 voice_broadcast）— 对齐 web-debug sendBinary
+  /// 帧格式: [4 字节 JSON 头长度 big-endian] + [JSON header {type,data}] + [二进制音频]
+  /// [preferDataChannel]: true=电话模式优先 DataChannel（低延迟），false=WebSocket（无大小限制）
+  void sendBinaryMessage(
+    String type,
+    Map<String, dynamic> data,
+    List<int> bytes, {
+    bool preferDataChannel = false,
+  }) {
+    final header = jsonEncode({'type': type, 'data': data});
+    final headerBytes = utf8.encode(header);
+    final total = Uint8List(4 + headerBytes.length + bytes.length);
+    final bd = ByteData.sublistView(total);
+    bd.setUint32(0, headerBytes.length); // 大端序，与后端 struct.unpack('>I') 一致
+    total.setAll(4, headerBytes);
+    total.setAll(4 + headerBytes.length, bytes);
+
+    if (preferDataChannel && webrtc.isDataChannelReady) {
+      webrtc.sendBinaryViaDataChannel(total);
+    } else {
+      _ws.sendBinary(total);
+    }
+  }
 
   // ---- 订阅 ----
   void sendSubscribe(List<String> events) =>
@@ -472,16 +542,25 @@ class ConnectionManager extends StateNotifier<ConnState> {
         break;
       case 'camera_record_result':
         // 对齐 web-debug：data.is_recording / data.success
-        _data.isRecording =
-            d['is_recording'] as bool? ?? d['success'] as bool? ?? false;
-        _data.notify();
+        _data.setCameraRecord(
+          isRecording:
+              d['is_recording'] as bool? ?? d['success'] as bool? ?? false,
+          cameraId: (d['camera_id'] as num?)?.toString() ??
+              d['camera_id'] as String?,
+          fileSizeBytes: (d['size_bytes'] as num?)?.toInt(),
+        );
         break;
       case 'camera_record_status':
-        _data.isRecording =
-            d['is_recording'] as bool? ??
-            d['recording'] as bool? ??
-            _data.isRecording;
-        _data.notify();
+        // 对齐 web-debug：data.is_recording + camera_id/elapsed_s/file_size_bytes
+        _data.setCameraRecord(
+          isRecording: d['is_recording'] as bool? ??
+              d['recording'] as bool? ??
+              _data.isRecording,
+          cameraId: (d['camera_id'] as num?)?.toString() ??
+              d['camera_id'] as String?,
+          elapsedS: (d['elapsed_s'] as num?)?.toInt(),
+          fileSizeBytes: (d['file_size_bytes'] as num?)?.toInt(),
+        );
         break;
       case 'camera_media_list_result':
         // 对齐 web-debug：data.files（兼容旧 items）
@@ -571,10 +650,15 @@ class ConnectionManager extends StateNotifier<ConnState> {
       // ---- WebRTC 信令 ----
       case 'webrtc_answer':
         debugPrint('[CM] webrtc_answer received');
-        // 由 WebRTCService 处理
+        webrtc.handleAnswer(d['sdp'] as String? ?? '');
         break;
       case 'webrtc_ice_candidate':
         debugPrint('[CM] webrtc_ice_candidate received');
+        webrtc.handleRemoteIceCandidate(
+          d['candidate'],
+          d['sdpMid'] as String?,
+          (d['sdpMLineIndex'] as num?)?.toInt(),
+        );
         break;
 
       // ---- exec ----

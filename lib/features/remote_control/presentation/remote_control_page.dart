@@ -2,14 +2,22 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../../../core/network/connection_manager.dart';
+import '../../../core/network/robot_data_store.dart';
+import '../../../core/network/webrtc_service.dart';
 import '../../../core/theme/app_colors.dart';
-import 'widgets/quick_action_bar.dart';
+import '../../../core/utils/app_toast.dart';
+import 'widgets/camera_action_sheet.dart';
+import 'widgets/camera_view.dart';
+import 'widgets/remote_drawer.dart';
+import 'widgets/voice_button.dart';
 
-/// 遥控页面 — 匹配 web-debug RemoteView.vue
+/// 遥控页面 — 匹配 web-debug RemoteView.vue + 需求：横屏双摄像头/双摇杆
 ///
-/// 横屏: 双摇杆 (左=平移+偏航, 右=云台)
-/// 竖屏: 单摇杆 + D-Pad
+/// 横屏主界面: 顶部状态条 + 左右双摄像头 + 4 摇杆(平移/偏航/主摄云台/副摄云台)
+///           + 功能弹窗(拍照/录像/画质/图库/云台归位) + 底部对讲 + 左侧抽屉
+/// 竖屏: 单摇杆 + D-Pad（降级）
 class RemoteControlPage extends ConsumerStatefulWidget {
   const RemoteControlPage({super.key});
 
@@ -32,6 +40,16 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
   final ValueNotifier<JoystickValue> _gimbalStick = ValueNotifier(
     const JoystickValue(),
   );
+  final ValueNotifier<JoystickValue> _gimbalStick2 = ValueNotifier(
+    const JoystickValue(),
+  );
+
+  // WebRTC 状态
+  WebRtcState _webrtcState = WebRtcState.idle;
+  MediaStream? _stream0; // 左主摄
+  MediaStream? _stream1; // 右副摄
+  bool _cameraLeftOn = false;
+  bool _cameraRightOn = false;
 
   @override
   void initState() {
@@ -41,6 +59,8 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
       const Duration(milliseconds: 50),
       (_) => _sendMergedMotion(),
     );
+    // 延迟建立 WebRTC（等连接与信令通道稳定）
+    Future.delayed(const Duration(milliseconds: 500), _initWebRtc);
   }
 
   @override
@@ -49,8 +69,42 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     _moveStick.dispose();
     _yawStick.dispose();
     _gimbalStick.dispose();
+    _gimbalStick2.dispose();
     _motion.dispose();
+    // 停止运动并断开 WebRTC
+    try {
+      ref.read(connectionManagerProvider.notifier).sendMotionStop();
+      ref.read(connectionManagerProvider.notifier).webrtc.close();
+    } catch (_) {}
     super.dispose();
+  }
+
+  /// 建立 WebRTC（视频 + DataChannel）并自动开启双摄像头
+  void _initWebRtc() {
+    if (!mounted) return;
+    final manager = ref.read(connectionManagerProvider.notifier);
+    manager.webrtc
+      ..onStateChanged = (s) {
+        if (mounted) setState(() => _webrtcState = s);
+      }
+      ..onVideoStream = (stream, idx) {
+        if (!mounted) return;
+        setState(() {
+          if (idx == 0) {
+            _stream0 = stream;
+          } else {
+            _stream1 = stream;
+          }
+        });
+      };
+    manager.startWebRtc();
+    // 自动开启左右摄像头
+    manager.sendCamera('start', 0);
+    manager.sendCamera('start', 1);
+    setState(() {
+      _cameraLeftOn = true;
+      _cameraRightOn = true;
+    });
   }
 
   /// 合并发送运动指令 — 匹配 web-debug sendMergedMotion
@@ -64,10 +118,11 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
   }
 
   /// 从摇杆值计算速度 — 匹配 web-debug speedFromStick
-  double _speedFromStick(JoystickValue stick, String axis) {
+  double _speedFromStick(JoystickValue stick, String axis, {double size = 140}) {
     const deadzone = 0.03;
-    const knobR = 22.0;
-    const cx = 70.0, cy = 70.0;
+    final cx = size / 2;
+    final cy = size / 2;
+    final knobR = size * 22 / 140;
 
     double raw;
     if (axis == 'y') {
@@ -81,10 +136,14 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
   }
 
   /// 从云台摇杆计算速度 — 匹配 web-debug gimbalSpeedFromState (sqrt 曲线)
-  ({double pan, double tilt}) _gimbalSpeedFromStick(JoystickValue stick) {
+  ({double pan, double tilt}) _gimbalSpeedFromStick(
+    JoystickValue stick, {
+    double size = 140,
+  }) {
     const deadzone = 0.05;
-    const knobR = 22.0;
-    const cx = 70.0, cy = 70.0;
+    final cx = size / 2;
+    final cy = size / 2;
+    final knobR = size * 22 / 140;
 
     double rawPan = (stick.x - cx) / (cx - knobR);
     double rawTilt = -((stick.y - cy) / (cy - knobR));
@@ -118,15 +177,15 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     }
   }
 
-  void _onGimbalStickChanged(JoystickValue val, bool isStart, bool isEnd) {
+  void _onGimbalStickChanged(JoystickValue val, bool isStart, bool isEnd, {double size = 140}) {
     final manager = ref.read(connectionManagerProvider.notifier);
     if (isStart) {
-      final speed = _gimbalSpeedFromStick(val);
+      final speed = _gimbalSpeedFromStick(val, size: size);
       manager.sendGimbalMoveBegin(speed.pan, speed.tilt);
     } else if (isEnd) {
       manager.sendGimbalMoveEnd();
     } else {
-      final speed = _gimbalSpeedFromStick(val);
+      final speed = _gimbalSpeedFromStick(val, size: size);
       manager.sendGimbalMoveUpdate(speed.pan, speed.tilt);
     }
   }
@@ -137,28 +196,83 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     _motion.value = const MotionState();
   }
 
+  // ---- 摄像头功能 ----
+
+  /// 拍照（画质默认 high，对齐 web-debug robotConfig.camera.capture_quality 兜底）
+  void _capture() {
+    ref.read(connectionManagerProvider.notifier).sendCameraCapture();
+    AppToast.show('正在拍照...');
+  }
+
+  /// 录像切换（主摄）
+  void _recordToggle() {
+    final store = ref.read(robotDataProvider.notifier);
+    final manager = ref.read(connectionManagerProvider.notifier);
+    if (store.isRecording) {
+      manager.sendCameraRecordStop();
+      AppToast.show('停止录像');
+    } else {
+      final camId = store.cameras.isNotEmpty ? store.cameras.first.cameraId : 0;
+      manager.sendCameraRecordStart(camId);
+      AppToast.show('开始录像');
+    }
+  }
+
+  /// 画质切换
+  void _qualityChange(String mode) {
+    ref.read(connectionManagerProvider.notifier).sendStreamQuality(mode);
+    AppToast.show('画质切换中');
+  }
+
+  /// 打开功能弹窗（拍照/录像/画质/图库/云台归位）
+  void _openActionSheet() {
+    final store = ref.read(robotDataProvider.notifier);
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+      ),
+      builder: (ctx) => CameraActionSheet(
+        isRecording: store.isRecording,
+        recordTime: _fmtRecordTime(store.recordingElapsedS),
+        quality: store.streamQuality,
+        onCapture: () {
+          Navigator.of(ctx).pop();
+          _capture();
+        },
+        onRecordToggle: () {
+          Navigator.of(ctx).pop();
+          _recordToggle();
+        },
+        onQualityChange: (mode) {
+          Navigator.of(ctx).pop();
+          _qualityChange(mode);
+        },
+        onGallery: () {
+          Navigator.of(ctx).pop();
+          AppToast.show('图库即将上线（批次 4）');
+        },
+        onGimbalCenter: () {
+          Navigator.of(ctx).pop();
+          ref.read(connectionManagerProvider.notifier).sendGimbalCenter();
+          AppToast.show('云台已归位');
+        },
+      ),
+    );
+  }
+
+  static String _fmtRecordTime(int s) {
+    final m = s ~/ 60;
+    final sec = s % 60;
+    return '${m.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            // 停止运动
-            final manager = ref.read(connectionManagerProvider.notifier);
-            manager.sendMotionStop();
-            Navigator.of(context).pop();
-          },
-        ),
-        title: const Text('遥控'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.stop_circle, color: AppColors.error),
-            onPressed: _emergencyStop,
-            tooltip: '急停',
-          ),
-        ],
-      ),
+      backgroundColor: const Color(0xFF0D0D0D),
+      drawer: const RemoteDrawer(),
       body: SafeArea(
         child: OrientationBuilder(
           builder: (context, orientation) {
@@ -172,76 +286,152 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     );
   }
 
-  /// 横屏: 双摇杆布局
+  /// 横屏主界面：顶部状态条 + 双摄像头 + 4 摇杆 + 功能按钮 + 底部对讲
   Widget _buildLandscape() {
+    ref.watch(robotDataProvider);
+    final store = ref.read(robotDataProvider.notifier);
+    final manager = ref.read(connectionManagerProvider.notifier);
+    final robotName = (manager.robotInfo?['name'] as String?) ??
+        manager.currentDevice?.name ??
+        '遥控';
+
     return Column(
       children: [
-        Expanded(
+        // 顶部状态条：抽屉按钮 + 设备名 + WebRTC 状态 + 电量/WiFi
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
           child: Row(
             children: [
-              // 左: 平移 + 偏航
+              Builder(
+                builder: (ctx) => IconButton(
+                  icon: const Icon(Icons.menu, color: Colors.white, size: 20),
+                  onPressed: () => Scaffold.of(ctx).openDrawer(),
+                  tooltip: '菜单',
+                ),
+              ),
+              const SizedBox(width: 4),
               Expanded(
-                child: Row(
+                child: Text(
+                  robotName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              _WebRtcBadge(state: _webrtcState),
+              const SizedBox(width: 10),
+              // 电量 + WiFi
+              if (store.system.batteryLevel > 0) ...[
+                Icon(
+                  store.system.batteryCharging
+                      ? Icons.battery_charging_full
+                      : Icons.battery_full,
+                  size: 14,
+                  color: Colors.white,
+                ),
+                Text(
+                  ' ${store.system.batteryLevel.round()}%',
+                  style: const TextStyle(fontSize: 11, color: Colors.white),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Icon(
+                (store.system.wifiSSID?.isNotEmpty ?? false)
+                    ? Icons.wifi
+                    : Icons.wifi_off,
+                size: 14,
+                color: Colors.white,
+              ),
+            ],
+          ),
+        ),
+        // 双摄像头（左主摄 / 右副摄）
+        Expanded(
+          flex: 3,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: CameraView(
+                    stream: _stream0,
+                    label: '主摄',
+                    enabled: _cameraLeftOn,
+                    recording: store.isRecording,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: CameraView(
+                    stream: _stream1,
+                    label: '副摄',
+                    enabled: _cameraRightOn,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        // 4 摇杆：左主(平移) + 左小(主摄云台) | 右主(偏航) + 右小(副摄云台)
+        Expanded(
+          flex: 4,
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    // 平移摇杆
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          JoystickWidget(
-                            label: '平移',
-                            onChanged: (val) {
-                              _moveStick.value = val;
-                              _onMoveStickChanged(val);
-                            },
-                          ),
-                        ],
-                      ),
+                    JoystickWidget(
+                      label: '平移',
+                      onChanged: (val) {
+                        _moveStick.value = val;
+                        _onMoveStickChanged(val);
+                      },
                     ),
-                    // 偏航摇杆
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          JoystickWidget(
-                            label: '偏航',
-                            horizontalOnly: true,
-                            onChanged: (val) {
-                              _yawStick.value = val;
-                              _onYawStickChanged(val);
-                            },
-                          ),
-                        ],
-                      ),
+                    JoystickWidget(
+                      label: '主摄云台',
+                      size: 90,
+                      color: Colors.teal,
+                      onChanged: (val) {
+                        _gimbalStick.value = val;
+                        _onGimbalStickChanged(val, false, false, size: 90);
+                      },
+                      onStart: (val) =>
+                          _onGimbalStickChanged(val, true, false, size: 90),
+                      onEnd: (val) =>
+                          _onGimbalStickChanged(val, false, true, size: 90),
                     ),
                   ],
                 ),
               ),
-              // 右: 云台摇杆
               Expanded(
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     JoystickWidget(
-                      label: '云台',
-                      color: Colors.teal,
+                      label: '偏航',
+                      horizontalOnly: true,
                       onChanged: (val) {
-                        _gimbalStick.value = val;
-                        _onGimbalStickChanged(val, false, false);
+                        _yawStick.value = val;
+                        _onYawStickChanged(val);
                       },
-                      onStart: (val) => _onGimbalStickChanged(val, true, false),
-                      onEnd: (val) => _onGimbalStickChanged(val, false, true),
                     ),
-                    const SizedBox(height: 8),
-                    // 云台居中按钮
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        ref
-                            .read(connectionManagerProvider.notifier)
-                            .sendGimbalCenter();
+                    JoystickWidget(
+                      label: '副摄云台',
+                      size: 90,
+                      onChanged: (val) {
+                        _gimbalStick2.value = val;
+                        _onGimbalStickChanged(val, false, false, size: 90);
                       },
-                      icon: const Icon(Icons.center_focus_strong, size: 16),
-                      label: const Text('居中', style: TextStyle(fontSize: 12)),
+                      onStart: (val) =>
+                          _onGimbalStickChanged(val, true, false, size: 90),
+                      onEnd: (val) =>
+                          _onGimbalStickChanged(val, false, true, size: 90),
                     ),
                   ],
                 ),
@@ -249,16 +439,71 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
             ],
           ),
         ),
-        const QuickActionBar(),
         const SizedBox(height: 8),
+        // 功能按钮（弹窗）+ 对讲
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.photo_camera_outlined, color: Colors.white),
+                onPressed: _openActionSheet,
+                tooltip: '摄像头功能',
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFF2C2C2E),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.stop_circle, color: Color(0xFFFF453A)),
+                onPressed: _emergencyStop,
+                tooltip: '急停',
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFF2C2C2E),
+                ),
+              ),
+              const Spacer(),
+              const VoiceButton(),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
       ],
     );
   }
 
-  /// 竖屏: D-Pad + 快捷栏
+  /// 竖屏: D-Pad + 快捷栏（降级布局）
   Widget _buildPortrait() {
     return Column(
       children: [
+        // 顶部：返回 + 功能按钮 + 急停
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                onPressed: () {
+                  ref.read(connectionManagerProvider.notifier).sendMotionStop();
+                  Navigator.of(context).pop();
+                },
+                tooltip: '返回',
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.photo_camera_outlined, color: Colors.white, size: 20),
+                onPressed: _openActionSheet,
+                tooltip: '摄像头功能',
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.stop_circle, color: Color(0xFFFF453A), size: 20),
+                onPressed: _emergencyStop,
+                tooltip: '急停',
+              ),
+            ],
+          ),
+        ),
         const Spacer(),
         // D-Pad
         Center(
@@ -276,10 +521,8 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                 children: [
                   _DPadButton(
                     icon: Icons.keyboard_arrow_left,
-                    onPress: () =>
-                        _motion.value = _motion.value.copyWith(vy: 0.6),
-                    onRelease: () =>
-                        _motion.value = _motion.value.copyWith(vy: 0),
+                    onPress: () => _motion.value = _motion.value.copyWith(vy: 0.6),
+                    onRelease: () => _motion.value = _motion.value.copyWith(vy: 0),
                   ),
                   const SizedBox(width: 8),
                   _DPadButton(
@@ -291,10 +534,8 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                   const SizedBox(width: 8),
                   _DPadButton(
                     icon: Icons.keyboard_arrow_right,
-                    onPress: () =>
-                        _motion.value = _motion.value.copyWith(vy: -0.6),
-                    onRelease: () =>
-                        _motion.value = _motion.value.copyWith(vy: 0),
+                    onPress: () => _motion.value = _motion.value.copyWith(vy: -0.6),
+                    onRelease: () => _motion.value = _motion.value.copyWith(vy: 0),
                   ),
                 ],
               ),
@@ -312,10 +553,8 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                   _DPadButton(
                     icon: Icons.rotate_left,
                     size: 56,
-                    onPress: () =>
-                        _motion.value = _motion.value.copyWith(vz: 2.5),
-                    onRelease: () =>
-                        _motion.value = _motion.value.copyWith(vz: 0),
+                    onPress: () => _motion.value = _motion.value.copyWith(vz: 2.5),
+                    onRelease: () => _motion.value = _motion.value.copyWith(vz: 0),
                   ),
                   const SizedBox(width: 24),
                   _DPadButton(
@@ -333,10 +572,8 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                   _DPadButton(
                     icon: Icons.rotate_right,
                     size: 56,
-                    onPress: () =>
-                        _motion.value = _motion.value.copyWith(vz: -2.5),
-                    onRelease: () =>
-                        _motion.value = _motion.value.copyWith(vz: 0),
+                    onPress: () => _motion.value = _motion.value.copyWith(vz: -2.5),
+                    onRelease: () => _motion.value = _motion.value.copyWith(vz: 0),
                   ),
                 ],
               ),
@@ -344,9 +581,48 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
           ),
         ),
         const Spacer(),
-        const QuickActionBar(),
+        const VoiceButton(),
         const SizedBox(height: 16),
       ],
+    );
+  }
+}
+
+/// WebRTC 状态胶囊
+class _WebRtcBadge extends StatelessWidget {
+  final WebRtcState state;
+  const _WebRtcBadge({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final (color, label) = switch (state) {
+      WebRtcState.connected => (const Color(0xFF34C759), '视频'),
+      WebRtcState.connecting => (const Color(0xFFFF9500), '连接中'),
+      WebRtcState.failed => (const Color(0xFFFF453A), '失败'),
+      WebRtcState.disconnected => (const Color(0xFF8E8E93), '断开'),
+      WebRtcState.idle => (const Color(0xFF8E8E93), '未连接'),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 10, color: Colors.white),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -378,6 +654,7 @@ class JoystickWidget extends StatefulWidget {
   final String label;
   final Color color;
   final bool horizontalOnly;
+  final double size;
   final void Function(JoystickValue val)? onChanged;
   final void Function(JoystickValue val)? onStart;
   final void Function(JoystickValue val)? onEnd;
@@ -387,6 +664,7 @@ class JoystickWidget extends StatefulWidget {
     required this.label,
     this.color = AppColors.primary,
     this.horizontalOnly = false,
+    this.size = 140,
     this.onChanged,
     this.onStart,
     this.onEnd,
@@ -397,14 +675,13 @@ class JoystickWidget extends StatefulWidget {
 }
 
 class _JoystickWidgetState extends State<JoystickWidget> {
-  static const double _size = 140;
-  static const double _cx = 70;
-  static const double _cy = 70;
-  static const double _knobR = 22;
-  static const double _maxDist = 55 - _knobR; // 最大移动距离
+  late final double _cx = widget.size / 2;
+  late final double _cy = widget.size / 2;
+  late final double _knobR = widget.size * 22 / 140;
+  late final double _maxDist = widget.size * 55 / 140 - _knobR; // 最大移动距离
 
-  double _knobX = _cx;
-  double _knobY = _cy;
+  late double _knobX = _cx;
+  late double _knobY = _cy;
 
   void _updateFromDetails(Offset localPosition) {
     double dx = localPosition.dx - _cx;
@@ -430,7 +707,7 @@ class _JoystickWidgetState extends State<JoystickWidget> {
       _knobX = _cx;
       _knobY = _cy;
     });
-    widget.onEnd?.call(const JoystickValue());
+    widget.onEnd?.call(JoystickValue(x: _cx, y: _cy));
   }
 
   @override
@@ -439,8 +716,8 @@ class _JoystickWidgetState extends State<JoystickWidget> {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          width: _size,
-          height: _size,
+          width: widget.size,
+          height: widget.size,
           child: GestureDetector(
             onPanStart: (details) {
               widget.onStart?.call(
@@ -455,6 +732,7 @@ class _JoystickWidgetState extends State<JoystickWidget> {
               painter: _JoystickPainter(
                 knobX: _knobX,
                 knobY: _knobY,
+                size: widget.size,
                 color: widget.color,
                 horizontalOnly: widget.horizontalOnly,
               ),
@@ -464,7 +742,7 @@ class _JoystickWidgetState extends State<JoystickWidget> {
         const SizedBox(height: 4),
         Text(
           widget.label,
-          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
         ),
       ],
     );
@@ -474,47 +752,49 @@ class _JoystickWidgetState extends State<JoystickWidget> {
 class _JoystickPainter extends CustomPainter {
   final double knobX;
   final double knobY;
+  final double size;
   final Color color;
   final bool horizontalOnly;
 
   _JoystickPainter({
     required this.knobX,
     required this.knobY,
+    required this.size,
     required this.color,
     this.horizontalOnly = false,
   });
 
   @override
-  void paint(Canvas canvas, Size size) {
-    const cx = 70.0, cy = 70.0;
-    const knobR = 22.0;
-    const outerR = 55.0;
+  void paint(Canvas canvas, Size canvasSize) {
+    final cx = size / 2, cy = size / 2;
+    final knobR = size * 22 / 140;
+    final outerR = size * 55 / 140;
 
     // 外圈
     final outerPaint = Paint()
       ..color = color.withValues(alpha: 0.1)
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(const Offset(cx, cy), outerR, outerPaint);
+    canvas.drawCircle(Offset(cx, cy), outerR, outerPaint);
 
     final borderPaint = Paint()
       ..color = color.withValues(alpha: 0.3)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
-    canvas.drawCircle(const Offset(cx, cy), outerR, borderPaint);
+    canvas.drawCircle(Offset(cx, cy), outerR, borderPaint);
 
     // 十字线
     final linePaint = Paint()
       ..color = color.withValues(alpha: 0.15)
       ..strokeWidth = 1;
     canvas.drawLine(
-      const Offset(cx - outerR, cy),
-      const Offset(cx + outerR, cy),
+      Offset(cx - outerR, cy),
+      Offset(cx + outerR, cy),
       linePaint,
     );
     if (!horizontalOnly) {
       canvas.drawLine(
-        const Offset(cx, cy - outerR),
-        const Offset(cx, cy + outerR),
+        Offset(cx, cy - outerR),
+        Offset(cx, cy + outerR),
         linePaint,
       );
     }
@@ -534,7 +814,9 @@ class _JoystickPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _JoystickPainter oldDelegate) =>
-      knobX != oldDelegate.knobX || knobY != oldDelegate.knobY;
+      knobX != oldDelegate.knobX ||
+      knobY != oldDelegate.knobY ||
+      size != oldDelegate.size;
 }
 
 /// D-Pad 按钮

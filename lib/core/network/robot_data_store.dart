@@ -39,10 +39,11 @@ class RobotDataStore extends StateNotifier<int> {
   int galleryPageSize = 20;
   bool galleryHasMore = false;
   bool galleryLoading = false;
-  // 录制
+  // 录制 (对齐 web-debug cameraRecord: is_recording/elapsed_s/file_size_bytes/camera_id)
   bool isRecording = false;
   String? recordingCameraId;
   int recordingElapsedS = 0;
+  int recordingFileSizeBytes = 0;
   // 画质
   String streamQuality = 'auto';
   // WiFi 扫描
@@ -88,6 +89,20 @@ class RobotDataStore extends StateNotifier<int> {
 
   void setGimbal(double pan, double tilt) {
     gimbal.update(pan, tilt);
+    notify();
+  }
+
+  /// 更新录制状态（对齐 web-debug cameraRecord: is_recording/elapsed_s/file_size_bytes/camera_id）
+  void setCameraRecord({
+    bool? isRecording,
+    String? cameraId,
+    int? elapsedS,
+    int? fileSizeBytes,
+  }) {
+    if (isRecording != null) this.isRecording = isRecording;
+    if (cameraId != null) recordingCameraId = cameraId;
+    if (elapsedS != null) recordingElapsedS = elapsedS;
+    if (fileSizeBytes != null) recordingFileSizeBytes = fileSizeBytes;
     notify();
   }
 
