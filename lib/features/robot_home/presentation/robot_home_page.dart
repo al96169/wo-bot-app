@@ -30,9 +30,9 @@ class RobotHomePage extends ConsumerWidget {
       body: SafeArea(
         child: Column(
           children: [
-            // 状态栏 (Pixso 5:1138)
+            // 状态栏 (Pixso 5:1138) — 机器人名 + 页面名 + 连接状态由状态栏自动显示
             FeatureStatusBar(
-              title: _robotName(manager),
+              title: '机器人主页',
               onBack: () => Navigator.of(context).pop(),
             ),
             // 主内容滚动区 (Pixso 5:1190)
@@ -48,19 +48,13 @@ class RobotHomePage extends ConsumerWidget {
     );
   }
 
-  String _robotName(ConnectionManager manager) {
-    final info = manager.robotInfo;
-    if (info != null && info['name'] != null) return '${info['name']}';
-    return manager.currentDevice?.name ?? '机器人主页';
-  }
-
   /// 功能导航列表 — 对齐 Pixso 5:1179（白底圆角卡片）
   Widget _buildNavList(BuildContext context, List<String> features) {
     // 全部功能入口（对齐 web-debug ALL_NAV_ITEMS，按 features 过滤）
     final items = <_NavEntry>[
       _NavEntry('快捷控制', Icons.bolt, () => _push(context, const QuickControlPage()), feature: null),
-      _NavEntry('遥控', Icons.gamepad, null, feature: 'motion'),
-      _NavEntry('SSH', Icons.terminal, null, feature: 'exec'),
+      const _NavEntry('遥控', Icons.gamepad, null, feature: 'motion'),
+      const _NavEntry('SSH', Icons.terminal, null, feature: 'exec'),
       _NavEntry('日志', Icons.receipt_long, () => _push(context, const LogsPage()), feature: null),
       _NavEntry('消息', Icons.mail_outline, () => _push(context, const MessagesPage()), feature: null),
       _NavEntry('状态', Icons.monitor_heart, () => _push(context, const RobotStatusPage()), feature: null),

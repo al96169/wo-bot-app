@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/network/robot_data_store.dart';
-import '../models/robot_data.dart';
+import '../../../core/network/connection_manager.dart';
 
 /// 功能页状态栏 — 匹配 Pixso 状态栏组件 (5:1137, 428×76)
 ///
-/// 结构：返回按钮(44) + 标题 + (可选)右侧图标
-/// 连接状态下展示：Wifi / 蜂窝 / 电量（由 RobotDataStore 驱动）
+/// 结构：返回按钮(44) + 标题区(机器人名 + 页面名) + (可选)右侧图标 + 连接状态胶囊
+/// 机器人名称与连接状态由 ConnectionManager 驱动，自动显示：
+/// - 已连接：主标题为机器人名，副标题为页面名，右侧绿色"已连接"胶囊
+/// - 未连接：主标题为页面名，右侧灰色"未连接"胶囊
 class FeatureStatusBar extends ConsumerWidget {
   final String title;
   final VoidCallback? onBack;
@@ -21,15 +22,19 @@ class FeatureStatusBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 读取系统状态（电量/WiFi）
-    ref.watch(robotDataProvider);
-    final data = ref.read(robotDataProvider.notifier);
-    final system = data.system;
+    ref.watch(connectionManagerProvider);
+    final manager = ref.read(connectionManagerProvider.notifier);
+    final info = manager.robotInfo;
+    final robotName = (info != null && info['name'] != null)
+        ? '${info['name']}'
+        : manager.currentDevice?.name;
+    final showSubtitle =
+        robotName != null && robotName.isNotEmpty && robotName != title;
 
     return SizedBox(
       height: 76,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
         child: Row(
           children: [
             // 返回按钮 44×44 无背景 (Pixso 1:3211)
@@ -51,21 +56,41 @@ class FeatureStatusBar extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 6),
-            // 标题 bold 19.6 (Pixso 1:4593)
+            // 标题区：机器人名(bold 19.6) + 页面名(11.6 灰) (Pixso 1:4593)
             Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 19.6,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1C1C1E),
-                ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    robotName ?? title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 19.6,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1C1C1E),
+                    ),
+                  ),
+                  if (showSubtitle) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11.6,
+                        color: Color(0xFF8E8E93),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             // 右侧操作区
             if (actions != null) ...actions!,
-            // 连接状态指示（已连接时显示）
-            _ConnectionStatus(system: system),
+            // 连接状态指示（真实连接状态）
+            const _ConnectionStatus(),
           ],
         ),
       ),
@@ -73,17 +98,25 @@ class FeatureStatusBar extends ConsumerWidget {
   }
 }
 
-/// 连接状态胶囊 — 绿色圆点 + "已连接"，对齐 Pixso 连接状态组件 (5:1125)
-class _ConnectionStatus extends StatelessWidget {
-  final SystemStatusData system;
-  const _ConnectionStatus({required this.system});
+/// 连接状态胶囊 — 圆点 + 状态文案，对齐 Pixso 连接状态组件 (5:1125)
+/// 已连接=绿 / 连接中·认证中=橙 / 连接失败=红 / 未连接=灰
+class _ConnectionStatus extends ConsumerWidget {
+  const _ConnectionStatus();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final conn = ref.watch(connectionManagerProvider);
+    final (color, label) = switch (conn) {
+      ConnState.connected => (const Color(0xFF34C759), '已连接'),
+      ConnState.binding => (const Color(0xFFFF9500), '认证中'),
+      ConnState.connecting => (const Color(0xFFFF9500), '连接中'),
+      ConnState.error => (const Color(0xFFFF3B30), '连接失败'),
+      ConnState.disconnected => (const Color(0xFFC7C7CC), '未连接'),
+    };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0x1A34C759), // 绿色 10% 透明
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(15),
       ),
       child: Row(
@@ -92,15 +125,15 @@ class _ConnectionStatus extends StatelessWidget {
           Container(
             width: 6,
             height: 6,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Color(0xFF34C759),
+              color: color,
             ),
           ),
           const SizedBox(width: 4),
-          const Text(
-            '已连接',
-            style: TextStyle(fontSize: 11.6, color: Color(0xFF1C1C1E)),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11.6, color: Color(0xFF1C1C1E)),
           ),
         ],
       ),
