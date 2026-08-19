@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/connection_manager.dart';
+import '../../../core/network/robot_data_store.dart';
+import '../models/robot_data.dart';
 
 /// 功能页状态栏 — 匹配 Pixso 状态栏组件 (5:1137, 428×76)
 ///
-/// 结构：返回按钮(44) + 标题区(机器人名 + 页面名) + (可选)右侧图标 + 连接状态胶囊
-/// 机器人名称与连接状态由 ConnectionManager 驱动，自动显示：
-/// - 已连接：主标题为机器人名，副标题为页面名，右侧绿色"已连接"胶囊
-/// - 未连接：主标题为页面名，右侧灰色"未连接"胶囊
+/// 结构：返回按钮(44) + 标题区(机器人名 + 页面名) + 右侧图标组 + 连接状态胶囊
+/// - 机器人名称与连接状态由 ConnectionManager 驱动
+/// - Wifi / 蜂窝 / 电量图标由 RobotDataStore 驱动（对齐 Pixso 5:1137 容器 35）
 class FeatureStatusBar extends ConsumerWidget {
   final String title;
   final VoidCallback? onBack;
@@ -30,6 +31,10 @@ class FeatureStatusBar extends ConsumerWidget {
         : manager.currentDevice?.name;
     final showSubtitle =
         robotName != null && robotName.isNotEmpty && robotName != title;
+
+    // 系统状态（电量/WiFi — 对齐 Pixso 5:1137）
+    ref.watch(robotDataProvider);
+    final system = ref.read(robotDataProvider.notifier).system;
 
     return SizedBox(
       height: 76,
@@ -89,12 +94,71 @@ class FeatureStatusBar extends ConsumerWidget {
             ),
             // 右侧操作区
             if (actions != null) ...actions!,
-            // 连接状态指示（真实连接状态）
-            const _ConnectionStatus(),
+            const SizedBox(width: 8),
+            // 右侧：Wifi/蜂窝/电量 + 连接状态胶囊（Pixso 5:1137 容器 35）
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _DeviceStatusIcons(system: system),
+                const SizedBox(height: 4),
+                const _ConnectionStatus(),
+              ],
+            ),
           ],
         ),
       ),
     );
+  }
+}
+
+/// 设备状态图标组 — Wifi / 蜂窝 / 电量，对齐 Pixso 5:1137 容器 2 (5:1124)
+/// - Wifi：有 SSID/信号时高亮，否则灰显
+/// - 蜂窝：真机为 WiFi 机器人暂无数据源，灰显占位（保留设计位置）
+/// - 电量：电池图标 + 百分比（充电时显示充电图标）
+class _DeviceStatusIcons extends StatelessWidget {
+  final SystemStatusData system;
+  const _DeviceStatusIcons({required this.system});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasWifi = (system.wifiSSID?.isNotEmpty ?? false) || system.wifiSignal > 0;
+    final wifiColor = hasWifi
+        ? const Color(0xFF232222)
+        : const Color(0x33232222);
+    const cellularColor = Color(0x33232222); // 无蜂窝数据源，灰显占位
+    final level = system.batteryLevel;
+    final hasBattery = level > 0;
+    final batteryIcon = system.batteryCharging
+        ? Icons.battery_charging_full
+        : _batteryIcon(level);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.wifi, size: 14, color: wifiColor),
+        const SizedBox(width: 6),
+        const Icon(Icons.signal_cellular_alt, size: 14, color: cellularColor),
+        const SizedBox(width: 6),
+        Icon(batteryIcon, size: 14, color: const Color(0xFF232222)),
+        const SizedBox(width: 3),
+        Text(
+          hasBattery ? '${level.round()}%' : '--',
+          style: const TextStyle(fontSize: 11.6, color: Color(0xFF3D3D3D)),
+        ),
+      ],
+    );
+  }
+
+  /// 电量分段图标（对齐系统电池图标惯例）
+  IconData _batteryIcon(double level) {
+    if (level >= 90) return Icons.battery_full;
+    if (level >= 80) return Icons.battery_6_bar;
+    if (level >= 65) return Icons.battery_5_bar;
+    if (level >= 50) return Icons.battery_4_bar;
+    if (level >= 35) return Icons.battery_3_bar;
+    if (level >= 20) return Icons.battery_2_bar;
+    if (level >= 10) return Icons.battery_1_bar;
+    return Icons.battery_0_bar;
   }
 }
 
