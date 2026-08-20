@@ -8,6 +8,7 @@ import '../../logs/presentation/logs_page.dart';
 import '../../messages/presentation/messages_page.dart';
 import '../../process/presentation/process_page.dart';
 import '../../quick_control/presentation/quick_control_page.dart';
+import '../../remote_control/presentation/remote_control_page.dart';
 import '../../settings/presentation/settings_page.dart';
 import '../../software/presentation/software_page.dart';
 import '../../status/presentation/robot_status_page.dart';
@@ -57,7 +58,12 @@ class RobotHomePage extends ConsumerWidget {
         Icons.bolt,
         () => _push(context, const QuickControlPage()),
       ),
-      const _NavEntry('遥控', Icons.gamepad, null, feature: 'motion'),
+      _NavEntry(
+        '遥控',
+        Icons.gamepad,
+        () => _push(context, const RemoteControlPage()),
+        feature: 'motion',
+      ),
       const _NavEntry('SSH', Icons.terminal, null, feature: 'exec'),
       _NavEntry(
         '日志',
