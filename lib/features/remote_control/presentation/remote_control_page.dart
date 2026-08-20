@@ -75,7 +75,7 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     super.dispose();
   }
 
-  /// 建立 WebRTC（视频 + DataChannel）并自动开启双摄像头
+  /// 建立 WebRTC（视频 + DataChannel）并自动开启摄像头
   void _initWebRtc() {
     if (!mounted) return;
     final manager = ref.read(connectionManagerProvider.notifier);
@@ -94,12 +94,26 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
         });
       };
     manager.startWebRtc();
-    // 自动开启左右摄像头
-    manager.sendCamera('start', 0);
-    manager.sendCamera('start', 1);
+    _startCameras();
+  }
+
+  /// 摄像头启动：优先用 cameras 列表的 id（主摄=列表第一项），未到时延迟重试
+  void _startCameras() {
+    final store = ref.read(robotDataProvider.notifier);
+    final manager = ref.read(connectionManagerProvider.notifier);
+    if (store.cameras.isEmpty) {
+      // camera_status 未到达，稍后重试
+      Future.delayed(const Duration(milliseconds: 1200), () {
+        if (mounted) _startCameras();
+      });
+      return;
+    }
+    for (final c in store.cameras) {
+      manager.sendCamera('start', c.cameraId);
+    }
     setState(() {
-      _cameraLeftOn = true;
-      _cameraRightOn = true;
+      _cameraLeftOn = store.cameras.isNotEmpty;
+      _cameraRightOn = store.cameras.length > 1;
     });
   }
 

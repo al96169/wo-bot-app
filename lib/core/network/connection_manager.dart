@@ -529,6 +529,7 @@ class ConnectionManager extends StateNotifier<ConnState> {
 
       // ---- 摄像头 ----
       case 'camera_status':
+        debugPrint('[CM] camera_status: $d');
         if (d['cameras'] is List) {
           _data.setCamerasFromList(d['cameras'] as List);
         } else if (d['id'] != null || d['camera_id'] != null) {
