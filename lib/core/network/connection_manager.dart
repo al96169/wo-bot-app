@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/app_constants.dart';
+import '../utils/app_toast.dart';
 import '../utils/logger.dart';
 import '../../shared/models/connection_state.dart';
 import '../../shared/models/robot_data.dart';
@@ -538,7 +539,19 @@ class ConnectionManager extends StateNotifier<ConnState> {
         }
         break;
       case 'camera_capture_result':
-        debugPrint('[CM] capture: ${d['file_name'] ?? d['photos']}');
+        // 对齐 web-debug：success/photos → 拍照结果反馈
+        if (d['success'] == true) {
+          final photos = d['photos'] is List ? (d['photos'] as List).length : 0;
+          AppToast.show(
+            photos > 0 ? '拍照成功，已保存 $photos 张照片' : '拍照成功',
+            type: AppToastType.success,
+          );
+        } else {
+          AppToast.show(
+            '拍照失败: ${d['error'] ?? d['message'] ?? '未知错误'}',
+            type: AppToastType.error,
+          );
+        }
         break;
       case 'camera_record_result':
         // 对齐 web-debug：data.is_recording / data.success

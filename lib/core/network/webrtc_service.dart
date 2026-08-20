@@ -154,29 +154,29 @@ class WebRtcService {
       };
 
       // 接收视频轨道（双摄像头）
-      // 关键（对齐 web-debug）：真机多条 video track 可能共享同一个 MediaStream，
-      // 若直接复用 event.streams[0]，两个画面会渲染同一摄像头 → 每个 track 独立 stream
+      // 真机多条 video track 可能共享同一个 MediaStream（双画面会渲染同一摄像头）。
+      // native 支持 createLocalMediaStream 新建独立流；web 优先复用共享流避免黑屏。
       int videoIndex = 0;
       _pc!.onTrack = (RTCTrackEvent event) {
-        debugPrint(
-          '[WebRTC] onTrack: kind=${event.track.kind} id=${event.track.id}',
-        );
         if (event.track.kind != 'video') return;
         final idx = videoIndex++;
-        // 异步创建独立 MediaStream（flutter_webrtc 需 async）
+        final shared = event.streams.isNotEmpty ? event.streams[0] : null;
+        final needNew = shared != null &&
+            (shared == videoStream0 || shared == videoStream1);
+        debugPrint(
+          '[WebRTC] onTrack#$idx id=${event.track.id} shared=${shared?.id ?? 'null'} needNew=$needNew',
+        );
         Future<void>(() async {
           try {
             MediaStream? stream;
-            if (event.streams.isNotEmpty) {
-              final shared = event.streams[0];
-              if (shared == videoStream0 || shared == videoStream1) {
-                // 多 track 共享同一 stream → 为当前 track 新建独立流
-                stream = await createLocalMediaStream('wobot-cam-$idx');
-                stream.addTrack(event.track);
-              } else {
-                stream = shared;
-              }
+            if (!kIsWeb && needNew) {
+              // native：多 track 共享同一 stream → 为当前 track 新建独立流
+              stream = await createLocalMediaStream('wobot-cam-$idx');
+              stream.addTrack(event.track);
+            } else if (shared != null) {
+              stream = shared;
             } else {
+              // 无共享流（极端情况）→ 尝试新建独立流
               stream = await createLocalMediaStream('wobot-cam-$idx');
               stream.addTrack(event.track);
             }
