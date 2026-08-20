@@ -40,9 +40,6 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
   final ValueNotifier<JoystickValue> _gimbalStick = ValueNotifier(
     const JoystickValue(),
   );
-  final ValueNotifier<JoystickValue> _gimbalStick2 = ValueNotifier(
-    const JoystickValue(),
-  );
 
   // WebRTC 状态
   WebRtcState _webrtcState = WebRtcState.idle;
@@ -69,7 +66,6 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     _moveStick.dispose();
     _yawStick.dispose();
     _gimbalStick.dispose();
-    _gimbalStick2.dispose();
     _motion.dispose();
     // 停止运动并断开 WebRTC
     try {
@@ -132,7 +128,8 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     }
 
     if (raw.abs() < deadzone) return 0;
-    return raw.sign * (raw.abs() * 0.7); // raw^0.7 近似
+    // 对齐 web-debug: raw^0.7（0.2→0.32, 0.5→0.62, 1.0→1.0），中心更灵敏
+    return raw.sign * pow(raw.abs(), 0.7).toDouble();
   }
 
   /// 从云台摇杆计算速度 — 匹配 web-debug gimbalSpeedFromState (sqrt 曲线)
@@ -312,6 +309,8 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     final robotName = (manager.robotInfo?['name'] as String?) ??
         manager.currentDevice?.name ??
         '遥控';
+    // 云台能力（features 含 gimbal；副摄无云台 → 副摄云台摇杆禁用，对齐 web-debug）
+    final gimbalAvailable = manager.remoteFeatures.contains('gimbal');
 
     return Column(
       children: [
@@ -416,6 +415,7 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                       label: '主摄云台',
                       size: 90,
                       color: Colors.teal,
+                      enabled: gimbalAvailable,
                       onChanged: (val) {
                         _gimbalStick.value = val;
                         _onGimbalStickChanged(val, false, false, size: 90);
@@ -441,17 +441,11 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                       },
                       onEnd: (_) => _onYawStickEnd(),
                     ),
-                    JoystickWidget(
+                    const JoystickWidget(
                       label: '副摄云台',
                       size: 90,
-                      onChanged: (val) {
-                        _gimbalStick2.value = val;
-                        _onGimbalStickChanged(val, false, false, size: 90);
-                      },
-                      onStart: (val) =>
-                          _onGimbalStickChanged(val, true, false, size: 90),
-                      onEnd: (val) =>
-                          _onGimbalStickChanged(val, false, true, size: 90),
+                      // 副摄无云台（对齐 web-debug 右云台不可用）
+                      enabled: false,
                     ),
                   ],
                 ),
@@ -675,6 +669,7 @@ class JoystickWidget extends StatefulWidget {
   final Color color;
   final bool horizontalOnly;
   final double size;
+  final bool enabled;
   final void Function(JoystickValue val)? onChanged;
   final void Function(JoystickValue val)? onStart;
   final void Function(JoystickValue val)? onEnd;
@@ -685,6 +680,7 @@ class JoystickWidget extends StatefulWidget {
     this.color = AppColors.primary,
     this.horizontalOnly = false,
     this.size = 140,
+    this.enabled = true,
     this.onChanged,
     this.onStart,
     this.onEnd,
@@ -732,39 +728,45 @@ class _JoystickWidgetState extends State<JoystickWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          width: widget.size,
-          height: widget.size,
-          child: GestureDetector(
-            onPanStart: (details) {
-              widget.onStart?.call(
-                JoystickValue(x: _knobX, y: _knobY, dragging: true),
-              );
-              _updateFromDetails(details.localPosition);
-            },
-            onPanUpdate: (details) => _updateFromDetails(details.localPosition),
-            onPanEnd: (_) => _reset(),
-            onPanCancel: _reset,
-            child: CustomPaint(
-              painter: _JoystickPainter(
-                knobX: _knobX,
-                knobY: _knobY,
-                size: widget.size,
-                color: widget.color,
-                horizontalOnly: widget.horizontalOnly,
+    return IgnorePointer(
+      ignoring: !widget.enabled,
+      child: Opacity(
+        opacity: widget.enabled ? 1 : 0.35,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: widget.size,
+              height: widget.size,
+              child: GestureDetector(
+                onPanStart: (details) {
+                  widget.onStart?.call(
+                    JoystickValue(x: _knobX, y: _knobY, dragging: true),
+                  );
+                  _updateFromDetails(details.localPosition);
+                },
+                onPanUpdate: (details) => _updateFromDetails(details.localPosition),
+                onPanEnd: (_) => _reset(),
+                onPanCancel: _reset,
+                child: CustomPaint(
+                  painter: _JoystickPainter(
+                    knobX: _knobX,
+                    knobY: _knobY,
+                    size: widget.size,
+                    color: widget.color,
+                    horizontalOnly: widget.horizontalOnly,
+                  ),
+                ),
               ),
             ),
-          ),
+            const SizedBox(height: 4),
+            Text(
+              widget.enabled ? widget.label : '${widget.label}(不可用)',
+              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+            ),
+          ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          widget.label,
-          style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-        ),
-      ],
+      ),
     );
   }
 }

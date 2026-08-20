@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -11,8 +12,9 @@ import '../../../../core/utils/app_toast.dart';
 
 /// 对讲按钮 — 按住说话（push-to-talk）
 ///
-/// 录音（WebM/AAC）→ 松开发送 voice_broadcast（record 模式，走 WebSocket 二进制）
+/// 录音（AAC）→ 松开发送 voice_broadcast（record 模式，走 WebSocket 二进制）
 /// 对齐 web-debug RemoteView 喊话（record 模式）；电话模式（PCM 直传）后续迭代
+/// Web 端不支持本地录音（record 插件），显示提示降级
 class VoiceButton extends ConsumerStatefulWidget {
   const VoiceButton({super.key});
 
@@ -33,7 +35,15 @@ class _VoiceButtonState extends ConsumerState<VoiceButton> {
     super.dispose();
   }
 
-  Future<void> _startRecord() async {
+  void _startRecord() {
+    if (kIsWeb) {
+      AppToast.show('对讲需在 App 真机使用（Web 不支持录音）');
+      return;
+    }
+    _doStartRecord();
+  }
+
+  Future<void> _doStartRecord() async {
     if (_recording) return;
     try {
       if (!await _recorder.hasPermission()) {
