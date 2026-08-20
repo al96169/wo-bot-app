@@ -312,177 +312,201 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     // 云台能力（features 含 gimbal；副摄无云台 → 副摄云台摇杆禁用，对齐 web-debug）
     final gimbalAvailable = manager.remoteFeatures.contains('gimbal');
 
-    return Column(
-      children: [
-        // 顶部状态条：抽屉按钮 + 设备名 + WebRTC 状态 + 电量/WiFi
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
-          child: Row(
-            children: [
-              Builder(
-                builder: (ctx) => IconButton(
-                  icon: const Icon(Icons.menu, color: Colors.white, size: 20),
-                  onPressed: () => Scaffold.of(ctx).openDrawer(),
-                  tooltip: '菜单',
-                ),
+    // 王者荣耀式布局：主摄全屏 + 副摄 PiP 小窗 + 半透明摇杆叠加画面 + 顶部透明浮层
+    // 摇杆尺寸按可用空间自适应，避免小屏/高分屏溢出
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final h = constraints.maxHeight;
+        // 主摇杆尺寸：按可用空间自适应（上限 140，宽度/高度双重限制防溢出）
+        var mainStick = h * 0.24;
+        if (mainStick > 140) mainStick = 140;
+        if (mainStick < 60) mainStick = 60;
+        if (mainStick > w * 0.16) mainStick = w * 0.16;
+        final subStick = mainStick * 0.62;
+        const statusBarH = 40.0;
+        final pipW = (w * 0.32).clamp(120, 260).toDouble();
+        final pipH = (h * 0.26).clamp(90, 180).toDouble();
+        const stickBottom = 68.0; // 底部对讲/按钮区域高度
+
+        return Stack(
+          children: [
+            // 主摄全屏
+            Positioned.fill(
+              child: CameraView(
+                stream: _stream0,
+                label: '主摄',
+                enabled: _cameraLeftOn,
+                recording: store.isRecording,
               ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  robotName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              _WebRtcBadge(state: _webrtcState),
-              const SizedBox(width: 10),
-              // 电量 + WiFi
-              if (store.system.batteryLevel > 0) ...[
-                Icon(
-                  store.system.batteryCharging
-                      ? Icons.battery_charging_full
-                      : Icons.battery_full,
-                  size: 14,
-                  color: Colors.white,
-                ),
-                Text(
-                  ' ${store.system.batteryLevel.round()}%',
-                  style: const TextStyle(fontSize: 11, color: Colors.white),
-                ),
-                const SizedBox(width: 8),
-              ],
-              Icon(
-                (store.system.wifiSSID?.isNotEmpty ?? false)
-                    ? Icons.wifi
-                    : Icons.wifi_off,
-                size: 14,
-                color: Colors.white,
-              ),
-            ],
-          ),
-        ),
-        // 双摄像头（左主摄 / 右副摄）
-        Expanded(
-          flex: 3,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: CameraView(
-                    stream: _stream0,
-                    label: '主摄',
-                    enabled: _cameraLeftOn,
-                    recording: store.isRecording,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: CameraView(
-                    stream: _stream1,
-                    label: '副摄',
-                    enabled: _cameraRightOn,
-                  ),
-                ),
-              ],
             ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        // 4 摇杆：左主(平移) + 左小(主摄云台) | 右主(偏航) + 右小(副摄云台)
-        Expanded(
-          flex: 4,
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            // 副摄 PiP 小窗（右上角，避开顶部浮层）
+            Positioned(
+              top: statusBarH + 6,
+              right: 8,
+              width: pipW,
+              height: pipH,
+              child: CameraView(
+                stream: _stream1,
+                label: '副摄',
+                enabled: _cameraRightOn,
+              ),
+            ),
+            // 顶部透明浮层（覆盖在画面上）：☰ + 设备名 + WebRTC 状态 + 电量/WiFi
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: statusBarH,
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0x99000000), Color(0x00000000)],
+                  ),
+                ),
+                child: Row(
                   children: [
-                    JoystickWidget(
-                      label: '平移',
-                      onChanged: (val) {
-                        _moveStick.value = val;
-                        _onMoveStickChanged(val);
-                      },
-                      onEnd: (_) => _onMoveStickEnd(),
+                    Builder(
+                      builder: (ctx) => IconButton(
+                        icon: const Icon(Icons.menu, color: Colors.white, size: 20),
+                        onPressed: () => Scaffold.of(ctx).openDrawer(),
+                        tooltip: '菜单',
+                      ),
                     ),
-                    JoystickWidget(
-                      label: '主摄云台',
-                      size: 90,
-                      color: Colors.teal,
-                      enabled: gimbalAvailable,
-                      onChanged: (val) {
-                        _gimbalStick.value = val;
-                        _onGimbalStickChanged(val, false, false, size: 90);
-                      },
-                      onStart: (val) =>
-                          _onGimbalStickChanged(val, true, false, size: 90),
-                      onEnd: (val) =>
-                          _onGimbalStickChanged(val, false, true, size: 90),
+                    const SizedBox(width: 2),
+                    Expanded(
+                      child: Text(
+                        robotName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
+                    _WebRtcBadge(state: _webrtcState),
+                    const SizedBox(width: 10),
+                    if (store.system.batteryLevel > 0) ...[
+                      Icon(
+                        store.system.batteryCharging
+                            ? Icons.battery_charging_full
+                            : Icons.battery_full,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                      Text(
+                        ' ${store.system.batteryLevel.round()}%',
+                        style: const TextStyle(fontSize: 11, color: Colors.white),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Icon(
+                      (store.system.wifiSSID?.isNotEmpty ?? false)
+                          ? Icons.wifi
+                          : Icons.wifi_off,
+                      size: 14,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 12),
                   ],
                 ),
               ),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            ),
+            // 左摇杆组：平移（大）+ 主摄云台（小），叠加在画面左下
+            Positioned(
+              left: 10,
+              bottom: stickBottom,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  JoystickWidget(
+                    label: '平移',
+                    size: mainStick,
+                    onChanged: (val) {
+                      _moveStick.value = val;
+                      _onMoveStickChanged(val);
+                    },
+                    onEnd: (_) => _onMoveStickEnd(),
+                  ),
+                  const SizedBox(height: 6),
+                  JoystickWidget(
+                    label: '主摄云台',
+                    size: subStick,
+                    color: Colors.teal,
+                    enabled: gimbalAvailable,
+                    onChanged: (val) {
+                      _gimbalStick.value = val;
+                      _onGimbalStickChanged(val, false, false, size: subStick);
+                    },
+                    onStart: (val) =>
+                        _onGimbalStickChanged(val, true, false, size: subStick),
+                    onEnd: (val) =>
+                        _onGimbalStickChanged(val, false, true, size: subStick),
+                  ),
+                ],
+              ),
+            ),
+            // 右摇杆组：偏航（大）+ 副摄云台（小，禁用），叠加在画面右下
+            Positioned(
+              right: 10,
+              bottom: stickBottom,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  JoystickWidget(
+                    label: '偏航',
+                    size: mainStick,
+                    horizontalOnly: true,
+                    onChanged: (val) {
+                      _yawStick.value = val;
+                      _onYawStickChanged(val);
+                    },
+                    onEnd: (_) => _onYawStickEnd(),
+                  ),
+                  const SizedBox(height: 6),
+                  JoystickWidget(
+                    label: '副摄云台',
+                    size: subStick,
+                    // 副摄无云台（对齐 web-debug 右云台不可用）
+                    enabled: false,
+                  ),
+                ],
+              ),
+            ),
+            // 底部浮层：功能按钮（弹窗）+ 急停 + 对讲
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 8,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
                   children: [
-                    JoystickWidget(
-                      label: '偏航',
-                      horizontalOnly: true,
-                      onChanged: (val) {
-                        _yawStick.value = val;
-                        _onYawStickChanged(val);
-                      },
-                      onEnd: (_) => _onYawStickEnd(),
+                    _FloatingBtn(
+                      icon: Icons.photo_camera_outlined,
+                      onTap: _openActionSheet,
+                      tooltip: '摄像头功能',
                     ),
-                    const JoystickWidget(
-                      label: '副摄云台',
-                      size: 90,
-                      // 副摄无云台（对齐 web-debug 右云台不可用）
-                      enabled: false,
+                    const SizedBox(width: 8),
+                    _FloatingBtn(
+                      icon: Icons.stop_circle,
+                      color: const Color(0xFFFF453A),
+                      onTap: _emergencyStop,
+                      tooltip: '急停',
                     ),
+                    const Spacer(),
+                    const VoiceButton(),
                   ],
                 ),
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        // 功能按钮（弹窗）+ 对讲
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.photo_camera_outlined, color: Colors.white),
-                onPressed: _openActionSheet,
-                tooltip: '摄像头功能',
-                style: IconButton.styleFrom(
-                  backgroundColor: const Color(0xFF2C2C2E),
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.stop_circle, color: Color(0xFFFF453A)),
-                onPressed: _emergencyStop,
-                tooltip: '急停',
-                style: IconButton.styleFrom(
-                  backgroundColor: const Color(0xFF2C2C2E),
-                ),
-              ),
-              const Spacer(),
-              const VoiceButton(),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -636,6 +660,33 @@ class _WebRtcBadge extends StatelessWidget {
             style: const TextStyle(fontSize: 10, color: Colors.white),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 底部悬浮按钮（半透明黑底）
+class _FloatingBtn extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  final String tooltip;
+
+  const _FloatingBtn({
+    required this.icon,
+    required this.onTap,
+    this.color = Colors.white,
+    this.tooltip = '',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: Icon(icon, color: color, size: 20),
+      onPressed: onTap,
+      tooltip: tooltip,
+      style: IconButton.styleFrom(
+        backgroundColor: const Color(0xAA2C2C2E),
       ),
     );
   }
