@@ -177,6 +177,24 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     }
   }
 
+  /// 平移摇杆松开：清零 vx/vy，全部归零则停止（对齐 web-debug onEnd）
+  void _onMoveStickEnd() {
+    final m = _motion.value;
+    _motion.value = m.copyWith(vx: 0, vy: 0);
+    if (_motion.value.vz == 0) {
+      ref.read(connectionManagerProvider.notifier).sendMotionStop();
+    }
+  }
+
+  /// 偏航摇杆松开：清零 vz，全部归零则停止
+  void _onYawStickEnd() {
+    final m = _motion.value;
+    _motion.value = m.copyWith(vz: 0);
+    if (_motion.value.vx == 0 && _motion.value.vy == 0) {
+      ref.read(connectionManagerProvider.notifier).sendMotionStop();
+    }
+  }
+
   void _onGimbalStickChanged(JoystickValue val, bool isStart, bool isEnd, {double size = 140}) {
     final manager = ref.read(connectionManagerProvider.notifier);
     if (isStart) {
@@ -392,6 +410,7 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                         _moveStick.value = val;
                         _onMoveStickChanged(val);
                       },
+                      onEnd: (_) => _onMoveStickEnd(),
                     ),
                     JoystickWidget(
                       label: '主摄云台',
@@ -420,6 +439,7 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                         _yawStick.value = val;
                         _onYawStickChanged(val);
                       },
+                      onEnd: (_) => _onYawStickEnd(),
                     ),
                     JoystickWidget(
                       label: '副摄云台',
