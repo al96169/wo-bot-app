@@ -24,20 +24,32 @@ class CameraView extends StatefulWidget {
 
 class _CameraViewState extends State<CameraView> {
   final RTCVideoRenderer _renderer = RTCVideoRenderer();
+  bool _rendererReady = false;
 
   @override
   void initState() {
     super.initState();
-    _renderer.initialize();
-    if (widget.stream != null) {
-      _renderer.srcObject = widget.stream;
-    }
+    _initRenderer();
+  }
+
+  /// 初始化 renderer（web 上 initialize 可能抛错，隔离避免 Uncaught Error）
+  void _initRenderer() {
+    _renderer.initialize().then((_) {
+      if (mounted) {
+        setState(() => _rendererReady = true);
+        if (widget.stream != null) {
+          _renderer.srcObject = widget.stream;
+        }
+      }
+    }).catchError((Object e) {
+      debugPrint('[CameraView] renderer 初始化失败: $e');
+    });
   }
 
   @override
   void didUpdateWidget(covariant CameraView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.stream != widget.stream) {
+    if (oldWidget.stream != widget.stream && _rendererReady) {
       _renderer.srcObject = widget.stream;
     }
   }
@@ -50,7 +62,8 @@ class _CameraViewState extends State<CameraView> {
 
   @override
   Widget build(BuildContext context) {
-    final hasStream = widget.stream != null && widget.enabled;
+    final hasStream =
+        widget.stream != null && widget.enabled && _rendererReady;
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1C1C1E),

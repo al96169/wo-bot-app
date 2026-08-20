@@ -265,12 +265,10 @@ class ConnectionManager extends StateNotifier<ConnState> {
   });
 
   /// 建立 WebRTC 连接（视频 + DataChannel）— 对齐 web-debug establishConnection
-  /// 服务端 features 不含 "webrtc" 时跳过；offer/ICE 经 WebSocket 信令交换
+  /// 真机 features 可能不含 'webrtc'（web-debug 实测可用），因此不以此作为硬性门槛，
+  /// 总是尝试建立；不支持时 establishConnection 内部捕获失败，不影响 WS 控制。
   Future<void> startWebRtc() async {
-    if (!remoteFeatures.contains('webrtc')) {
-      debugPrint('[CM] 设备不支持 webrtc feature，跳过');
-      return;
-    }
+    debugPrint('[CM] startWebRtc, features=$remoteFeatures');
     await webrtc.establishConnection(
       sendOffer: sendWebRtcOffer,
       sendIceCandidate: sendWebRtcIceCandidate,
