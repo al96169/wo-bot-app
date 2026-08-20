@@ -161,11 +161,17 @@ class WebRtcService {
       _pc!.onTrack = (RTCTrackEvent event) {
         if (event.track.kind != 'video') return;
         final idx = videoIndex++;
-        debugPrint('[WebRTC] onTrack#$idx id=${event.track.id}');
+        final streamCount = event.streams.length;
+        debugPrint(
+          '[WebRTC] onTrack#$idx trackId=${event.track.id} streams=$streamCount',
+        );
         Future<void>(() async {
           try {
             final stream = await createLocalMediaStream('wobot-cam-$idx');
             stream.addTrack(event.track);
+            debugPrint(
+              '[WebRTC] stream#$idx ready id=${stream.id} tracks=${stream.getVideoTracks().length}',
+            );
             if (idx == 0) {
               videoStream0 = stream;
             } else {
@@ -177,7 +183,7 @@ class WebRtcService {
               debugPrint('[WebRTC] 视频 track $idx ended');
             };
           } catch (e) {
-            debugPrint('[WebRTC] 分配视频流失败: $e');
+            debugPrint('[WebRTC] 分配视频流失败#$idx: $e');
           }
         });
       };
