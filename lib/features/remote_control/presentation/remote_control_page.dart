@@ -114,7 +114,7 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     _waitCamerasThenStart(0);
   }
 
-  /// 等摄像头列表（最多 ~2s）→ 启动摄像头 → 建立 WebRTC
+  /// 等摄像头列表（最多 ~2s）→ 启动摄像头 → 延迟 3s 等编码器就绪 → 建立 WebRTC
   void _waitCamerasThenStart(int attempt) {
     final store = ref.read(robotDataProvider.notifier);
     final manager = ref.read(connectionManagerProvider.notifier);
@@ -141,7 +141,13 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
       manager.sendCamera('start', 0);
       manager.sendCamera('start', 1);
     }
-    manager.startWebRtc();
+    // 摄像头 pipeline 启动需数秒，延迟再建 WebRTC，保证 track 到达时编码器已就绪
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        debugPrint('[Remote] 摄像头就绪，建立 WebRTC');
+        manager.startWebRtc();
+      }
+    });
   }
 
   /// 合并发送运动指令 — 匹配 web-debug sendMergedMotion
