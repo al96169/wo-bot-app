@@ -173,8 +173,10 @@ class ConnectionManager extends StateNotifier<ConnState> {
       send('device_control', {'action': action, 'enabled': enabled});
 
   // ---- 摄像头 ----
-  void sendCamera(String action, int cameraId) =>
-      send('camera', {'action': action, 'camera_id': cameraId});
+  void sendCamera(String action, int cameraId) {
+    debugPrint('[CM] camera → action=$action camera_id=$cameraId');
+    send('camera', {'action': action, 'camera_id': cameraId});
+  }
   void sendCameraCapture([String quality = 'high']) =>
       send('camera_capture', {'quality': quality});
   void sendCameraRecordStart(int cameraId, [String quality = 'high']) =>

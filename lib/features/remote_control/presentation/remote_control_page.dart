@@ -76,7 +76,8 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     super.dispose();
   }
 
-  /// 建立 WebRTC（视频 + DataChannel）并自动开启摄像头
+  /// 建立 WebRTC（视频 + DataChannel）：先等摄像头列表并启动，再建 WebRTC，
+  /// 保证视频 track 到达时主/副摄流已有数据（避免空流黑屏）
   void _initWebRtc() {
     if (!mounted) return;
     final manager = ref.read(connectionManagerProvider.notifier);
@@ -94,31 +95,37 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
           }
         });
       };
-    manager.startWebRtc();
-    _startCameras();
+    _waitCamerasThenStart(0);
   }
 
-  /// 摄像头启动：优先用 cameras 列表的 id（主摄=列表第一项）
-  /// 列表未到达时先兜底启动常见 id（0/1），到达后按真实 id 再启
-  void _startCameras() {
+  /// 等摄像头列表（最多 ~2s）→ 启动摄像头 → 建立 WebRTC
+  void _waitCamerasThenStart(int attempt) {
     final store = ref.read(robotDataProvider.notifier);
     final manager = ref.read(connectionManagerProvider.notifier);
-    if (store.cameras.isEmpty) {
-      // camera_status 未到达：兜底启动常见 id，稍后按列表重试
-      manager.sendCamera('start', 0);
-      manager.sendCamera('start', 1);
-      Future.delayed(const Duration(milliseconds: 1200), () {
-        if (mounted) _startCameras();
+    if (store.cameras.isEmpty && attempt < 4) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) _waitCamerasThenStart(attempt + 1);
       });
       return;
     }
-    for (final c in store.cameras) {
-      manager.sendCamera('start', c.cameraId);
+    if (store.cameras.isNotEmpty) {
+      debugPrint(
+        '[Remote] 启动摄像头: ${store.cameras.map((c) => '${c.cameraId}:${c.name}').toList()}',
+      );
+      for (final c in store.cameras) {
+        manager.sendCamera('start', c.cameraId);
+      }
+      setState(() {
+        _cameraLeftOn = store.cameras.isNotEmpty;
+        _cameraRightOn = store.cameras.length > 1;
+      });
+    } else {
+      // 列表超时未到：兜底启动常见 id
+      debugPrint('[Remote] 摄像头列表超时，兜底 start 0/1');
+      manager.sendCamera('start', 0);
+      manager.sendCamera('start', 1);
     }
-    setState(() {
-      _cameraLeftOn = store.cameras.isNotEmpty;
-      _cameraRightOn = store.cameras.length > 1;
-    });
+    manager.startWebRtc();
   }
 
   /// 合并发送运动指令 — 匹配 web-debug sendMergedMotion
