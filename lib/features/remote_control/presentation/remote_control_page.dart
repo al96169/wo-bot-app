@@ -8,7 +8,6 @@ import '../../../core/network/robot_data_store.dart';
 import '../../../core/network/webrtc_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_toast.dart';
-import '../../../shared/models/robot_data.dart';
 import 'widgets/camera_action_sheet.dart';
 import 'widgets/camera_view.dart';
 import 'widgets/remote_drawer.dart';
@@ -58,8 +57,8 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
       const Duration(milliseconds: 50),
       (_) => _sendMergedMotion(),
     );
-    // 延迟建立 WebRTC（等连接与信令通道稳定）
-    Future.delayed(const Duration(milliseconds: 500), _initWebRtc);
+    // 立即建立 WebRTC + 启动摄像头（并行，无等待）
+    _initWebRtc();
     // 15s 未连接则自动重试（offer/answer 可能因信令时序丢失）
     _webrtcRetryTimer = Timer(const Duration(seconds: 15), _retryWebRtcIfNeeded);
   }
@@ -92,8 +91,7 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     }
   }
 
-  /// 建立 WebRTC（视频 + DataChannel）：先等摄像头列表并启动，再建 WebRTC，
-  /// 保证视频 track 到达时主/副摄流已有数据（避免空流黑屏）
+  /// 立即建立 WebRTC（视频 + DataChannel），同时并行启动摄像头（无等待）
   void _initWebRtc() {
     if (!mounted) return;
     final manager = ref.read(connectionManagerProvider.notifier);
@@ -111,57 +109,45 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
           }
         });
       };
-    _waitCamerasThenStart(0);
+    // 并行：先发 WebRTC offer（信令+ICE 需 1-2s，期间摄像头 pipeline 同步就绪）
+    manager.startWebRtc();
+    _startCamerasImmediate();
   }
 
-  /// 等摄像头列表（最多 ~2s）→ 先启主摄、2s 后启副摄（避免双摄同时启动冲突）
-  /// → 延迟 3s 等编码器就绪 → 建立 WebRTC
-  void _waitCamerasThenStart(int attempt) {
+  /// 立即启动摄像头：列表已到用真实 id，未到先兜底 0/1 稍后补
+  void _startCamerasImmediate() {
     final store = ref.read(robotDataProvider.notifier);
     final manager = ref.read(connectionManagerProvider.notifier);
-    if (store.cameras.isEmpty && attempt < 4) {
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) _waitCamerasThenStart(attempt + 1);
+    if (store.cameras.isNotEmpty) {
+      debugPrint(
+        '[Remote] 启动摄像头: ${store.cameras.map((c) => '${c.cameraId}:${c.name}').toList()}',
+      );
+      for (final c in store.cameras) {
+        manager.sendCamera('start', c.cameraId);
+      }
+      setState(() {
+        _cameraLeftOn = store.cameras.isNotEmpty;
+        _cameraRightOn = store.cameras.length > 1;
       });
-      return;
-    }
-    List<CameraInfo> cams = store.cameras;
-    if (cams.isEmpty) {
-      // 列表超时未到：兜底按 [id1 主摄, id0 副摄] 顺序
-      debugPrint('[Remote] 摄像头列表超时，兜底顺序启动');
-      cams = const [
-        CameraInfo(cameraId: 1, name: 'CSI Camera'),
-        CameraInfo(cameraId: 0, name: 'CSI Camera (shared)'),
-      ];
-    }
-    debugPrint(
-      '[Remote] 摄像头: ${cams.map((c) => '${c.cameraId}:${c.name}').toList()}',
-    );
-    // 主摄（非 shared）先启动
-    final main = cams.where((c) => !c.name.contains('shared')).toList();
-    final subs = cams.where((c) => c.name.contains('shared')).toList();
-    for (final c in main) {
-      manager.sendCamera('start', c.cameraId);
-    }
-    if (subs.isNotEmpty) {
-      Future.delayed(const Duration(seconds: 2), () {
+    } else {
+      // 列表未到：兜底启动 0/1，稍后按真实列表补启
+      debugPrint('[Remote] 摄像头列表未到，兜底 start 0/1');
+      manager.sendCamera('start', 0);
+      manager.sendCamera('start', 1);
+      Future.delayed(const Duration(milliseconds: 1200), () {
         if (!mounted) return;
-        for (final c in subs) {
-          manager.sendCamera('start', c.cameraId);
+        final s2 = ref.read(robotDataProvider.notifier);
+        if (s2.cameras.isNotEmpty) {
+          for (final c in s2.cameras) {
+            manager.sendCamera('start', c.cameraId);
+          }
+          setState(() {
+            _cameraLeftOn = s2.cameras.isNotEmpty;
+            _cameraRightOn = s2.cameras.length > 1;
+          });
         }
       });
     }
-    setState(() {
-      _cameraLeftOn = cams.isNotEmpty;
-      _cameraRightOn = cams.length > 1;
-    });
-    // 主摄 pipeline 启动需数秒，延迟再建 WebRTC
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        debugPrint('[Remote] 摄像头就绪，建立 WebRTC');
-        manager.startWebRtc();
-      }
-    });
   }
 
   /// 合并发送运动指令 — 匹配 web-debug sendMergedMotion
