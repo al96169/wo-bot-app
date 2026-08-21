@@ -8,6 +8,7 @@ import '../../../core/network/robot_data_store.dart';
 import '../../../core/network/webrtc_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_toast.dart';
+import '../../../shared/models/robot_data.dart';
 import 'widgets/camera_action_sheet.dart';
 import 'widgets/camera_view.dart';
 import 'widgets/remote_drawer.dart';
@@ -113,7 +114,8 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     _waitCamerasThenStart(0);
   }
 
-  /// 等摄像头列表（最多 ~2s）→ 启动摄像头 → 延迟 3s 等编码器就绪 → 建立 WebRTC
+  /// 等摄像头列表（最多 ~2s）→ 先启主摄、2s 后启副摄（避免双摄同时启动冲突）
+  /// → 延迟 3s 等编码器就绪 → 建立 WebRTC
   void _waitCamerasThenStart(int attempt) {
     final store = ref.read(robotDataProvider.notifier);
     final manager = ref.read(connectionManagerProvider.notifier);
@@ -123,24 +125,37 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
       });
       return;
     }
-    if (store.cameras.isNotEmpty) {
-      debugPrint(
-        '[Remote] 启动摄像头: ${store.cameras.map((c) => '${c.cameraId}:${c.name}').toList()}',
-      );
-      for (final c in store.cameras) {
-        manager.sendCamera('start', c.cameraId);
-      }
-      setState(() {
-        _cameraLeftOn = store.cameras.isNotEmpty;
-        _cameraRightOn = store.cameras.length > 1;
-      });
-    } else {
-      // 列表超时未到：兜底启动常见 id
-      debugPrint('[Remote] 摄像头列表超时，兜底 start 0/1');
-      manager.sendCamera('start', 0);
-      manager.sendCamera('start', 1);
+    List<CameraInfo> cams = store.cameras;
+    if (cams.isEmpty) {
+      // 列表超时未到：兜底按 [id1 主摄, id0 副摄] 顺序
+      debugPrint('[Remote] 摄像头列表超时，兜底顺序启动');
+      cams = const [
+        CameraInfo(cameraId: 1, name: 'CSI Camera'),
+        CameraInfo(cameraId: 0, name: 'CSI Camera (shared)'),
+      ];
     }
-    // 摄像头 pipeline 启动需数秒，延迟再建 WebRTC，保证 track 到达时编码器已就绪
+    debugPrint(
+      '[Remote] 摄像头: ${cams.map((c) => '${c.cameraId}:${c.name}').toList()}',
+    );
+    // 主摄（非 shared）先启动
+    final main = cams.where((c) => !c.name.contains('shared')).toList();
+    final subs = cams.where((c) => c.name.contains('shared')).toList();
+    for (final c in main) {
+      manager.sendCamera('start', c.cameraId);
+    }
+    if (subs.isNotEmpty) {
+      Future.delayed(const Duration(seconds: 2), () {
+        if (!mounted) return;
+        for (final c in subs) {
+          manager.sendCamera('start', c.cameraId);
+        }
+      });
+    }
+    setState(() {
+      _cameraLeftOn = cams.isNotEmpty;
+      _cameraRightOn = cams.length > 1;
+    });
+    // 主摄 pipeline 启动需数秒，延迟再建 WebRTC
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
         debugPrint('[Remote] 摄像头就绪，建立 WebRTC');
