@@ -154,43 +154,36 @@ class WebRtcService {
       };
 
       // 接收视频轨道（双摄像头）
-      // aiortc 每个 sender 天然独立 stream（SDP msid 独立）→ 直接复用 event.streams[0]
-      // （与 web-debug 基础路径一致；仅当 stream 缺失时才新建兜底）
+      // 真机(旧版 aiortc)两条 track 共享同一 MediaStream(msid 相同) → 直接复用会双画面同内容
+      // 为每条 track 新建独立 MediaStream（web-debug 同款方案），双物理摄像头下各自渲染
       int videoIndex = 0;
       _pc!.onTrack = (RTCTrackEvent event) {
         if (event.track.kind != 'video') return;
         final idx = videoIndex++;
-        final shared = event.streams.isNotEmpty ? event.streams[0] : null;
         debugPrint(
-          '[WebRTC] onTrack#$idx track=${event.track.id} stream=${shared?.id ?? 'null'}',
+          '[WebRTC] onTrack#$idx track=${event.track.id} streams=${event.streams.length}',
         );
-        event.track.onEnded = () {
-          debugPrint('[WebRTC] 视频 track $idx ended');
-        };
-        if (shared != null) {
-          if (idx == 0) {
-            videoStream0 = shared;
-          } else {
-            videoStream1 = shared;
-          }
-          onVideoStream?.call(shared, idx);
-        } else {
-          // 无共享流（极端情况）→ 新建独立流兜底
-          Future<void>(() async {
-            try {
-              final stream = await createLocalMediaStream('wobot-cam-$idx');
-              stream.addTrack(event.track);
-              if (idx == 0) {
-                videoStream0 = stream;
-              } else {
-                videoStream1 = stream;
-              }
-              onVideoStream?.call(stream, idx);
-            } catch (e) {
-              debugPrint('[WebRTC] 分配视频流失败#$idx: $e');
+        Future<void>(() async {
+          try {
+            final stream = await createLocalMediaStream('wobot-cam-$idx');
+            stream.addTrack(event.track);
+            debugPrint(
+              '[WebRTC] stream#$idx ready id=${stream.id} tracks=${stream.getVideoTracks().length}',
+            );
+            if (idx == 0) {
+              videoStream0 = stream;
+            } else {
+              videoStream1 = stream;
             }
-          });
-        }
+            onVideoStream?.call(stream, idx);
+
+            event.track.onEnded = () {
+              debugPrint('[WebRTC] 视频 track $idx ended');
+            };
+          } catch (e) {
+            debugPrint('[WebRTC] 分配视频流失败#$idx: $e');
+          }
+        });
       };
 
       // 创建 Offer
