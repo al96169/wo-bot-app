@@ -154,38 +154,43 @@ class WebRtcService {
       };
 
       // 接收视频轨道（双摄像头）
-      // web-debug 用 JS === 比较底层 stream 检测共享；dart 的 == 比较的是 flutter_webrtc
-      // 包装对象引用（每次事件新建实例），共享检测不可靠 → 每个 video track 总是新建
-      // 独立 MediaStream（createLocalMediaStream + addTrack），保证双画面各自独立
+      // aiortc 每个 sender 天然独立 stream（SDP msid 独立）→ 直接复用 event.streams[0]
+      // （与 web-debug 基础路径一致；仅当 stream 缺失时才新建兜底）
       int videoIndex = 0;
       _pc!.onTrack = (RTCTrackEvent event) {
         if (event.track.kind != 'video') return;
         final idx = videoIndex++;
-        final streamCount = event.streams.length;
+        final shared = event.streams.isNotEmpty ? event.streams[0] : null;
         debugPrint(
-          '[WebRTC] onTrack#$idx trackId=${event.track.id} streams=$streamCount',
+          '[WebRTC] onTrack#$idx track=${event.track.id} stream=${shared?.id ?? 'null'}',
         );
-        Future<void>(() async {
-          try {
-            final stream = await createLocalMediaStream('wobot-cam-$idx');
-            stream.addTrack(event.track);
-            debugPrint(
-              '[WebRTC] stream#$idx ready id=${stream.id} tracks=${stream.getVideoTracks().length}',
-            );
-            if (idx == 0) {
-              videoStream0 = stream;
-            } else {
-              videoStream1 = stream;
-            }
-            onVideoStream?.call(stream, idx);
-
-            event.track.onEnded = () {
-              debugPrint('[WebRTC] 视频 track $idx ended');
-            };
-          } catch (e) {
-            debugPrint('[WebRTC] 分配视频流失败#$idx: $e');
+        event.track.onEnded = () {
+          debugPrint('[WebRTC] 视频 track $idx ended');
+        };
+        if (shared != null) {
+          if (idx == 0) {
+            videoStream0 = shared;
+          } else {
+            videoStream1 = shared;
           }
-        });
+          onVideoStream?.call(shared, idx);
+        } else {
+          // 无共享流（极端情况）→ 新建独立流兜底
+          Future<void>(() async {
+            try {
+              final stream = await createLocalMediaStream('wobot-cam-$idx');
+              stream.addTrack(event.track);
+              if (idx == 0) {
+                videoStream0 = stream;
+              } else {
+                videoStream1 = stream;
+              }
+              onVideoStream?.call(stream, idx);
+            } catch (e) {
+              debugPrint('[WebRTC] 分配视频流失败#$idx: $e');
+            }
+          });
+        }
       };
 
       // 创建 Offer
