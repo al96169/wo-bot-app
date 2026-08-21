@@ -8,7 +8,6 @@ import '../../../core/network/robot_data_store.dart';
 import '../../../core/network/webrtc_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_toast.dart';
-import '../../../shared/models/robot_data.dart';
 import 'widgets/camera_action_sheet.dart';
 import 'widgets/camera_view.dart';
 import 'widgets/remote_drawer.dart';
@@ -359,19 +358,10 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     // 云台能力（features 含 gimbal；副摄无云台 → 副摄云台摇杆禁用，对齐 web-debug）
     final gimbalAvailable = manager.remoteFeatures.contains('gimbal');
 
-    // 画面与摄像头匹配：track 顺序 = camera id 顺序（track0↔id0, track1↔id1）
-    // 主摄 = 非 "(shared)" 标记的摄像头（真机: id1 "CSI Camera"=主摄, id0 "shared"=副摄）
-    CameraInfo? mainCam;
-    for (final c in store.cameras) {
-      if (!c.name.contains('shared')) {
-        mainCam = c;
-        break;
-      }
-    }
-    mainCam ??= store.cameras.isNotEmpty ? store.cameras.first : null;
-    final mainCamId = mainCam?.cameraId ?? 0;
-    final mainStream = mainCamId == 1 ? _stream1 : _stream0;
-    final subStream = mainCamId == 1 ? _stream0 : _stream1;
+    // 画面分配：对齐 web-debug（左画面 = stream0/track0，摄像头开 id0）
+    // 真机实测仅 track0(id0) 有 WebRTC 数据，track1(id1) 为空流 → 主画面必须用 track0
+    final mainStream = _stream0;
+    final subStream = _stream1;
 
     // 王者荣耀式布局：主摄全屏 + 副摄 PiP 小窗 + 半透明摇杆叠加画面 + 顶部透明浮层
     // 摇杆尺寸按可用空间自适应，避免小屏/高分屏溢出
