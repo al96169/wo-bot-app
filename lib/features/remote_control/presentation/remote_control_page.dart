@@ -30,6 +30,7 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
   // 共享运动状态 — 匹配 web-debug motionState
   final ValueNotifier<MotionState> _motion = ValueNotifier(const MotionState());
   Timer? _motionTimer;
+  Timer? _webrtcRetryTimer;
 
   // 摇杆状态
   final ValueNotifier<JoystickValue> _moveStick = ValueNotifier(
@@ -59,11 +60,14 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     );
     // 延迟建立 WebRTC（等连接与信令通道稳定）
     Future.delayed(const Duration(milliseconds: 500), _initWebRtc);
+    // 15s 未连接则自动重试（offer/answer 可能因信令时序丢失）
+    _webrtcRetryTimer = Timer(const Duration(seconds: 15), _retryWebRtcIfNeeded);
   }
 
   @override
   void dispose() {
     _motionTimer?.cancel();
+    _webrtcRetryTimer?.cancel();
     _moveStick.dispose();
     _yawStick.dispose();
     _gimbalStick.dispose();
@@ -74,6 +78,18 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
       ref.read(connectionManagerProvider.notifier).webrtc.close();
     } catch (_) {}
     super.dispose();
+  }
+
+  /// 15s 未连接则重试建立 WebRTC（web-debug 有媒体超时重试，此处对齐）
+  void _retryWebRtcIfNeeded() {
+    if (!mounted) return;
+    final webrtc = ref.read(connectionManagerProvider.notifier).webrtc;
+    if (webrtc.state != WebRtcState.connected &&
+        webrtc.state != WebRtcState.failed) {
+      debugPrint('[Remote] WebRTC 15s 未连接，自动重试');
+      ref.read(connectionManagerProvider.notifier).startWebRtc();
+      _webrtcRetryTimer = Timer(const Duration(seconds: 15), _retryWebRtcIfNeeded);
+    }
   }
 
   /// 建立 WebRTC（视频 + DataChannel）：先等摄像头列表并启动，再建 WebRTC，
