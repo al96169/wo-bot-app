@@ -8,6 +8,7 @@ import '../../../core/network/robot_data_store.dart';
 import '../../../core/network/webrtc_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_toast.dart';
+import '../../../shared/models/robot_data.dart';
 import 'widgets/camera_action_sheet.dart';
 import 'widgets/camera_view.dart';
 import 'widgets/remote_drawer.dart';
@@ -329,9 +330,17 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     // 云台能力（features 含 gimbal；副摄无云台 → 副摄云台摇杆禁用，对齐 web-debug）
     final gimbalAvailable = manager.remoteFeatures.contains('gimbal');
 
-    // 画面与摄像头匹配：track 顺序 = camera id 顺序，主摄 = cameras 列表第一项
-    // （主摄 id 非 0 时交换流，保证左边大屏始终是主摄）
-    final mainCamId = store.cameras.isNotEmpty ? store.cameras.first.cameraId : 0;
+    // 画面与摄像头匹配：track 顺序 = camera id 顺序（track0↔id0, track1↔id1）
+    // 主摄 = 非 "(shared)" 标记的摄像头（真机: id1 "CSI Camera"=主摄, id0 "shared"=副摄）
+    CameraInfo? mainCam;
+    for (final c in store.cameras) {
+      if (!c.name.contains('shared')) {
+        mainCam = c;
+        break;
+      }
+    }
+    mainCam ??= store.cameras.isNotEmpty ? store.cameras.first : null;
+    final mainCamId = mainCam?.cameraId ?? 0;
     final mainStream = mainCamId == 1 ? _stream1 : _stream0;
     final subStream = mainCamId == 1 ? _stream0 : _stream1;
 

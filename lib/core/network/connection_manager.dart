@@ -533,8 +533,8 @@ class ConnectionManager extends StateNotifier<ConnState> {
         if (d['cameras'] is List) {
           _data.setCamerasFromList(d['cameras'] as List);
         } else if (d['id'] != null || d['camera_id'] != null) {
-          // 单对象增量更新（对齐 web-debug：{id,status,stream_url}）
-          _data.setCamerasFromList([d]);
+          // 单对象增量更新（对齐 web-debug：{id,status,stream_url}，按 id 合并不清空）
+          _data.upsertCamera(d);
         }
         break;
       case 'camera_capture_result':

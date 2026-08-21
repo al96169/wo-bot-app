@@ -77,6 +77,18 @@ class RobotDataStore extends StateNotifier<int> {
     notify();
   }
 
+  /// 单摄像头增量更新（对齐 web-debug camera_status 单对象）— 按 id 替换或追加，不清空
+  void upsertCamera(Map<String, dynamic> json) {
+    final cam = CameraInfo.fromJson(json);
+    final i = cameras.indexWhere((c) => c.cameraId == cam.cameraId);
+    if (i >= 0) {
+      cameras[i] = cam;
+    } else {
+      cameras.add(cam);
+    }
+    notify();
+  }
+
   void updateCameraStatus(int id, String status, String? streamUrl) {
     for (final c in cameras) {
       if (c.cameraId == id) {
