@@ -249,7 +249,6 @@ class WebRtcService {
           ? jsonEncode({'type': type, 'data': data})
           : jsonEncode({'type': type});
       _dc!.send(RTCDataChannelMessage(msg));
-      debugPrint('[WebRTC] DC → $type');
     } else {
       debugPrint('[WebRTC] DC 未就绪，丢弃: $type');
     }
