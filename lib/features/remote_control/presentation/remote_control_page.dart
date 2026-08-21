@@ -97,12 +97,15 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     _startCameras();
   }
 
-  /// 摄像头启动：优先用 cameras 列表的 id（主摄=列表第一项），未到时延迟重试
+  /// 摄像头启动：优先用 cameras 列表的 id（主摄=列表第一项）
+  /// 列表未到达时先兜底启动常见 id（0/1），到达后按真实 id 再启
   void _startCameras() {
     final store = ref.read(robotDataProvider.notifier);
     final manager = ref.read(connectionManagerProvider.notifier);
     if (store.cameras.isEmpty) {
-      // camera_status 未到达，稍后重试
+      // camera_status 未到达：兜底启动常见 id，稍后按列表重试
+      manager.sendCamera('start', 0);
+      manager.sendCamera('start', 1);
       Future.delayed(const Duration(milliseconds: 1200), () {
         if (mounted) _startCameras();
       });
@@ -315,7 +318,7 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     );
   }
 
-  /// 横屏主界面：顶部状态条 + 双摄像头 + 4 摇杆 + 功能按钮 + 底部对讲
+  /// 横屏主界面：主摄全屏 + 副摄 PiP + 4 摇杆叠加 + 功能弹窗 + 底部对讲
   Widget _buildLandscape() {
     ref.watch(robotDataProvider);
     final store = ref.read(robotDataProvider.notifier);
@@ -325,6 +328,12 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
         '遥控';
     // 云台能力（features 含 gimbal；副摄无云台 → 副摄云台摇杆禁用，对齐 web-debug）
     final gimbalAvailable = manager.remoteFeatures.contains('gimbal');
+
+    // 画面与摄像头匹配：track 顺序 = camera id 顺序，主摄 = cameras 列表第一项
+    // （主摄 id 非 0 时交换流，保证左边大屏始终是主摄）
+    final mainCamId = store.cameras.isNotEmpty ? store.cameras.first.cameraId : 0;
+    final mainStream = mainCamId == 1 ? _stream1 : _stream0;
+    final subStream = mainCamId == 1 ? _stream0 : _stream1;
 
     // 王者荣耀式布局：主摄全屏 + 副摄 PiP 小窗 + 半透明摇杆叠加画面 + 顶部透明浮层
     // 摇杆尺寸按可用空间自适应，避免小屏/高分屏溢出
@@ -348,7 +357,7 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
             // 主摄全屏
             Positioned.fill(
               child: CameraView(
-                stream: _stream0,
+                stream: mainStream,
                 label: '主摄',
                 enabled: _cameraLeftOn,
                 recording: store.isRecording,
@@ -361,7 +370,7 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
               width: pipW,
               height: pipH,
               child: CameraView(
-                stream: _stream1,
+                stream: subStream,
                 label: '副摄',
                 enabled: _cameraRightOn,
               ),
