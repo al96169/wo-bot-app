@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../../../core/network/connection_manager.dart';
@@ -52,6 +53,11 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
   @override
   void initState() {
     super.initState();
+    // 遥控页强制横屏
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     // 50ms 运动发送循环 — 匹配 web-debug
     _motionTimer = Timer.periodic(
       const Duration(milliseconds: 50),
@@ -71,6 +77,8 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     _yawStick.dispose();
     _gimbalStick.dispose();
     _motion.dispose();
+    // 恢复竖屏（App 其他页面为竖屏设计）
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     // 停止运动并断开 WebRTC
     try {
       ref.read(connectionManagerProvider.notifier).sendMotionStop();
@@ -336,14 +344,8 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
       backgroundColor: const Color(0xFF0D0D0D),
       drawer: const RemoteDrawer(),
       body: SafeArea(
-        child: OrientationBuilder(
-          builder: (context, orientation) {
-            if (orientation == Orientation.landscape) {
-              return _buildLandscape();
-            }
-            return _buildPortrait();
-          },
-        ),
+        // 遥控页仅保留横屏模式（王者荣耀式布局）
+        child: _buildLandscape(),
       ),
     );
   }
@@ -370,16 +372,16 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
       builder: (context, constraints) {
         final w = constraints.maxWidth;
         final h = constraints.maxHeight;
-        // 主摇杆尺寸：按可用空间自适应（上限 140，宽度/高度双重限制防溢出）
-        var mainStick = h * 0.24;
-        if (mainStick > 140) mainStick = 140;
-        if (mainStick < 60) mainStick = 60;
-        if (mainStick > w * 0.16) mainStick = w * 0.16;
-        final subStick = mainStick * 0.62;
+        // 主摇杆尺寸：尽量大（上限 190，宽度/高度双重限制防溢出）
+        var mainStick = h * 0.32;
+        if (mainStick > 190) mainStick = 190;
+        if (mainStick < 80) mainStick = 80;
+        if (mainStick > w * 0.2) mainStick = w * 0.2;
+        final subStick = mainStick * 0.66;
         const statusBarH = 40.0;
         final pipW = (w * 0.32).clamp(120, 260).toDouble();
         final pipH = (h * 0.26).clamp(90, 180).toDouble();
-        const stickBottom = 68.0; // 底部对讲/按钮区域高度
+        const stickBottom = 78.0; // 底部对讲/按钮区域高度
 
         return Stack(
           children: [
@@ -561,121 +563,6 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
       },
     );
   }
-
-  /// 竖屏: D-Pad + 快捷栏（降级布局）
-  Widget _buildPortrait() {
-    return Column(
-      children: [
-        // 顶部：返回 + 功能按钮 + 急停
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
-                onPressed: () {
-                  ref.read(connectionManagerProvider.notifier).sendMotionStop();
-                  Navigator.of(context).pop();
-                },
-                tooltip: '返回',
-              ),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.photo_camera_outlined, color: Colors.white, size: 20),
-                onPressed: _openActionSheet,
-                tooltip: '摄像头功能',
-              ),
-              const SizedBox(width: 4),
-              IconButton(
-                icon: const Icon(Icons.stop_circle, color: Color(0xFFFF453A), size: 20),
-                onPressed: _emergencyStop,
-                tooltip: '急停',
-              ),
-            ],
-          ),
-        ),
-        const Spacer(),
-        // D-Pad
-        Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _DPadButton(
-                icon: Icons.keyboard_arrow_up,
-                onPress: () => _motion.value = _motion.value.copyWith(vx: 0.6),
-                onRelease: () => _motion.value = _motion.value.copyWith(vx: 0),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _DPadButton(
-                    icon: Icons.keyboard_arrow_left,
-                    onPress: () => _motion.value = _motion.value.copyWith(vy: 0.6),
-                    onRelease: () => _motion.value = _motion.value.copyWith(vy: 0),
-                  ),
-                  const SizedBox(width: 8),
-                  _DPadButton(
-                    icon: Icons.stop,
-                    color: AppColors.error,
-                    onPress: _emergencyStop,
-                    onRelease: () {},
-                  ),
-                  const SizedBox(width: 8),
-                  _DPadButton(
-                    icon: Icons.keyboard_arrow_right,
-                    onPress: () => _motion.value = _motion.value.copyWith(vy: -0.6),
-                    onRelease: () => _motion.value = _motion.value.copyWith(vy: 0),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _DPadButton(
-                icon: Icons.keyboard_arrow_down,
-                onPress: () => _motion.value = _motion.value.copyWith(vx: -0.6),
-                onRelease: () => _motion.value = _motion.value.copyWith(vx: 0),
-              ),
-              const SizedBox(height: 16),
-              // 偏航控制
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _DPadButton(
-                    icon: Icons.rotate_left,
-                    size: 56,
-                    onPress: () => _motion.value = _motion.value.copyWith(vz: 2.5),
-                    onRelease: () => _motion.value = _motion.value.copyWith(vz: 0),
-                  ),
-                  const SizedBox(width: 24),
-                  _DPadButton(
-                    icon: Icons.center_focus_strong,
-                    size: 56,
-                    color: Colors.teal,
-                    onPress: () {
-                      ref
-                          .read(connectionManagerProvider.notifier)
-                          .sendGimbalCenter();
-                    },
-                    onRelease: () {},
-                  ),
-                  const SizedBox(width: 24),
-                  _DPadButton(
-                    icon: Icons.rotate_right,
-                    size: 56,
-                    onPress: () => _motion.value = _motion.value.copyWith(vz: -2.5),
-                    onRelease: () => _motion.value = _motion.value.copyWith(vz: 0),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const Spacer(),
-        const VoiceButton(),
-        const SizedBox(height: 16),
-      ],
-    );
-  }
 }
 
 /// WebRTC 状态胶囊
@@ -794,13 +681,27 @@ class JoystickWidget extends StatefulWidget {
 }
 
 class _JoystickWidgetState extends State<JoystickWidget> {
-  late final double _cx = widget.size / 2;
-  late final double _cy = widget.size / 2;
-  late final double _knobR = widget.size * 22 / 140;
-  late final double _maxDist = widget.size * 55 / 140 - _knobR; // 最大移动距离
+  late double _cx = widget.size / 2;
+  late double _cy = widget.size / 2;
+  late double _knobR = widget.size * 22 / 140;
+  late double _maxDist = widget.size * 55 / 140 - _knobR; // 最大移动距离
 
   late double _knobX = _cx;
   late double _knobY = _cy;
+
+  @override
+  void didUpdateWidget(covariant JoystickWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 尺寸变化时更新中心与旋钮，避免偏移
+    if (oldWidget.size != widget.size) {
+      _cx = widget.size / 2;
+      _cy = widget.size / 2;
+      _knobR = widget.size * 22 / 140;
+      _maxDist = widget.size * 55 / 140 - _knobR;
+      _knobX = _cx;
+      _knobY = _cy;
+    }
+  }
 
   void _updateFromDetails(Offset localPosition) {
     double dx = localPosition.dx - _cx;
@@ -942,62 +843,4 @@ class _JoystickPainter extends CustomPainter {
       knobX != oldDelegate.knobX ||
       knobY != oldDelegate.knobY ||
       size != oldDelegate.size;
-}
-
-/// D-Pad 按钮
-class _DPadButton extends StatefulWidget {
-  final IconData icon;
-  final Color color;
-  final double size;
-  final VoidCallback onPress;
-  final VoidCallback onRelease;
-
-  const _DPadButton({
-    required this.icon,
-    required this.onPress,
-    required this.onRelease,
-    this.color = AppColors.primary,
-    this.size = 72,
-  });
-
-  @override
-  State<_DPadButton> createState() => _DPadButtonState();
-}
-
-class _DPadButtonState extends State<_DPadButton> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) {
-        setState(() => _pressed = true);
-        widget.onPress();
-      },
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onRelease();
-      },
-      onTapCancel: () {
-        setState(() => _pressed = false);
-        widget.onRelease();
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 80),
-        width: widget.size,
-        height: widget.size,
-        decoration: BoxDecoration(
-          color: _pressed
-              ? widget.color.withValues(alpha: 0.3)
-              : AppColors.card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: _pressed ? widget.color : AppColors.divider,
-            width: _pressed ? 2 : 1,
-          ),
-        ),
-        child: Icon(widget.icon, color: widget.color, size: widget.size * 0.5),
-      ),
-    );
-  }
 }

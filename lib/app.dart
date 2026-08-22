@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/utils/app_toast.dart';
 import 'features/device_list/presentation/device_list_page.dart';
@@ -16,6 +17,13 @@ class WoBotApp extends ConsumerStatefulWidget {
 
 class _WoBotAppState extends ConsumerState<WoBotApp> {
   int _tab = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // 全局竖屏（遥控页进入时临时切横屏）
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  }
 
   static const _tabs = <_TabInfo>[
     _TabInfo(Icons.precision_manufacturing, '设备'),
