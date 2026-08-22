@@ -9,6 +9,7 @@ class CameraView extends StatefulWidget {
   final String label;
   final bool enabled;
   final bool recording;
+  final RTCVideoViewObjectFit objectFit;
 
   const CameraView({
     super.key,
@@ -16,6 +17,7 @@ class CameraView extends StatefulWidget {
     required this.label,
     this.enabled = true,
     this.recording = false,
+    this.objectFit = RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
   });
 
   @override
@@ -80,7 +82,7 @@ class _CameraViewState extends State<CameraView> {
           if (hasStream)
             RTCVideoView(
               _renderer,
-              objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+              objectFit: widget.objectFit,
             )
           else
             _Placeholder(label: widget.label, waiting: widget.enabled),
