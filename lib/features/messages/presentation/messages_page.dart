@@ -1,8 +1,7 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:file_selector/file_selector.dart';
 import '../../../core/network/robot_data_store.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../shared/models/robot_data.dart';
@@ -188,7 +187,7 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
     );
   }
 
-  /// 导出消息 — 保存为 txt 文件（web 回退剪贴板）
+  /// 导出消息 — 弹出系统保存对话框写入 txt（Web 回退下载）
   Future<void> _exportMessages(List<RobotMessage> messages) async {
     if (messages.isEmpty) {
       AppToast.show('暂无可导出的消息');
@@ -203,30 +202,38 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
         ..writeln('---');
     }
     try {
-      final dir = await getDownloadsDirectory();
-      if (dir != null) {
-        final file = File(
-          '${dir.path}/wo-bot-messages-${DateTime.now().toIso8601String().split('T').first}.txt',
+      // 系统保存对话框（Android SAF / iOS 文档选择器 / Web 下载）
+      final fileName =
+          'wo-bot-messages-${DateTime.now().toIso8601String().split('T').first}.txt';
+      final result = await getSaveLocation(
+        suggestedName: fileName,
+        acceptedTypeGroups: const [
+          XTypeGroup(label: 'text', extensions: ['txt']),
+        ],
+      );
+      if (result == null) {
+        return; // 用户取消
+      }
+      final xfile = XFile.fromData(
+        Uint8List.fromList(sb.toString().codeUnits),
+        mimeType: 'text/plain',
+        name: fileName,
+      );
+      await xfile.saveTo(result.path);
+      if (mounted) {
+        AppToast.show(
+          '已导出 ${messages.length} 条消息',
+          type: AppToastType.success,
         );
-        await file.writeAsString(sb.toString());
-        if (mounted) {
-          AppToast.show(
-            '已导出 ${messages.length} 条消息\n${file.path}',
-            type: AppToastType.success,
-          );
-        }
-        return;
       }
     } catch (e) {
       debugPrint('[Messages] 导出失败: $e');
-    }
-    // 无下载目录或导出失败 → 剪贴板兜底
-    await Clipboard.setData(ClipboardData(text: sb.toString()));
-    if (mounted) {
-      AppToast.show(
-        '已复制 ${messages.length} 条消息到剪贴板',
-        type: AppToastType.success,
-      );
+      try {
+        await Clipboard.setData(ClipboardData(text: sb.toString()));
+      } catch (_) {}
+      if (mounted) {
+        AppToast.show('导出失败，已复制到剪贴板', type: AppToastType.error);
+      }
     }
   }
 
