@@ -560,3 +560,20 @@ class GalleryStorage {
     availableBytes: (json['available_bytes'] as num?)?.toInt() ?? 0,
   );
 }
+
+/// 图库下载结果 — 分块组装完成后通知 UI（对齐 web-debug ChunkedDownload）
+class GalleryDownloadResult {
+  final String fileName;
+  final List<int> bytes;
+  final String? error;
+  final int sizeBytes;
+
+  const GalleryDownloadResult({
+    required this.fileName,
+    required this.bytes,
+    this.error,
+    this.sizeBytes = 0,
+  });
+
+  bool get isSuccess => error == null && bytes.isNotEmpty;
+}

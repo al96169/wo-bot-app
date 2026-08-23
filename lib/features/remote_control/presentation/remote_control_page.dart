@@ -13,6 +13,7 @@ import 'widgets/camera_action_sheet.dart';
 import 'widgets/camera_view.dart';
 import 'widgets/remote_drawer.dart';
 import 'widgets/voice_button.dart';
+import '../../gallery/presentation/gallery_page.dart';
 
 /// 遥控页面 — 匹配 web-debug RemoteView.vue + 需求：横屏双摄像头/双摇杆
 ///
@@ -352,7 +353,9 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
         },
         onGallery: () {
           Navigator.of(ctx).pop();
-          AppToast.show('图库即将上线（批次 4）');
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const GalleryPage()),
+          );
         },
         onGimbalCenter: () {
           Navigator.of(ctx).pop();

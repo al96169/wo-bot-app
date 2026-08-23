@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/models/robot_data.dart';
 
@@ -41,6 +42,8 @@ class RobotDataStore extends StateNotifier<int> {
   int galleryPageSize = 20;
   bool galleryHasMore = false;
   bool galleryLoading = false;
+  // 图库下载（分块组装结果通知 → GalleryPage 监听保存/预览）
+  final ValueNotifier<GalleryDownloadResult?> galleryDownload = ValueNotifier(null);
   // 录制 (对齐 web-debug cameraRecord: is_recording/elapsed_s/file_size_bytes/camera_id)
   bool isRecording = false;
   String? recordingCameraId;
@@ -265,6 +268,22 @@ class RobotDataStore extends StateNotifier<int> {
     if (data != null) {
       galleryStorage = GalleryStorage.fromJson(data);
     }
+    notify();
+  }
+
+  /// 图库分块下载结果通知（GalleryPage 监听保存/预览）
+  void notifyGalleryDownload(GalleryDownloadResult result) {
+    galleryDownload.value = result;
+    notify();
+  }
+
+  /// 重置图库（切换筛选/刷新时清空，对齐 web-debug resetGallery）
+  void resetGallery() {
+    galleryItems.clear();
+    galleryPage = 1;
+    galleryTotal = 0;
+    galleryHasMore = false;
+    galleryLoading = false;
     notify();
   }
 

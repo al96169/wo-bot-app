@@ -43,6 +43,9 @@ class ConnectionManager extends StateNotifier<ConnState> {
   String pendingShareCode = '';
   String accountToken = '';
 
+  /// 分块下载状态（对齐 web-debug ChunkedDownload）：file_name → 组装缓冲
+  final Map<String, _ChunkedDownload> _chunkedDownloads = {};
+
   /// [data]: 外部注入的 RobotDataStore（与 UI 共享同一实例）。
   /// 关键：若不注入，ConnectionManager 自建实例，UI 通过 provider 读的将是另一实例，
   /// 导致 status/logs 等数据永远不同步（web-debug 用单一 store 共享）。
@@ -206,6 +209,8 @@ class ConnectionManager extends StateNotifier<ConnState> {
   void sendMusicVolume(int volume) => send('music_volume', {'volume': volume});
 
   // ---- 舞蹈 (对齐 web-debug: {type:"dance", data:{command}}) ----
+  void sendDanceCommand(String command, [Map<String, dynamic>? data]) =>
+      send('dance', {'command': command, ...?data});
   void sendDancePlay(String danceId) =>
       send('dance', {'command': 'play', 'dance_id': danceId});
   void sendDanceStop() => send('dance', {'command': 'stop'});
@@ -241,6 +246,31 @@ class ConnectionManager extends StateNotifier<ConnState> {
       send('wifi_connect', {'ssid': ssid, 'password': password});
   void sendWifiDisconnect(String device) =>
       send('wifi_disconnect', {'device': device});
+
+  // ---- 图库 (对齐 web-debug GalleryView) ----
+  void sendGetGalleryList({String type = 'all', int page = 1, int pageSize = 20}) =>
+      send('camera_media_list', {
+        'type': type,
+        'page': page,
+        'page_size': pageSize,
+      });
+  void sendGalleryDelete(List<String> fileNames) =>
+      send('camera_media_delete', {'file_names': fileNames});
+  /// 请求下载媒体文件（小文件 WS 回退单次 base64；大文件走 DC 分块）
+  void sendGalleryDownload(String fileName) =>
+      send('camera_media_download', {'file_name': fileName});
+
+  // ---- 音乐补充 (对齐 web-debug sendMusicCommand) ----
+  void sendMusicResume() => send('music_resume');
+  void sendMusicStop() => send('music_stop');
+  void sendMusicSeek(double position) =>
+      send('music_seek', {'position': position});
+  void sendMusicPlaylistAdd(String filename) =>
+      send('music_playlist_add', {'filename': filename});
+  void sendMusicPlaylistRemove(int index) =>
+      send('music_playlist_remove', {'index': index});
+  void sendMusicPlaylistClear() => send('music_playlist_clear');
+  void sendGetMusicStatus() => send('music_status');
 
   // ---- 省电策略 ----
   void sendGetPowerPolicy() => send('get_power_policy');
@@ -598,6 +628,106 @@ class ConnectionManager extends StateNotifier<ConnState> {
           total,
           d['has_more'] as bool? ?? (page * pageSize < total),
         );
+        _data.galleryLoading = false;
+        _data.notify();
+        break;
+      case 'camera_media_delete_result':
+        // 对齐 web-debug：data.deleted（文件名数组）→ 从列表移除
+        if (d['deleted'] is List || d['file_names'] is List) {
+          final removed = (d['deleted'] as List? ?? d['file_names'] as List?)
+              ?.map((e) => e.toString())
+              .toList();
+          if (removed != null && removed.isNotEmpty) {
+            _data.galleryItems.removeWhere((g) => removed.contains(g.name));
+            _data.notify();
+            AppToast.show('已删除 ${removed.length} 个文件', type: AppToastType.success);
+          }
+        } else {
+          AppToast.show(
+            '删除失败: ${d['error'] ?? d['message'] ?? '未知错误'}',
+            type: AppToastType.error,
+          );
+        }
+        break;
+
+      // ---- 图库分块下载（对齐 web-debug handleChunkedDownloadMessage） ----
+      case 'camera_media_download_start': {
+        final name = d['file_name'] as String? ?? '';
+        if (name.isEmpty) break;
+        _chunkedDownloads[name] = _ChunkedDownload(
+          fileName: name,
+          sizeBytes: (d['size_bytes'] as num?)?.toInt() ?? 0,
+          totalChunks: (d['total_chunks'] as num?)?.toInt() ?? 0,
+        );
+        break;
+      }
+      case 'camera_media_download_chunk': {
+        final name = d['file_name'] as String? ?? '';
+        final dl = _chunkedDownloads[name];
+        if (dl == null) break;
+        final idx = (d['chunk_index'] as num?)?.toInt() ?? -1;
+        final chunkB64 = d['data'] as String? ?? '';
+        if (idx >= 0 && chunkB64.isNotEmpty) {
+          dl.chunks[idx] = chunkB64;
+        }
+        break;
+      }
+      case 'camera_media_download_end': {
+        final name = d['file_name'] as String? ?? '';
+        final dl = _chunkedDownloads.remove(name);
+        if (dl == null) break;
+        // 按索引排序并组装 base64 → bytes
+        final keys = dl.chunks.keys.toList()..sort();
+        final fullB64 = keys.map((k) => dl.chunks[k]).join();
+        try {
+          final bytes = base64Decode(fullB64);
+          _data.notifyGalleryDownload(
+            GalleryDownloadResult(
+              fileName: name,
+              bytes: bytes,
+              sizeBytes: dl.sizeBytes,
+            ),
+          );
+        } catch (e) {
+          debugPrint('[CM] 图库下载组装失败: $e');
+          _data.notifyGalleryDownload(
+            GalleryDownloadResult(fileName: name, bytes: const [], error: '组装失败: $e'),
+          );
+        }
+        break;
+      }
+      case 'camera_media_download_data': {
+        // WS 回退：单次 file_base64（小文件）
+        final name = d['file_name'] as String? ?? '';
+        if (d['error'] != null) {
+          _data.notifyGalleryDownload(
+            GalleryDownloadResult(
+              fileName: name,
+              bytes: const [],
+              error: d['error'] as String?,
+            ),
+          );
+          break;
+        }
+        final b64 = d['file_base64'] as String? ?? '';
+        try {
+          final bytes = base64Decode(b64);
+          _data.notifyGalleryDownload(
+            GalleryDownloadResult(
+              fileName: name,
+              bytes: bytes,
+              sizeBytes: (d['size_bytes'] as num?)?.toInt() ?? bytes.length,
+            ),
+          );
+        } catch (e) {
+          _data.notifyGalleryDownload(
+            GalleryDownloadResult(fileName: name, bytes: const [], error: '解析失败: $e'),
+          );
+        }
+        break;
+      }
+      case 'camera_media_download_done':
+        // 分块传输完成确认（已在 end 处理组装）
         break;
       case 'camera_stream_quality_ack':
       case 'camera_stream_quality_changed':
@@ -776,3 +906,16 @@ final connectionManagerProvider =
     StateNotifierProvider<ConnectionManager, ConnState>(
       (ref) => ConnectionManager(data: ref.read(robotDataProvider.notifier)),
     );
+
+/// 分块下载缓冲（对齐 web-debug ChunkedDownload）
+class _ChunkedDownload {
+  final String fileName;
+  final int sizeBytes;
+  final int totalChunks;
+  final Map<int, String> chunks = {};
+  _ChunkedDownload({
+    required this.fileName,
+    required this.sizeBytes,
+    required this.totalChunks,
+  });
+}

@@ -12,6 +12,10 @@ import '../../remote_control/presentation/remote_control_page.dart';
 import '../../settings/presentation/settings_page.dart';
 import '../../software/presentation/software_page.dart';
 import '../../status/presentation/robot_status_page.dart';
+// 批次 4 功能页
+import '../../dance/presentation/dance_page.dart';
+import '../../gallery/presentation/gallery_page.dart';
+import '../../music/presentation/music_page.dart';
 
 /// 机器人主页 — 匹配 Pixso 5:1022
 ///
@@ -91,6 +95,24 @@ class RobotHomePage extends ConsumerWidget {
         Icons.apps,
         () => _push(context, const SoftwarePage()),
         feature: 'exec',
+      ),
+      _NavEntry(
+        '音乐',
+        Icons.music_note,
+        () => _push(context, const MusicPage()),
+        feature: 'music',
+      ),
+      _NavEntry(
+        '舞蹈',
+        Icons.celebration,
+        () => _push(context, const DancePage()),
+        feature: 'dance',
+      ),
+      _NavEntry(
+        '图库',
+        Icons.photo_library_outlined,
+        () => _push(context, const GalleryPage()),
+        feature: 'camera_capture',
       ),
     ];
 
