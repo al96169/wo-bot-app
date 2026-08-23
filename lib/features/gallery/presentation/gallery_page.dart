@@ -30,7 +30,11 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
   @override
   void initState() {
     super.initState();
-    _refresh();
+    // 首帧后再刷新：resetGallery 修改 provider，initState 中直接调用会抛
+    // "Tried to modify a provider while the widget tree was building"
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _refresh();
+    });
   }
 
   void _refresh() {
