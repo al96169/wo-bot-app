@@ -51,15 +51,20 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
   bool _cameraRightOn = false;
   /// 副摄画面实际宽高比（默认 4:3，首帧后按真实分辨率更新 → PiP 无黑边）
   double _subAspect = 4 / 3;
+  /// 云台拖动期间 50ms 续发 move_update 的定时器
+  Timer? _gimbalUpdateTimer;
+  /// 双击小画面交换主/副画面
+  bool _camsSwapped = false;
 
   @override
   void initState() {
     super.initState();
-    // 遥控页强制横屏
+    // 遥控页强制横屏 + 沉浸式全屏（隐藏状态栏/导航栏，任务栏不再遮挡画面）
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     // 50ms 运动发送循环 — 匹配 web-debug
     _motionTimer = Timer.periodic(
       const Duration(milliseconds: 50),
@@ -75,12 +80,14 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
   void dispose() {
     _motionTimer?.cancel();
     _webrtcRetryTimer?.cancel();
+    _gimbalUpdateTimer?.cancel();
     _moveStick.dispose();
     _yawStick.dispose();
     _gimbalStick.dispose();
     _motion.dispose();
-    // 恢复竖屏（App 其他页面为竖屏设计）
+    // 恢复竖屏（App 其他页面为竖屏设计）+ 恢复系统 UI（状态栏/导航栏）
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     // 停止运动并断开 WebRTC
     try {
       ref.read(connectionManagerProvider.notifier).sendMotionStop();
@@ -252,14 +259,36 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
   void _onGimbalStickChanged(JoystickValue val, bool isStart, bool isEnd, {double size = 140}) {
     final manager = ref.read(connectionManagerProvider.notifier);
     if (isStart) {
+      // 对齐 web-debug：拖动期间 50ms 周期续发 move_update（保持速度 + 喂活服务端看门狗）
+      _gimbalUpdateTimer?.cancel();
+      _gimbalUpdateTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+        if (!mounted || !_gimbalStick.value.dragging) return;
+        final spd = _gimbalSpeedFromStick(_gimbalStick.value, size: size);
+        manager.sendGimbalMoveUpdate(spd.pan, spd.tilt);
+      });
       final speed = _gimbalSpeedFromStick(val, size: size);
       manager.sendGimbalMoveBegin(speed.pan, speed.tilt);
     } else if (isEnd) {
+      _gimbalUpdateTimer?.cancel();
+      _gimbalUpdateTimer = null;
       manager.sendGimbalMoveEnd();
     } else {
       final speed = _gimbalSpeedFromStick(val, size: size);
       manager.sendGimbalMoveUpdate(speed.pan, speed.tilt);
     }
+  }
+
+  /// 双击小画面 ↔ 与主画面交换位置（互换两路流与开关状态）
+  void _swapCameras() {
+    setState(() {
+      final s = _stream0;
+      _stream0 = _stream1;
+      _stream1 = s;
+      final l = _cameraLeftOn;
+      _cameraLeftOn = _cameraRightOn;
+      _cameraRightOn = l;
+      _camsSwapped = !_camsSwapped;
+    });
   }
 
   void _emergencyStop() {
@@ -372,17 +401,23 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
       builder: (context, constraints) {
         final w = constraints.maxWidth;
         final h = constraints.maxHeight;
-        // 主摇杆尺寸：尽量大（上限 260，宽度/高度双重限制防溢出）
-        var mainStick = h * 0.42;
-        if (mainStick > 260) mainStick = 260;
-        if (mainStick < 90) mainStick = 90;
-        if (mainStick > w * 0.28) mainStick = w * 0.28;
-        final subStick = mainStick * 0.7;
+        // 沉浸式全屏下系统栏隐藏，MediaQuery padding 可能为 0；边缘控件固定留出可点按边距
+        const edge = 12.0;
         const statusBarH = 40.0;
+        const stickBottom = 76.0; // 底部对讲/按钮区域高度
+        const gapBetween = 4.0; // 上下摇杆间距
+        const labelH = 16.0; // 标签行高（含间距）
+        const subRatio = 0.55; // 云台小摇杆 = 主摇杆 * 0.55
+        // 主摇杆：由可用列高反推（小摇杆在上 + 大摇杆在下 + 两行标签），顶部留 8px 防溢出
+        final availCol = h - stickBottom - statusBarH - 8.0;
+        var mainStick = (availCol - gapBetween - labelH * 2) / (1 + subRatio);
+        if (mainStick > 200) mainStick = 200;
+        if (mainStick < 80) mainStick = 80;
+        if (mainStick > w * 0.24) mainStick = w * 0.24;
+        final subStick = mainStick * subRatio;
         // 副摄 PiP 按画面实际比例展示（默认 4:3），无黑边
         final pipW = (w * 0.3).clamp(140, 240).toDouble();
         final pipH = pipW / _subAspect;
-        const stickBottom = 80.0; // 底部对讲/按钮区域高度
 
         return Stack(
           children: [
@@ -390,30 +425,57 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
             Positioned.fill(
               child: CameraView(
                 stream: mainStream,
-                label: '主摄',
+                label: _camsSwapped ? '副摄' : '主摄',
                 enabled: _cameraLeftOn,
                 recording: store.isRecording,
               ),
             ),
             // 副摄 PiP 小窗（右上角，避开顶部浮层；按副摄实际画面比例 + Cover 无黑边）
+            // 双击小画面 ↔ 与主画面交换位置
             Positioned(
               top: statusBarH + 6,
-              right: 8,
+              right: edge,
               width: pipW,
               height: pipH,
-              child: CameraView(
-                stream: subStream,
-                label: '副摄',
-                enabled: _cameraRightOn,
-                objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                onVideoSize: (w, h) {
-                  if (w > 0 && h > 0) {
-                    final aspect = w / h;
-                    if ((aspect - _subAspect).abs() > 0.01) {
-                      setState(() => _subAspect = aspect);
-                    }
-                  }
-                },
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onDoubleTap: _swapCameras,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: CameraView(
+                        stream: subStream,
+                        label: _camsSwapped ? '主摄' : '副摄',
+                        enabled: _cameraRightOn,
+                        objectFit:
+                            RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                        onVideoSize: (w, h) {
+                          if (w > 0 && h > 0) {
+                            final aspect = w / h;
+                            if ((aspect - _subAspect).abs() > 0.01) {
+                              setState(() => _subAspect = aspect);
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                    // 双击交换提示
+                    const Positioned(
+                      right: 4,
+                      bottom: 4,
+                      child: Text(
+                        '双击交换',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: Color(0x88FFFFFF),
+                          shadows: [
+                            Shadow(blurRadius: 2),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             // 顶部透明浮层（覆盖在画面上）：☰ + 设备名 + WebRTC 状态 + 电量/WiFi
@@ -482,7 +544,7 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
             ),
             // 左摇杆组：主摄云台（小）在上 + 平移（大）在下，叠加画面左下
             Positioned(
-              left: 10,
+              left: edge,
               bottom: stickBottom,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -501,7 +563,7 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                     onEnd: (val) =>
                         _onGimbalStickChanged(val, false, true, size: subStick),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   JoystickWidget(
                     label: '平移',
                     size: mainStick,
@@ -516,7 +578,7 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
             ),
             // 右摇杆组：副摄云台（小，禁用）在上 + 偏航（大）在下，叠加画面右下
             Positioned(
-              right: 10,
+              right: edge,
               bottom: stickBottom,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -527,7 +589,7 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                     // 副摄无云台（对齐 web-debug 右云台不可用）
                     enabled: false,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   JoystickWidget(
                     label: '偏航',
                     size: mainStick,
@@ -541,11 +603,11 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                 ],
               ),
             ),
-            // 底部浮层：功能按钮（弹窗）+ 急停 + 对讲
+            // 底部浮层：功能按钮（弹窗）+ 急停 + 对讲（底部留安全区，避免被手势条遮挡）
             Positioned(
               left: 0,
               right: 0,
-              bottom: 8,
+              bottom: MediaQuery.paddingOf(context).bottom + 8,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
@@ -773,10 +835,10 @@ class _JoystickWidgetState extends State<JoystickWidget> {
                 ),
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               widget.enabled ? widget.label : '${widget.label}(不可用)',
-              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+              style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
             ),
           ],
         ),

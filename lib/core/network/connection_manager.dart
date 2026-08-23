@@ -156,7 +156,14 @@ class ConnectionManager extends StateNotifier<ConnState> {
     'gimbal',
     {'action': 'move_update', 'pan_speed': panSpeed, 'tilt_speed': tiltSpeed},
   );
-  void sendGimbalMoveEnd() => _sendHighFreq('gimbal', {'action': 'move_end'});
+  /// 云台停止：WS + DC 双通道都发 move_end。
+  /// 摇杆过程可能恰逢 DC/WS 切换，若 begin/update 走 A 通道、end 走 B 通道，
+  /// 迟到的 begin/update 会在 end 之后到达并重新启动移动循环 → 云台停不下来。
+  /// 双通道各发一次 end，保证无论 begin/update 走哪条通道，同通道的 end 都在其后。
+  void sendGimbalMoveEnd() {
+    send('gimbal', {'action': 'move_end'}); // WS 兜底（有序）
+    _sendHighFreq('gimbal', {'action': 'move_end'}); // DC 优先（有序）
+  }
   void sendGimbalCenter() => _sendHighFreq('gimbal', {'action': 'center'});
 
   /// 高频命令：DataChannel 就绪时优先走 P2P（motion/gimbal 对齐 web-debug），WS 兜底
