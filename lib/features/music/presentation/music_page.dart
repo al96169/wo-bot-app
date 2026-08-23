@@ -515,39 +515,52 @@ class _MusicPageState extends ConsumerState<MusicPage> {
                       onPressed: () => _send('music_stop'),
                     ),
                   ],
-                  // 音量
+                ],
+              ),
+              // 音量（独立一行占满宽度，便于精确控制）
+              Row(
+                children: [
+                  const Icon(
+                    Icons.volume_down,
+                    size: 16,
+                    color: Color(0xFF8E8E93),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: SliderTheme(
+                      data: const SliderThemeData(
+                        trackHeight: 4,
+                        thumbShape: RoundSliderThumbShape(
+                          enabledThumbRadius: 8,
+                        ),
+                        overlayShape: RoundSliderOverlayShape(
+                          overlayRadius: 16,
+                        ),
+                        activeTrackColor: Color(0xFF0256FF),
+                        inactiveTrackColor: Color(0xFFD8D8D8),
+                      ),
+                      child: Slider(
+                        value: music.volume.toDouble().clamp(0, 100),
+                        max: 100,
+                        divisions: 100,
+                        label: '${music.volume.round()}',
+                        onChanged: (v) {
+                          ref
+                              .read(connectionManagerProvider.notifier)
+                              .sendMusicVolume(v.round());
+                        },
+                      ),
+                    ),
+                  ),
                   SizedBox(
-                    width: 90,
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.volume_up,
-                          size: 14,
-                          color: Color(0xFF8E8E93),
-                        ),
-                        Expanded(
-                          child: SliderTheme(
-                            data: const SliderThemeData(
-                              trackHeight: 3,
-                              thumbShape: RoundSliderThumbShape(
-                                enabledThumbRadius: 6,
-                              ),
-                              overlayShape: RoundSliderOverlayShape(
-                                overlayRadius: 12,
-                              ),
-                            ),
-                            child: Slider(
-                              value: music.volume.toDouble().clamp(0, 100),
-                              max: 100,
-                              onChanged: (v) {
-                                ref
-                                    .read(connectionManagerProvider.notifier)
-                                    .sendMusicVolume(v.round());
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
+                    width: 36,
+                    child: Text(
+                      '${music.volume.round()}',
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF3D3D3D),
+                      ),
                     ),
                   ),
                 ],
