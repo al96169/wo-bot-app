@@ -315,6 +315,45 @@ class ConnectionManager extends StateNotifier<ConnState> {
     );
   }
 
+  /// 确保 DataChannel 就绪（图库下载需要 DC 分块传输；远程 WebRTC 场景无直连 HTTP）
+  /// 若 DC 未就绪则启动 WebRTC 并等待 DC 打开，最多等待 [timeout]。
+  /// 返回 true=DC 可用。
+  Future<bool> ensureDataChannelForDownload({
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
+    if (webrtc.isDataChannelReady) return true;
+    // 已连接但 DC 未就绪（或从未建立）→ 启动 WebRTC
+    if (state == ConnState.connected && !webrtc.isDataChannelReady) {
+      try {
+        await startWebRtc();
+      } catch (e) {
+        debugPrint('[CM] ensureDC 启动失败: $e');
+      }
+    }
+    // 等待 DC 打开
+    final completer = Completer<bool>();
+    final timer = Timer(timeout, () {
+      if (!completer.isCompleted) completer.complete(false);
+    });
+    void onReady(bool ready) {
+      if (ready && !completer.isCompleted) {
+        completer.complete(true);
+      }
+    }
+
+    webrtc.onDataChannelReady = onReady;
+    try {
+      if (webrtc.isDataChannelReady) return true;
+      return await completer.future;
+    } finally {
+      timer.cancel();
+      // 仅当回调仍是我们的监听器时清理（避免覆盖遥控页已设置的监听）
+      if (identical(webrtc.onDataChannelReady, onReady)) {
+        webrtc.onDataChannelReady = null;
+      }
+    }
+  }
+
   /// 发送二进制消息（语音对讲 voice_broadcast）— 对齐 web-debug sendBinary
   /// 帧格式: [4 字节 JSON 头长度 big-endian] + [JSON header {type,data}] + [二进制音频]
   /// [preferDataChannel]: true=电话模式优先 DataChannel（低延迟），false=WebSocket（无大小限制）
