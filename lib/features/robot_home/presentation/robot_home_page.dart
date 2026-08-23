@@ -16,6 +16,8 @@ import '../../status/presentation/robot_status_page.dart';
 import '../../dance/presentation/dance_page.dart';
 import '../../gallery/presentation/gallery_page.dart';
 import '../../music/presentation/music_page.dart';
+// 批次 5 功能页
+import '../../config/presentation/config_page.dart';
 
 /// 机器人主页 — 匹配 Pixso 5:1022
 ///
@@ -113,6 +115,11 @@ class RobotHomePage extends ConsumerWidget {
         Icons.photo_library_outlined,
         () => _push(context, const GalleryPage()),
         feature: 'camera_capture',
+      ),
+      _NavEntry(
+        '配置',
+        Icons.tune,
+        () => _push(context, const ConfigPage()),
       ),
     ];
 

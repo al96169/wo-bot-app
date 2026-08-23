@@ -57,6 +57,11 @@ class RobotDataStore extends StateNotifier<int> {
   // 省电策略
   String powerMode = 'normal';
   int powerThreshold = 30;
+  // 机器人完整配置（config_get_ack，对齐 web-debug robotStore.robotConfig）
+  Map<String, dynamic> robotConfig = {};
+  bool configLoaded = false;
+  // 绑定列表（bind_list_ack，对齐 web-debug robotStore.bindings）
+  List<Map<String, dynamic>> bindings = [];
   // 功能列表
   final List<String> remoteFeatures = [];
 
@@ -332,6 +337,24 @@ class RobotDataStore extends StateNotifier<int> {
   void setPowerPolicy(Map<String, dynamic> data) {
     powerMode = data['mode'] as String? ?? powerMode;
     powerThreshold = data['threshold'] as int? ?? powerThreshold;
+    notify();
+  }
+
+  /// 更新机器人完整配置（config_get_ack）
+  void setRobotConfig(Map<String, dynamic> config) {
+    robotConfig = Map<String, dynamic>.from(config);
+    configLoaded = true;
+    notify();
+  }
+
+  /// 更新绑定列表（bind_list_ack / bind_list_update）
+  void setBindings(List<dynamic> list) {
+    bindings.clear();
+    for (final b in list) {
+      if (b is Map) {
+        bindings.add(Map<String, dynamic>.from(b));
+      }
+    }
     notify();
   }
 

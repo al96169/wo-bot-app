@@ -283,8 +283,9 @@ class ConnectionManager extends StateNotifier<ConnState> {
   // 对齐 web-debug：config_get 无 key 时取全量配置
   void sendConfigGet([String? key]) =>
       send('config_get', key != null ? {'key': key} : {});
-  void sendConfigSet(String key, dynamic value) =>
-      send('config_set', {'key': key, 'value': value});
+  /// 提交全量配置（对齐 web-debug config_set {config: {...}}，机器人端深度合并）
+  void sendConfigSet(Map<String, dynamic> config) =>
+      send('config_set', {'config': config});
 
   // ---- 绑定管理 ----
   void sendBindList() => send('bind_list');
@@ -292,6 +293,26 @@ class ConnectionManager extends StateNotifier<ConnState> {
       send('bind_remove', {'clientId': clientId});
   void sendBindRemoveAll() => send('bind_remove_all');
   void sendBindShareCreate() => send('bind_share_create');
+  /// 使用分享码绑定（对齐机器人端 bind_share_use: {shareCode, clientId, clientName}）
+  void sendBindShareUse(String code, {String? clientId, String? clientName}) =>
+      send('bind_share_use', {
+        'shareCode': code,
+        if (clientId != null) 'clientId': clientId,
+        if (clientName != null) 'clientName': clientName,
+      });
+  void sendBindPasswordConfig() => send('bind_password_config');
+  /// 更新密码绑定：修改密码或开关（对齐机器人端 bind_password_update: {password, enabled}）
+  void sendBindPasswordUpdate({String? password, bool? enabled}) =>
+      send('bind_password_update', {
+        if (password != null) 'password': password,
+        if (enabled != null) 'enabled': enabled,
+      });
+  /// 绑定证明（批次 6：把本地绑定设备挂到云端帐号）
+  void sendBindingProofRequest(String accountId, String clientId) =>
+      send('binding_proof_request', {
+        'accountId': accountId,
+        'clientId': clientId,
+      });
 
   // ---- WebRTC 信令 ----
   void sendWebRtcOffer(String sdp) => send('webrtc_offer', {'sdp': sdp});
@@ -499,8 +520,7 @@ class ConnectionManager extends StateNotifier<ConnState> {
         break;
       case 'bind_list_ack':
       case 'bind_list_update':
-        // TODO: 更新绑定列表 UI
-        debugPrint('[CM] bind_list: $d');
+        _data.setBindings(d['bindings'] as List? ?? d['clients'] as List? ?? []);
         break;
       case 'bind_replay_ack':
         debugPrint('[CM] bind_replay_ack: ${d['method']}');
@@ -857,8 +877,15 @@ class ConnectionManager extends StateNotifier<ConnState> {
 
       // ---- 配置 ----
       case 'config_get_ack':
+        _data.setRobotConfig(d);
+        debugPrint('[CM] config_get_ack keys=${d.keys.length}');
+        break;
       case 'config_set_ack':
-        debugPrint('[CM] config_ack: $type → $d');
+        debugPrint('[CM] config_set_ack: success=${d['success']} changes=${d['changes']}');
+        if (d['success'] == true) {
+          // 重新拉取最新配置
+          sendConfigGet();
+        }
         break;
 
       // ---- 运动确认 ----
