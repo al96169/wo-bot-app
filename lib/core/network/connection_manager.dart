@@ -256,10 +256,11 @@ class ConnectionManager extends StateNotifier<ConnState> {
       });
   void sendGalleryDelete(List<String> fileNames) =>
       send('camera_media_delete', {'file_names': fileNames});
-  /// 请求下载媒体文件 — DC 优先（机器人端在 DC 上下文中分块发送 start/chunk/end），
-  /// WS 回退小文件单次 base64；大文件无 DC 时机器人端返回错误提示
+  /// 请求下载媒体文件 — 走 WebSocket（可靠到达机器人端）；
+  /// 机器人端收到后经已建立的 DataChannel 分块回传 start/chunk/end（远程 WebRTC 场景同样适用）。
+  /// 不再走 DC 发送：App 客户端 DC 消息在机器人端 server-DC 覆盖后可能丢失（subscribe 能到、后续消息丢）。
   void sendGalleryDownload(String fileName) =>
-      _sendHighFreq('camera_media_download', {'file_name': fileName});
+      send('camera_media_download', {'file_name': fileName});
 
   // ---- 音乐补充 (对齐 web-debug sendMusicCommand) ----
   void sendMusicResume() => send('music_resume');

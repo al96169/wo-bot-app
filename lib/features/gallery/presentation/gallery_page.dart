@@ -71,21 +71,43 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
 
   /// 下载单个文件（分块组装后保存到应用文档目录 + 弹打开方式）
   Future<void> _download(String fileName) async {
+    debugPrint('[Gallery] 下载开始: $fileName');
     AppToast.show('正在下载: $fileName');
     final manager = ref.read(connectionManagerProvider.notifier);
     final store = ref.read(robotDataProvider.notifier);
     // 图库下载必须走 DataChannel 分块（远程 WebRTC 场景无直连 HTTP）：
     // 先确保 DC 就绪，再发送 camera_media_download
+    debugPrint(
+      '[Gallery] DC 状态: ready=${manager.webrtc.isDataChannelReady} '
+      'state=${manager.webrtc.state}',
+    );
     final dcReady = await manager.ensureDataChannelForDownload();
+    debugPrint('[Gallery] ensureDC 结果: $dcReady');
     if (!dcReady) {
       if (mounted) {
         AppToast.show('下载失败: 数据通道未就绪', type: AppToastType.error);
       }
       return;
     }
+    // 机器人侧 DC 注册晚于客户端侧 open（aiortc 时序）：延迟确保 on_datachannel 已挂载
+    await Future<void>.delayed(const Duration(milliseconds: 800));
     // 发送下载请求（DC 优先，机器人端在 DC 上下文中分块发送 start/chunk/end）
+    debugPrint('[Gallery] 发送 camera_media_download: $fileName');
     manager.sendGalleryDownload(fileName);
-    final result = await _waitDownload(store, fileName);
+    // 首次用 15s 探测；若消息在机器人 DC 注册前被丢弃（无 start/chunk/end 到达），
+    // 1s 后重试一次（再等完整 120s 超时）
+    var result = await _waitDownload(
+      store,
+      fileName,
+      timeout: const Duration(seconds: 15),
+    );
+    if (result == null) {
+      debugPrint('[Gallery] 首次无响应，1s 后重试下载: $fileName');
+      await Future<void>.delayed(const Duration(seconds: 1));
+      manager.sendGalleryDownload(fileName);
+      result = await _waitDownload(store, fileName);
+    }
+    debugPrint('[Gallery] 下载结果: success=${result?.isSuccess} err=${result?.error}');
     if (!mounted) return;
     if (result == null || !result.isSuccess) {
       AppToast.show(
@@ -112,11 +134,12 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
   }
 
   /// 等待指定文件名的下载结果（订阅 store.galleryDownload）
-  /// 视频分块传输可能较慢，超时放宽到 120s
+  /// 视频分块传输可能较慢，超时默认 120s；重试探测用短超时
   Future<GalleryDownloadResult?> _waitDownload(
     RobotDataStore store,
-    String fileName,
-  ) async {
+    String fileName, {
+    Duration timeout = const Duration(seconds: 120),
+  }) async {
     final completer = Completer<GalleryDownloadResult?>();
     void listener() {
       final r = store.galleryDownload.value;
@@ -126,7 +149,7 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
     }
 
     store.galleryDownload.addListener(listener);
-    final timer = Timer(const Duration(seconds: 120), () {
+    final timer = Timer(timeout, () {
       if (!completer.isCompleted) completer.complete(null);
     });
     try {
