@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../../core/network/connection_manager.dart';
 import '../../../core/network/robot_data_store.dart';
 import '../../../core/utils/app_toast.dart';
@@ -99,7 +101,7 @@ class _LogsPageState extends ConsumerState<LogsPage> {
         );
   }
 
-  /// 导出日志 — 复制到剪贴板（web/移动端通用）
+  /// 导出日志 — 保存为 txt 文件（对齐 web-debug exportLogs 下载文件）
   Future<void> _exportLogs(List<LogEntry> logs) async {
     if (logs.isEmpty) {
       AppToast.show('暂无可导出的日志');
@@ -109,9 +111,30 @@ class _LogsPageState extends ConsumerState<LogsPage> {
     for (final l in logs) {
       sb.writeln('[$l.time] [$l.level] [$l.source] $l.message');
     }
-    await Clipboard.setData(ClipboardData(text: sb.toString()));
-    if (mounted) {
-      AppToast.show('已复制 ${logs.length} 条日志到剪贴板', type: AppToastType.success);
+    try {
+      final dir = await getDownloadsDirectory();
+      if (dir == null) {
+        // 无下载目录（部分平台）→ 回退剪贴板
+        await Clipboard.setData(ClipboardData(text: sb.toString()));
+        AppToast.show('已复制 ${logs.length} 条日志到剪贴板', type: AppToastType.success);
+        return;
+      }
+      final file = File(
+        '${dir.path}/wo-bot-logs-${DateTime.now().toIso8601String().split('T').first}.txt',
+      );
+      await file.writeAsString(sb.toString());
+      if (mounted) {
+        AppToast.show(
+          '已导出 ${logs.length} 条日志\n${file.path}',
+          type: AppToastType.success,
+        );
+      }
+    } catch (e) {
+      debugPrint('[Logs] 导出失败: $e');
+      await Clipboard.setData(ClipboardData(text: sb.toString()));
+      if (mounted) {
+        AppToast.show('导出失败，已复制到剪贴板', type: AppToastType.error);
+      }
     }
   }
 

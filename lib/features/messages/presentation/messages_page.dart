@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../../core/network/robot_data_store.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../shared/models/robot_data.dart';
@@ -186,7 +188,7 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
     );
   }
 
-  /// 导出消息到剪贴板
+  /// 导出消息 — 保存为 txt 文件（web 回退剪贴板）
   Future<void> _exportMessages(List<RobotMessage> messages) async {
     if (messages.isEmpty) {
       AppToast.show('暂无可导出的消息');
@@ -200,6 +202,25 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
         ..writeln(m.body.isEmpty ? m.summary : m.body)
         ..writeln('---');
     }
+    try {
+      final dir = await getDownloadsDirectory();
+      if (dir != null) {
+        final file = File(
+          '${dir.path}/wo-bot-messages-${DateTime.now().toIso8601String().split('T').first}.txt',
+        );
+        await file.writeAsString(sb.toString());
+        if (mounted) {
+          AppToast.show(
+            '已导出 ${messages.length} 条消息\n${file.path}',
+            type: AppToastType.success,
+          );
+        }
+        return;
+      }
+    } catch (e) {
+      debugPrint('[Messages] 导出失败: $e');
+    }
+    // 无下载目录或导出失败 → 剪贴板兜底
     await Clipboard.setData(ClipboardData(text: sb.toString()));
     if (mounted) {
       AppToast.show(
