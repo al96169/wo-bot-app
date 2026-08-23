@@ -72,8 +72,11 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
   /// 下载单个文件（分块组装后保存到应用文档目录 + 弹打开方式）
   Future<void> _download(String fileName) async {
     AppToast.show('正在下载: $fileName');
-    // 监听下载完成
     final store = ref.read(robotDataProvider.notifier);
+    // 先发送下载请求（机器人响应 camera_media_download_data / DC 分块），再等待结果
+    ref
+        .read(connectionManagerProvider.notifier)
+        .sendGalleryDownload(fileName);
     final result = await _waitDownload(store, fileName);
     if (!mounted) return;
     if (result == null || !result.isSuccess) {

@@ -1,4 +1,5 @@
 // 批次 4 测试：音乐状态/舞蹈/图库列表与分块下载解析
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wo_bot/core/network/robot_data_store.dart';
 import 'package:wo_bot/shared/models/robot_data.dart';
@@ -142,5 +143,56 @@ void main() {
     );
     expect(t.isRunning, isTrue);
     expect(t.progress, 30);
+  });
+
+  test('WS 单次下载响应 camera_media_download_data → 通知结果', () {
+    final store = RobotDataStore();
+    GalleryDownloadResult? captured;
+    store.galleryDownload.addListener(() {
+      captured = store.galleryDownload.value;
+    });
+    // 模拟 ConnectionManager._handleMessage 的 WS 回退路径
+    final b64 = base64Encode([1, 2, 3, 4, 5]);
+    store.notifyGalleryDownload(
+      GalleryDownloadResult(
+        fileName: 'photo_001.jpg',
+        bytes: base64Decode(b64),
+        sizeBytes: 5,
+      ),
+    );
+    expect(captured, isNotNull);
+    expect(captured!.fileName, 'photo_001.jpg');
+    expect(captured!.isSuccess, isTrue);
+    expect(captured!.bytes, [1, 2, 3, 4, 5]);
+  });
+
+  test('图库翻页 updateGalleryResult 追加去重（不清空首页）', () {
+    final store = RobotDataStore();
+    store.updateGalleryResult(
+      items: [
+        {'file_name': 'a.jpg', 'name': 'a.jpg', 'type': 'photo'},
+      ],
+      page: 1,
+      total: 3,
+      hasMore: true,
+    );
+    expect(store.galleryItems.length, 1);
+
+    // 翻页追加
+    store.updateGalleryResult(
+      items: [
+        {'file_name': 'b.jpg', 'name': 'b.jpg', 'type': 'photo'},
+        {'file_name': 'a.jpg', 'name': 'a.jpg', 'type': 'photo'}, // 重复应去重
+      ],
+      page: 2,
+      total: 3,
+      hasMore: false,
+      reset: false,
+    );
+    expect(store.galleryItems.length, 2);
+    expect(store.galleryItems.map((g) => g.name), containsAll(['a.jpg', 'b.jpg']));
+    expect(store.galleryPage, 2);
+    expect(store.galleryHasMore, isFalse);
+    expect(store.galleryLoading, isFalse);
   });
 }

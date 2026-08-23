@@ -256,9 +256,10 @@ class ConnectionManager extends StateNotifier<ConnState> {
       });
   void sendGalleryDelete(List<String> fileNames) =>
       send('camera_media_delete', {'file_names': fileNames});
-  /// 请求下载媒体文件（小文件 WS 回退单次 base64；大文件走 DC 分块）
+  /// 请求下载媒体文件 — DC 优先（机器人端在 DC 上下文中分块发送 start/chunk/end），
+  /// WS 回退小文件单次 base64；大文件无 DC 时机器人端返回错误提示
   void sendGalleryDownload(String fileName) =>
-      send('camera_media_download', {'file_name': fileName});
+      _sendHighFreq('camera_media_download', {'file_name': fileName});
 
   // ---- 音乐补充 (对齐 web-debug sendMusicCommand) ----
   void sendMusicResume() => send('music_resume');
