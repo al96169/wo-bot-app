@@ -1,7 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:file_selector/file_selector.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../../core/network/robot_data_store.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../shared/models/robot_data.dart';
@@ -187,7 +188,7 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
     );
   }
 
-  /// 导出消息 — 弹出系统保存对话框写入 txt（Web 回退下载）
+  /// 导出消息 — 保存 txt 到应用文档目录 → 提示成功 → 系统打开方式选择器
   Future<void> _exportMessages(List<RobotMessage> messages) async {
     if (messages.isEmpty) {
       AppToast.show('暂无可导出的消息');
@@ -202,37 +203,21 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
         ..writeln('---');
     }
     try {
-      // 系统保存对话框（Android SAF / iOS 文档选择器 / Web 下载）
-      final fileName =
-          'wo-bot-messages-${DateTime.now().toIso8601String().split('T').first}.txt';
-      final result = await getSaveLocation(
-        suggestedName: fileName,
-        acceptedTypeGroups: const [
-          XTypeGroup(label: 'text', extensions: ['txt']),
-        ],
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File(
+        '${dir.path}/wo-bot-messages-${DateTime.now().toIso8601String().split('T').first}.txt',
       );
-      if (result == null) {
-        return; // 用户取消
-      }
-      final xfile = XFile.fromData(
-        Uint8List.fromList(sb.toString().codeUnits),
-        mimeType: 'text/plain',
-        name: fileName,
-      );
-      await xfile.saveTo(result.path);
-      if (mounted) {
-        AppToast.show(
-          '已导出 ${messages.length} 条消息',
-          type: AppToastType.success,
-        );
-      }
+      await file.writeAsString(sb.toString());
+      if (!mounted) return;
+      // 提示导出成功
+      AppToast.show('导出成功：${file.path}', type: AppToastType.success);
+      // 弹出系统"打开方式"选择器
+      final result = await OpenFilex.open(file.path, type: 'text/plain');
+      debugPrint('[Messages] open result: ${result.type} ${result.message}');
     } catch (e) {
       debugPrint('[Messages] 导出失败: $e');
-      try {
-        await Clipboard.setData(ClipboardData(text: sb.toString()));
-      } catch (_) {}
       if (mounted) {
-        AppToast.show('导出失败，已复制到剪贴板', type: AppToastType.error);
+        AppToast.show('导出失败：$e', type: AppToastType.error);
       }
     }
   }

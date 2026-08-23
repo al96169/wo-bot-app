@@ -57,7 +57,11 @@ class StatusPage extends ConsumerWidget {
                   _MetricTile(
                     icon: Icons.battery_charging_full,
                     label: '电池电量',
-                    value: '${system.batteryLevel.toStringAsFixed(0)}%',
+                    value: system.batteryLevel > 0 &&
+                            system.batteryStatus != 'unknown' &&
+                            system.batteryStatus != 'not_present'
+                        ? '${system.batteryLevel.toStringAsFixed(0)}%'
+                        : '--',
                     color: _batteryColor(system.batteryLevel),
                     subtitle: system.batteryCharging ? '充电中' : '使用中',
                   ),

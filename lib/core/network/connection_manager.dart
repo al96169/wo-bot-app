@@ -366,7 +366,7 @@ class ConnectionManager extends StateNotifier<ConnState> {
         robotId = d['robot_id'] as String?;
         final features = d['features'] as List?;
         if (features != null) {
-          remoteFeatures = features.map((e) => e.toString()).toList();
+          remoteFeatures = features.cast<String>();
           _data.setRemoteFeatures(features);
         }
         // 检查是否已有 clientToken (分享码自动绑定成功)
@@ -445,8 +445,10 @@ class ConnectionManager extends StateNotifier<ConnState> {
           _data.setServices(d['services'] as List);
         }
         // features 同步（对齐 web-debug status 处理）
+        // 注意：JSON decode 后 features 为 List<dynamic>，必须显式 .cast<String>()，
+        // 否则 .map(...).toList() 推断为 List<dynamic>，赋给 List<String> 字段时抛类型错误
         if (d['features'] is List) {
-          remoteFeatures = d['features']!.map((e) => e.toString()).toList();
+          remoteFeatures = (d['features'] as List).cast<String>();
           _data.setRemoteFeatures(d['features'] as List);
         }
         // power_policy 内嵌解析（对齐 web-debug DC 路径）
@@ -468,7 +470,7 @@ class ConnectionManager extends StateNotifier<ConnState> {
         robotInfo = d;
         final riFeatures = d['features'] as List?;
         if (riFeatures != null) {
-          remoteFeatures = riFeatures.map((e) => e.toString()).toList();
+          remoteFeatures = riFeatures.cast<String>();
           _data.setRemoteFeatures(riFeatures);
         }
         if (d['robot_id'] != null) {
@@ -478,7 +480,7 @@ class ConnectionManager extends StateNotifier<ConnState> {
       case 'features_update':
         final fuFeatures = d['features'] as List?;
         if (fuFeatures != null) {
-          remoteFeatures = fuFeatures.map((e) => e.toString()).toList();
+          remoteFeatures = fuFeatures.cast<String>();
           _data.setRemoteFeatures(fuFeatures);
         }
         break;

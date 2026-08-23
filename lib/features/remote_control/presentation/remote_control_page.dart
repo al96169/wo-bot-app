@@ -516,7 +516,9 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                     ),
                     _WebRtcBadge(state: _webrtcState),
                     const SizedBox(width: 10),
-                    if (store.system.batteryLevel > 0) ...[
+                    if (store.system.batteryLevel > 0 &&
+                        store.system.batteryStatus != 'unknown' &&
+                        store.system.batteryStatus != 'not_present') ...[
                       Icon(
                         store.system.batteryCharging
                             ? Icons.battery_charging_full

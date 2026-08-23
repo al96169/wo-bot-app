@@ -152,8 +152,8 @@ class WsClient {
     // 消息处理（onMessage）异常不应阻断 WS 消息流，单独捕获
     try {
       onMessage?.call(json);
-    } catch (e) {
-      debugPrint('[WS] 消息处理异常: $e (type=${json['type']})');
+    } catch (e, st) {
+      debugPrint('[WS] 消息处理异常: $e (type=${json['type']})\n$st');
     }
   }
 

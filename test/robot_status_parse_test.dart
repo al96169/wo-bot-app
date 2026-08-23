@@ -140,6 +140,71 @@ void main() {
     expect(rs.temperature, 60.1);
   });
 
+  test('解析真机 device_info（OS/内核/CPU/MAC/累计运行）', () {
+    final s = SystemStatusData();
+    s.updateFromJson({
+      'battery': {'level': 95, 'status': 'discharging'},
+      'system': {
+        'cpu_percent': 10.0,
+        'memory_percent': 63.0,
+        'disk_percent': 90.7,
+        'uptime': 74,
+        'total_runtime': 36000,
+        'temperature': 43.0,
+        'hostname': 'yahboom',
+      },
+      'network': {
+        'ip': '192.168.1.47',
+        'ssid': 'MyHome',
+        'signal_strength': -22,
+        'mac': '48:8f:4c:d4:cd:42',
+        'bluetooth_mac': '48:8F:4C:D4:CD:43',
+      },
+      'device_info': {
+        'hostname': 'yahboom',
+        'os': 'Ubuntu 18.04.6 LTS',
+        'kernel': '4.9.337-tegra',
+        'cpu_model': 'ARMv8 Processor rev 1 (v8l)',
+        'cpu_count': 4,
+        'ip': '192.168.1.47',
+        'mac': '48:8f:4c:d4:cd:42',
+        'bluetooth_mac': '48:8F:4C:D4:CD:43',
+        'uptime': 74,
+        'total_runtime': 36000,
+      },
+    });
+
+    expect(s.os, 'Ubuntu 18.04.6 LTS');
+    expect(s.kernel, '4.9.337-tegra');
+    expect(s.cpuModel, 'ARMv8 Processor rev 1 (v8l)');
+    expect(s.cpuCount, 4);
+    expect(s.mac, '48:8f:4c:d4:cd:42');
+    expect(s.bluetoothMac, '48:8F:4C:D4:CD:43');
+    expect(s.totalRuntime, 36000);
+    expect(s.hostname, 'yahboom');
+    expect(s.ip, '192.168.1.47');
+  });
+
+  test('无电池数据（status=unknown）时 batteryStatus 正确保留', () {
+    final s = SystemStatusData();
+    s.updateFromJson({
+      'battery': {'level': 100, 'status': 'unknown'},
+      'system': {'cpu_percent': 15.0},
+    });
+    expect(s.batteryLevel, 100);
+    expect(s.batteryStatus, 'unknown');
+    expect(s.batteryCharging, false);
+  });
+
+  test('JSON decode 的 features(List<dynamic>) 用 .cast<String>() 赋给 List<String> 字段', () {
+    // 模拟 jsonDecode 产物：List<dynamic>（无显式泛型）
+    final raw = <dynamic>['websocket', 'exec', 'system', 'motion', 'camera'];
+    // 与 ConnectionManager._handleMessage 相同的写法（真机 AOT 下旧写法会抛类型错误）
+    final List<String> features = raw.cast<String>();
+    expect(features, contains('motion'));
+    expect(features, isA<List<String>>());
+  });
+
   test('软件项 status:"installed" 判定为已安装并解析版本号', () {
     final sw = Software.fromJson({
       'name': 'wobot-control',

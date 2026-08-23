@@ -128,7 +128,10 @@ class _DeviceStatusIcons extends StatelessWidget {
         : const Color(0x33232222);
     const cellularColor = Color(0x33232222); // 无蜂窝数据源，灰显占位
     final level = system.batteryLevel;
-    final hasBattery = level > 0;
+    // 真机无电池数据时 status=unknown/not_present，回退 level 100 → 不显示电量
+    final hasBattery = level > 0 &&
+        system.batteryStatus != 'unknown' &&
+        system.batteryStatus != 'not_present';
     final batteryIcon = system.batteryCharging
         ? Icons.battery_charging_full
         : _batteryIcon(level);

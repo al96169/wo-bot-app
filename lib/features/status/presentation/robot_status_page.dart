@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/network/connection_manager.dart';
 import '../../../core/network/robot_data_store.dart';
 import '../../../shared/models/robot_data.dart';
 import '../../../shared/widgets/feature_status_bar.dart';
@@ -18,6 +19,10 @@ class RobotStatusPage extends ConsumerWidget {
     ref.watch(robotDataProvider);
     final data = ref.read(robotDataProvider.notifier);
     final system = data.system;
+    final manager = ref.read(connectionManagerProvider.notifier);
+    final robotInfo = manager.robotInfo;
+    final model = system.model ?? robotInfo?['model'] as String?;
+    final version = system.version ?? robotInfo?['version'] as String?;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9F9),
@@ -46,7 +51,18 @@ class RobotStatusPage extends ConsumerWidget {
                         ),
                         _StatusRow(
                           label: '电池电量',
-                          value: '${system.batteryLevel.toStringAsFixed(0)}%',
+                          value: system.batteryLevel > 0
+                              ? '${system.batteryLevel.toStringAsFixed(0)}%'
+                              : '--',
+                        ),
+                        _StatusRow(
+                          label: '电池状态',
+                          value: switch (system.batteryStatus) {
+                            'charging' => '充电中',
+                            'discharging' => '放电中',
+                            'not_present' => '无电池',
+                            _ => '未知',
+                          },
                         ),
                         _StatusRow(
                           label: '预计可用',
@@ -63,23 +79,40 @@ class RobotStatusPage extends ConsumerWidget {
                           label: '本次运行',
                           value: _uptime(system.uptime),
                         ),
+                        if (system.totalRuntime > 0)
+                          _StatusRow(
+                            label: '累计运行',
+                            value: _uptime(system.totalRuntime),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 10),
-                    // 3. 设备信息（型号/版本/系统，来自 status 或 robot_info）
+                    // 3. 设备信息（型号/版本来自 connected 握手 robot_info；系统信息来自 status.device_info）
                     _StatusCard(
                       title: '设备信息',
                       children: [
-                        if (data.system.model != null)
-                          _StatusRow(label: '型号', value: data.system.model!),
-                        if (data.system.version != null)
-                          _StatusRow(label: '版本', value: data.system.version!),
-                        _StatusRow(
-                          label: 'CPU温度',
-                          value: system.cpuTemp != null
-                              ? '${system.cpuTemp!.toStringAsFixed(0)}°C'
-                              : '--',
-                        ),
+                        if (model != null)
+                          _StatusRow(label: '型号', value: model),
+                        if (version != null)
+                          _StatusRow(label: '版本', value: version),
+                        if (system.os != null)
+                          _StatusRow(label: '系统', value: system.os!),
+                        if (system.kernel != null)
+                          _StatusRow(label: '内核', value: system.kernel!),
+                        if (system.cpuModel != null)
+                          _StatusRow(label: 'CPU', value: system.cpuModel!),
+                        if (system.cpuCount != null)
+                          _StatusRow(
+                            label: '核心数',
+                            value: '${system.cpuCount} 核',
+                          ),
+                        if (system.mac != null)
+                          _StatusRow(label: 'MAC地址', value: system.mac!),
+                        if (system.bluetoothMac != null)
+                          _StatusRow(
+                            label: '蓝牙MAC',
+                            value: system.bluetoothMac!,
+                          ),
                         _StatusRow(
                           label: 'WiFi',
                           value: system.wifiSSID ?? '--',
@@ -146,9 +179,16 @@ class RobotStatusPage extends ConsumerWidget {
   }
 
   Widget _buildTopStatusCard(SystemStatusData system) {
-    // 电池
-    final batteryValue = '${system.batteryLevel.toStringAsFixed(0)}%';
-    final batterySubtitle = system.batteryCharging
+    // 电池：status 非 unknown/not_present 且 level>0 才显示真实值，否则显示 --（真机无电池数据时回退 100/unknown）
+    final hasBattery = system.batteryLevel > 0 &&
+        system.batteryStatus != 'unknown' &&
+        system.batteryStatus != 'not_present';
+    final batteryValue = hasBattery
+        ? '${system.batteryLevel.toStringAsFixed(0)}%'
+        : '--';
+    final batterySubtitle = !hasBattery
+        ? '无电池数据'
+        : system.batteryCharging
         ? '充电中'
         : system.batteryEstimatedMinutes != null
         ? '约${system.batteryEstimatedMinutes}分钟'

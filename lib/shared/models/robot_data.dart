@@ -50,6 +50,8 @@ class GimbalState {
 class SystemStatusData {
   double batteryLevel;
   bool batteryCharging;
+  /// 电池状态原文（真机: charging/discharging/unknown/not_present，对齐 web-debug battery.status）
+  String batteryStatus;
   double cpuUsage;
   double memoryUsage;
   double diskUsage;
@@ -68,10 +70,19 @@ class SystemStatusData {
   double? envHumidity;
   double? envGas;
   double? envLight;
+  // 设备详情（对齐真机 status.device_info）
+  String? os;
+  String? kernel;
+  String? cpuModel;
+  int? cpuCount;
+  String? mac;
+  String? bluetoothMac;
+  int totalRuntime;
 
   SystemStatusData({
     this.batteryLevel = 0,
     this.batteryCharging = false,
+    this.batteryStatus = 'unknown',
     this.cpuUsage = 0,
     this.memoryUsage = 0,
     this.diskUsage = 0,
@@ -88,6 +99,13 @@ class SystemStatusData {
     this.envHumidity,
     this.envGas,
     this.envLight,
+    this.os,
+    this.kernel,
+    this.cpuModel,
+    this.cpuCount,
+    this.mac,
+    this.bluetoothMac,
+    this.totalRuntime = 0,
   });
 
   void updateFromJson(Map<String, dynamic> json) {
@@ -101,6 +119,7 @@ class SystemStatusData {
     final sys = obj(json['system']);
     final net = obj(json['network']);
     final env = obj(json['environment']);
+    final devInfo = obj(json['device_info']);
 
     batteryLevel =
         _num(batt['level']) ??
@@ -113,6 +132,7 @@ class SystemStatusData {
         json['battery_charging'] == true ||
         json['batteryCharging'] == true ||
         batteryCharging;
+    batteryStatus = batt['status'] as String? ?? batteryStatus;
     batteryEstimatedMinutes =
         (batt['estimated_minutes'] as num?)?.toInt() ??
         (json['battery_estimated_minutes'] as num?)?.toInt() ??
@@ -159,6 +179,27 @@ class SystemStatusData {
     envHumidity = _num(env['humidity']) ?? envHumidity;
     envGas = _num(env['gas']) ?? envGas;
     envLight = _num(env['light']) ?? envLight;
+    // 设备详情（真机 device_info: {hostname, os, kernel, cpu_model, cpu_count, ip, mac, bluetooth_mac, uptime, total_runtime}）
+    hostname =
+        (sys['hostname'] as String?) ??
+        (devInfo['hostname'] as String?) ??
+        hostname;
+    ip = (net['ip'] as String?) ?? (devInfo['ip'] as String?) ?? ip;
+    mac = devInfo['mac'] as String? ?? mac;
+    bluetoothMac =
+        (net['bluetooth_mac'] as String?) ??
+        (devInfo['bluetooth_mac'] as String?) ??
+        bluetoothMac;
+    os = devInfo['os'] as String? ?? os;
+    kernel = devInfo['kernel'] as String? ?? kernel;
+    cpuModel = devInfo['cpu_model'] as String? ?? cpuModel;
+    cpuCount =
+        (devInfo['cpu_count'] as num?)?.toInt() ??
+        cpuCount;
+    totalRuntime =
+        (sys['total_runtime'] as num?)?.toInt() ??
+        (devInfo['total_runtime'] as num?)?.toInt() ??
+        totalRuntime;
   }
 
   static double? _num(dynamic v) {
