@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/network/account_service.dart';
 import '../../../core/network/bind_service.dart';
 import '../../../core/network/connection_manager.dart';
 import '../../../core/network/device_store.dart';
@@ -223,11 +224,32 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
     }
   }
 
+  /// 点击云端设备 → 信令远控（批次 6）
+  Future<void> _connectCloud(CloudDevice cloud) async {
+    final account = AccountService.instance;
+    if (!account.isAuthenticated) {
+      AppToast.show('请先登录', type: AppToastType.error);
+      return;
+    }
+    AppToast.show('正在通过云端连接 ${cloud.robotName ?? cloud.robotId}...');
+    final ok = await ref
+        .read(connectionManagerProvider.notifier)
+        .connectViaSignal(cloud.robotId);
+    if (!mounted) return;
+    if (!ok) {
+      AppToast.show('云端连接失败', type: AppToastType.error);
+    }
+    // 连接成功由 ConnState 变化自动跳转主页
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = ref.watch(deviceStoreProvider);
     final connection = ref.watch(connectionManagerProvider);
     final saved = store.devices;
+    final cloudDevices = ref
+        .read(deviceStoreProvider.notifier)
+        .cloudDevicesFiltered;
 
     // 连接成功后跳转机器人主页（对齐 web-debug：连接后进入功能主页）
     ref.listen<ConnState>(connectionManagerProvider, (prev, next) {
@@ -283,6 +305,20 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
                           ),
                         ),
                       ),
+                    // 云端设备（批次 6：登录后显示云端设备，点击走信令远控）
+                    if (cloudDevices.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      _SectionTitle(title: '云端设备', count: cloudDevices.length),
+                      ...cloudDevices.map(
+                        (cloud) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _CloudDeviceCard(
+                            device: cloud,
+                            onTap: () => _connectCloud(cloud),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -635,6 +671,103 @@ class _MessageCard extends StatelessWidget {
           ),
           if (action != null) action!,
         ],
+      ),
+    );
+  }
+}
+
+/// 云端设备卡片（批次 6）— 显示云端设备，点击走信令远控
+class _CloudDeviceCard extends StatelessWidget {
+  final CloudDevice device;
+  final VoidCallback onTap;
+  const _CloudDeviceCard({required this.device, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final online = device.status == 'online';
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(15),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(15),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: const Color(0xFFEEEEEE), width: 0.5),
+          ),
+          child: Row(
+            children: [
+              // 云端图标
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: online
+                      ? const Color(0x1A34C759)
+                      : const Color(0xFFF5F5F5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  online ? Icons.cloud_done : Icons.cloud_off,
+                  size: 22,
+                  color: online
+                      ? const Color(0xFF34C759)
+                      : const Color(0xFFC7C7CC),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // 信息
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      device.robotName ?? device.robotId,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF1C1C1E),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${device.robotId} · ${online ? '在线' : '离线'}'
+                      '${device.boundAt.isNotEmpty ? ' · 已绑定' : ''}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF8E8E93),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // 状态点
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: online
+                      ? const Color(0xFF34C759)
+                      : const Color(0xFFC7C7CC),
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: Color(0xFFC7C7CC),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

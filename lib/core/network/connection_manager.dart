@@ -12,6 +12,8 @@ import '../../shared/models/robot_status.dart';
 import 'mdns_discovery.dart';
 import 'websocket_client.dart';
 import 'bind_service.dart';
+import 'account_service.dart';
+import 'signal_client.dart';
 import 'robot_data_store.dart';
 import 'webrtc_service.dart';
 
@@ -32,6 +34,9 @@ class ConnectionManager extends StateNotifier<ConnState> {
 
   /// WebRTC 服务（视频 + DataChannel 业务通道）— 对齐 web-debug useWebRTC
   final WebRtcService webrtc = WebRtcService.instance;
+
+  /// 云端信令客户端（批次 6：跨网络远程控制，wss://signal 服务器）
+  SignalClient? signal;
 
   RobotDevice? currentDevice;
   RobotStatus? robotStatus;
@@ -337,6 +342,98 @@ class ConnectionManager extends StateNotifier<ConnState> {
     );
   }
 
+  /// 云端远控连接（批次 6）— 对齐 web-debug connectViaSignal
+  ///
+  /// [robotId] 云端设备 ID；[signalUrl] 信令服务器地址（默认 wss://signal.wo-bot.com/ws）。
+  /// 依赖 AccountService 已登录（JWT），业务消息经 DataChannel 统一走 _handleMessage。
+  Future<bool> connectViaSignal(
+    String robotId, {
+    String signalUrl = 'wss://signal.wo-bot.com/ws',
+  }) async {
+    final account = AccountService.instance;
+    final token = account.accessToken;
+    if (token == null || token.isEmpty) {
+      debugPrint('[CM] connectViaSignal: 未登录');
+      return false;
+    }
+
+    // 预填 robotInfo（信令模式无 connected 消息）
+    robotId = robotId;
+    robotInfo = {
+      'robot_id': robotId,
+      'name': '',
+      'model': '',
+      'version': '',
+      'features': <String>[],
+    };
+    isBound = true; // JWT 已验证归属，信令模式免本地绑定
+    authRequired = false;
+    state = ConnState.connecting;
+
+    // 清理旧连接
+    disconnect();
+    await signal?.disconnect();
+    signal = SignalClient(signalUrl: signalUrl, robotId: robotId);
+
+    signal!
+      ..onDataChannelMessage = (msg) {
+        debugPrint('[CM] Signal DC 消息: ${msg['type']}');
+        _handleMessage(msg);
+      }
+      ..onDataChannelReady = (ready) {
+        if (ready) {
+          state = ConnState.connected;
+          _startStatusPolling();
+        }
+      }
+      ..onVideoStream = webrtc.onVideoStream
+      ..onError = (msg) {
+        debugPrint('[CM] Signal 错误: $msg');
+        if (state == ConnState.connecting) {
+          state = ConnState.error;
+        }
+      }
+      ..onDisconnected = () {
+        if (state == ConnState.connected) {
+          state = ConnState.disconnected;
+        }
+      };
+
+    await signal!.connect(token);
+    // 等待连接（最多 10s）
+    final ok = await _waitSignalConnected(const Duration(seconds: 10));
+    return ok;
+  }
+
+  Future<bool> _waitSignalConnected(Duration timeout) async {
+    final completer = Completer<bool>();
+    final timer = Timer(timeout, () {
+      if (!completer.isCompleted) completer.complete(false);
+    });
+    // 轮询 isConnected（DC open 后置 true）
+    late final Timer poll;
+    poll = Timer.periodic(const Duration(milliseconds: 300), (_) {
+      if (signal?.isConnected == true && !completer.isCompleted) {
+        completer.complete(true);
+        poll.cancel();
+      }
+    });
+    try {
+      if (signal?.isConnected == true) return true;
+      return await completer.future;
+    } finally {
+      timer.cancel();
+      poll.cancel();
+    }
+  }
+
+  /// 断开云端连接
+  Future<void> disconnectSignal() async {
+    await signal?.disconnect();
+    signal = null;
+    state = ConnState.disconnected;
+  }
+
   /// 确保 DataChannel 就绪（图库下载需要 DC 分块传输；远程 WebRTC 场景无直连 HTTP）
   /// 若 DC 未就绪则启动 WebRTC 并等待 DC 打开，最多等待 [timeout]。
   /// 返回 true=DC 可用。
@@ -521,6 +618,31 @@ class ConnectionManager extends StateNotifier<ConnState> {
       case 'bind_list_ack':
       case 'bind_list_update':
         _data.setBindings(d['bindings'] as List? ?? d['clients'] as List? ?? []);
+        break;
+      case 'binding_proof_response':
+        // 绑定证明结果（批次 6：把本地绑定设备挂到云端帐号）
+        // {success, payload: {...}, proof: "hex"} → POST /api/devices/bind {payload, proof}
+        if (d['success'] == true &&
+            d['payload'] is Map &&
+            d['proof'] != null) {
+          final payload = Map<String, dynamic>.from(d['payload'] as Map);
+          final proof = d['proof'] as String;
+          debugPrint('[CM] binding_proof 成功，提交云端绑定');
+          // 异步提交（不阻塞消息处理）
+          Future<void>(() async {
+            final ok = await AccountService.instance.bindDevice(payload, proof);
+            AppToast.show(
+              ok ? '已绑定到云端账号' : '云端绑定失败',
+              type: ok ? AppToastType.success : AppToastType.error,
+            );
+          });
+        } else {
+          debugPrint('[CM] binding_proof 失败: ${d['error']}');
+          AppToast.show(
+            '绑定证明失败: ${d['error'] ?? '未知错误'}',
+            type: AppToastType.error,
+          );
+        }
         break;
       case 'bind_replay_ack':
         debugPrint('[CM] bind_replay_ack: ${d['method']}');

@@ -396,16 +396,12 @@ class AccountService {
     return raw.map(CloudDevice.fromJson).toList();
   }
 
-  /// 绑定设备到云端
-  Future<bool> bindDevice(
-    String robotId,
-    String robotName, {
-    String? proof,
-  }) async {
+  /// 绑定设备到云端 — 对齐 web-debug account.ts
+  /// 请求体必须是 {payload, proof}（机器人签发的绑定证明，R00040-1 9 步验证）
+  Future<bool> bindDevice(Map<String, dynamic> payload, String proof) async {
     if (!isAuthenticated) return false;
     try {
-      final body = {'robotId': robotId, 'robotName': robotName};
-      if (proof != null) body['proof'] = proof;
+      final body = {'payload': payload, 'proof': proof};
       final response = await httpClient
           .post(
             Uri.parse('$_apiBase/api/devices/bind'),
@@ -416,6 +412,63 @@ class AccountService {
       return response.statusCode == 200;
     } catch (e) {
       debugPrint('[Account] bindDevice 错误: $e');
+      return false;
+    }
+  }
+
+  /// 查询设备在线状态（对齐 web-debug account.ts getDeviceStatus）
+  Future<Map<String, dynamic>?> getDeviceStatus(String robotId) async {
+    if (!isAuthenticated) return null;
+    try {
+      final response = await httpClient
+          .get(
+            Uri.parse('$_apiBase/api/devices/$robotId/status'),
+            headers: authHeader,
+          )
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['data'] as Map<String, dynamic>? ?? data;
+      }
+    } catch (e) {
+      debugPrint('[Account] getDeviceStatus 错误: $e');
+    }
+    return null;
+  }
+
+  /// 查询已授权的应用列表（对齐 web-debug account.ts getAuthorizedApps）
+  Future<List<Map<String, dynamic>>> getAuthorizedApps() async {
+    if (!isAuthenticated) return [];
+    try {
+      final response = await httpClient
+          .get(
+            Uri.parse('$_apiBase/api/oauth/apps'),
+            headers: authHeader,
+          )
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return (data['data'] as List? ?? []).cast<Map<String, dynamic>>();
+      }
+    } catch (e) {
+      debugPrint('[Account] getAuthorizedApps 错误: $e');
+    }
+    return [];
+  }
+
+  /// 撤销授权应用（对齐 web-debug account.ts revokeApp）
+  Future<bool> revokeApp(String grantId) async {
+    if (!isAuthenticated) return false;
+    try {
+      final response = await httpClient
+          .delete(
+            Uri.parse('$_apiBase/api/oauth/apps/$grantId'),
+            headers: authHeader,
+          )
+          .timeout(const Duration(seconds: 10));
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('[Account] revokeApp 错误: $e');
       return false;
     }
   }

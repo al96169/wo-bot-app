@@ -164,6 +164,29 @@ class DeviceStore extends StateNotifier<DeviceStoreState> {
   void setCloudDevices(List<CloudDevice> devices) {
     state = state.copyWith(cloudDevices: devices);
   }
+
+  /// 云端设备过滤：排除已出现在本地已保存设备或发现列表中的 robotId
+  /// （对齐 web-debug cloudDevicesFiltered）
+  List<CloudDevice> get cloudDevicesFiltered {
+    final localIds = state.devices.map((d) => d.id).where((s) => s.isNotEmpty).toSet();
+    final discoveredIds = state.discovered.map((d) => d.id).where((s) => s.isNotEmpty).toSet();
+    return state.cloudDevices
+        .where((c) => !localIds.contains(c.robotId) && !discoveredIds.contains(c.robotId))
+        .toList();
+  }
+
+  /// 合并设备列表：本地设备 + 纯云端设备（未覆盖的）
+  /// 同一设备同时存在本地+云端时只显示一次，保留有 ip:port 的本地记录
+  /// （对齐 web-debug mergedDevices）
+  List<Object> get mergedDevices {
+    final localKeys = state.devices.map((d) => d.id).where((s) => s.isNotEmpty).toSet();
+    final merged = <Object>[...state.devices];
+    for (final c in cloudDevicesFiltered) {
+      if (localKeys.contains(c.robotId)) continue;
+      merged.add(c);
+    }
+    return merged;
+  }
 }
 
 /// 云端设备 — 匹配 web-debug CloudDevice
