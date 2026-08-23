@@ -97,11 +97,11 @@ class _VoiceButtonState extends ConsumerState<VoiceButton> {
       onTapUp: (_) => _stopAndSend(),
       onTapCancel: _stopAndSend,
       child: Container(
-        height: 52,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
           color: _recording ? const Color(0xFFFF3B30) : const Color(0xFF0256FF),
-          borderRadius: BorderRadius.circular(26),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
               color: (_recording ? const Color(0xFFFF3B30) : const Color(0xFF0256FF))
@@ -116,13 +116,13 @@ class _VoiceButtonState extends ConsumerState<VoiceButton> {
           children: [
             Icon(
               _recording ? Icons.mic : Icons.mic_none,
-              size: 22,
+              size: 16,
               color: Colors.white,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Text(
               _recording ? '松开发送...' : '按住对讲',
-              style: const TextStyle(fontSize: 15, color: Colors.white, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600),
             ),
           ],
         ),

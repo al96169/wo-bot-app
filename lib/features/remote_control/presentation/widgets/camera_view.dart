@@ -10,6 +10,8 @@ class CameraView extends StatefulWidget {
   final bool enabled;
   final bool recording;
   final RTCVideoViewObjectFit objectFit;
+  /// 首帧尺寸回调（宽×高，像素）— 用于外层按画面实际比例排版（如副摄 PiP 无黑边）
+  final void Function(int width, int height)? onVideoSize;
 
   const CameraView({
     super.key,
@@ -18,6 +20,7 @@ class CameraView extends StatefulWidget {
     this.enabled = true,
     this.recording = false,
     this.objectFit = RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
+    this.onVideoSize,
   });
 
   @override
@@ -43,6 +46,14 @@ class _CameraViewState extends State<CameraView> {
           _renderer.srcObject = widget.stream;
         }
       }
+      // 首帧/尺寸变化时上报实际分辨率（RTCVideoRenderer.onResize 在尺寸变化时触发）
+      _renderer.onResize = () {
+        final w = _renderer.videoWidth;
+        final h = _renderer.videoHeight;
+        if (w > 0 && h > 0) {
+          widget.onVideoSize?.call(w, h);
+        }
+      };
     }).catchError((Object e) {
       debugPrint('[CameraView] renderer 初始化失败: $e');
     });

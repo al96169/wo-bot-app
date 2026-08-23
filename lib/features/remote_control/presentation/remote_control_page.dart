@@ -49,6 +49,8 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
   MediaStream? _stream1; // 右副摄
   bool _cameraLeftOn = false;
   bool _cameraRightOn = false;
+  /// 副摄画面实际宽高比（默认 4:3，首帧后按真实分辨率更新 → PiP 无黑边）
+  double _subAspect = 4 / 3;
 
   @override
   void initState() {
@@ -343,10 +345,8 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
       drawer: const RemoteDrawer(),
-      body: SafeArea(
-        // 遥控页仅保留横屏模式（王者荣耀式布局）
-        child: _buildLandscape(),
-      ),
+      // 全屏展示（横屏遥控，不留 SafeArea 边距）
+      body: _buildLandscape(),
     );
   }
 
@@ -372,16 +372,17 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
       builder: (context, constraints) {
         final w = constraints.maxWidth;
         final h = constraints.maxHeight;
-        // 主摇杆尺寸：尽量大（上限 190，宽度/高度双重限制防溢出）
-        var mainStick = h * 0.32;
-        if (mainStick > 190) mainStick = 190;
-        if (mainStick < 80) mainStick = 80;
-        if (mainStick > w * 0.2) mainStick = w * 0.2;
-        final subStick = mainStick * 0.66;
+        // 主摇杆尺寸：尽量大（上限 260，宽度/高度双重限制防溢出）
+        var mainStick = h * 0.42;
+        if (mainStick > 260) mainStick = 260;
+        if (mainStick < 90) mainStick = 90;
+        if (mainStick > w * 0.28) mainStick = w * 0.28;
+        final subStick = mainStick * 0.7;
         const statusBarH = 40.0;
-        final pipW = (w * 0.32).clamp(120, 260).toDouble();
-        final pipH = (h * 0.26).clamp(90, 180).toDouble();
-        const stickBottom = 78.0; // 底部对讲/按钮区域高度
+        // 副摄 PiP 按画面实际比例展示（默认 4:3），无黑边
+        final pipW = (w * 0.3).clamp(140, 240).toDouble();
+        final pipH = pipW / _subAspect;
+        const stickBottom = 80.0; // 底部对讲/按钮区域高度
 
         return Stack(
           children: [
@@ -394,7 +395,7 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                 recording: store.isRecording,
               ),
             ),
-            // 副摄 PiP 小窗（右上角，避开顶部浮层）
+            // 副摄 PiP 小窗（右上角，避开顶部浮层；按副摄实际画面比例 + Cover 无黑边）
             Positioned(
               top: statusBarH + 6,
               right: 8,
@@ -404,6 +405,15 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                 stream: subStream,
                 label: '副摄',
                 enabled: _cameraRightOn,
+                objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                onVideoSize: (w, h) {
+                  if (w > 0 && h > 0) {
+                    final aspect = w / h;
+                    if ((aspect - _subAspect).abs() > 0.01) {
+                      setState(() => _subAspect = aspect);
+                    }
+                  }
+                },
               ),
             ),
             // 顶部透明浮层（覆盖在画面上）：☰ + 设备名 + WebRTC 状态 + 电量/WiFi
@@ -470,23 +480,13 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                 ),
               ),
             ),
-            // 左摇杆组：平移（大）+ 主摄云台（小），叠加在画面左下
+            // 左摇杆组：主摄云台（小）在上 + 平移（大）在下，叠加画面左下
             Positioned(
               left: 10,
               bottom: stickBottom,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  JoystickWidget(
-                    label: '平移',
-                    size: mainStick,
-                    onChanged: (val) {
-                      _moveStick.value = val;
-                      _onMoveStickChanged(val);
-                    },
-                    onEnd: (_) => _onMoveStickEnd(),
-                  ),
-                  const SizedBox(height: 6),
                   JoystickWidget(
                     label: '主摄云台',
                     size: subStick,
@@ -501,16 +501,33 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                     onEnd: (val) =>
                         _onGimbalStickChanged(val, false, true, size: subStick),
                   ),
+                  const SizedBox(height: 6),
+                  JoystickWidget(
+                    label: '平移',
+                    size: mainStick,
+                    onChanged: (val) {
+                      _moveStick.value = val;
+                      _onMoveStickChanged(val);
+                    },
+                    onEnd: (_) => _onMoveStickEnd(),
+                  ),
                 ],
               ),
             ),
-            // 右摇杆组：偏航（大）+ 副摄云台（小，禁用），叠加在画面右下
+            // 右摇杆组：副摄云台（小，禁用）在上 + 偏航（大）在下，叠加画面右下
             Positioned(
               right: 10,
               bottom: stickBottom,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  JoystickWidget(
+                    label: '副摄云台',
+                    size: subStick,
+                    // 副摄无云台（对齐 web-debug 右云台不可用）
+                    enabled: false,
+                  ),
+                  const SizedBox(height: 6),
                   JoystickWidget(
                     label: '偏航',
                     size: mainStick,
@@ -520,13 +537,6 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                       _onYawStickChanged(val);
                     },
                     onEnd: (_) => _onYawStickEnd(),
-                  ),
-                  const SizedBox(height: 6),
-                  JoystickWidget(
-                    label: '副摄云台',
-                    size: subStick,
-                    // 副摄无云台（对齐 web-debug 右云台不可用）
-                    enabled: false,
                   ),
                 ],
               ),
