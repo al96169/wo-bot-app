@@ -617,19 +617,19 @@ class ConnectionManager extends StateNotifier<ConnState> {
         break;
       case 'camera_media_list_result':
         // 对齐 web-debug：data.files（兼容旧 items）
-        _data.setGalleryItems(d['files'] as List? ?? d['items'] as List? ?? []);
-        _data.setGalleryStorageFromJson(d['storage'] as Map<String, dynamic>?);
-        final page = (d['page'] as num?)?.toInt() ?? 1;
-        final total = (d['total'] as num?)?.toInt() ?? 0;
-        final pageSize = _data.galleryPageSize;
-        // 对齐 web-debug：has_more = page*pageSize < total（真机可能不返回 has_more）
-        _data.setGalleryPageInfo(
-          page,
-          total,
-          d['has_more'] as bool? ?? (page * pageSize < total),
+        // 合并单次 notify，避免多次重建导致缩略图闪烁；翻页追加不清空
+        final mPage = (d['page'] as num?)?.toInt() ?? 1;
+        final mTotal = (d['total'] as num?)?.toInt() ?? 0;
+        final mPageSize = _data.galleryPageSize;
+        _data.updateGalleryResult(
+          items: d['files'] as List? ?? d['items'] as List? ?? [],
+          storage: d['storage'] as Map<String, dynamic>?,
+          page: mPage,
+          total: mTotal,
+          // 对齐 web-debug：has_more = page*pageSize < total（真机可能不返回 has_more）
+          hasMore: d['has_more'] as bool? ?? (mPage * mPageSize < mTotal),
+          reset: mPage <= 1,
         );
-        _data.galleryLoading = false;
-        _data.notify();
         break;
       case 'camera_media_delete_result':
         // 对齐 web-debug：data.deleted（文件名数组）→ 从列表移除

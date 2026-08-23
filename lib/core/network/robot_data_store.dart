@@ -257,6 +257,37 @@ class RobotDataStore extends StateNotifier<int> {
     appendGalleryItems(items);
   }
 
+  /// 合并图库列表更新 — 一次 notify，避免列表/存储/分页各触发一次重建导致缩略图闪烁
+  /// [reset]: 首页(true)清空后填充；翻页(false)追加（对齐 web-debug appendGallery）
+  void updateGalleryResult({
+    required List<dynamic> items,
+    Map<String, dynamic>? storage,
+    required int page,
+    required int total,
+    required bool hasMore,
+    bool reset = true,
+  }) {
+    if (reset) {
+      galleryItems.clear();
+    }
+    for (final i in items) {
+      if (i is Map) {
+        final item = GalleryItem.fromJson(i.cast<String, dynamic>());
+        // 翻页去重（对齐 web-debug：过滤已存在文件名）
+        if (!reset && galleryItems.any((g) => g.name == item.name)) continue;
+        galleryItems.add(item);
+      }
+    }
+    if (storage != null) {
+      galleryStorage = GalleryStorage.fromJson(storage);
+    }
+    galleryPage = page;
+    galleryTotal = total;
+    galleryHasMore = hasMore;
+    galleryLoading = false;
+    notify();
+  }
+
   void setGalleryPageInfo(int page, int total, bool hasMore) {
     galleryPage = page;
     galleryTotal = total;

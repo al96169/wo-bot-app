@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -26,6 +27,8 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
   String _layout = 'grid'; // grid / list
   bool _multiSelect = false;
   final Set<String> _selected = {};
+  /// 缩略图 base64 → 解码字节缓存（避免每次 rebuild 重复解码导致闪烁）
+  final Map<String, Uint8List> _thumbCache = {};
 
   @override
   void initState() {
@@ -40,6 +43,8 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
   void _refresh() {
     final store = ref.read(robotDataProvider.notifier);
     store.resetGallery();
+    store.galleryLoading = true;
+    store.notify();
     ref
         .read(connectionManagerProvider.notifier)
         .sendGetGalleryList(type: _filter);
@@ -48,6 +53,8 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
   void _loadMore() {
     final store = ref.read(robotDataProvider.notifier);
     if (store.galleryLoading || !store.galleryHasMore) return;
+    store.galleryLoading = true;
+    store.notify();
     ref
         .read(connectionManagerProvider.notifier)
         .sendGetGalleryList(
@@ -370,6 +377,7 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
                 final item = items[i];
                 return _GridCard(
                   item: item,
+                  thumbBytes: _thumbBytes(item),
                   selected: _selected.contains(item.name),
                   multiSelect: _multiSelect,
                   onTap: () => _openPreview(item),
@@ -395,9 +403,11 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
                     ),
                   );
                 }
+
                 final item = items[i];
                 return _ListRow(
                   item: item,
+                  thumbBytes: _thumbBytes(item),
                   selected: _selected.contains(item.name),
                   multiSelect: _multiSelect,
                   onTap: () => _openPreview(item),
@@ -435,6 +445,7 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
       ),
       builder: (ctx) => _PreviewSheet(
         item: item,
+        thumbBytes: _thumbBytes(item),
         onDownload: () {
           Navigator.of(ctx).pop();
           _download(item.name);
@@ -445,6 +456,21 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
         },
       ),
     );
+  }
+
+  /// 解码缩略图 base64（带缓存，避免重建时重复解码闪烁）
+  Uint8List? _thumbBytes(GalleryItem item) {
+    final b64 = item.thumbnailBase64;
+    if (b64 == null || b64.isEmpty) return null;
+    final cached = _thumbCache[b64];
+    if (cached != null) return cached;
+    try {
+      final bytes = base64Decode(b64);
+      _thumbCache[b64] = bytes;
+      return bytes;
+    } catch (_) {
+      return null;
+    }
   }
 
   static String _fmtSize(int? bytes) {
@@ -468,6 +494,7 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
 /// 网格卡片
 class _GridCard extends StatelessWidget {
   final GalleryItem item;
+  final Uint8List? thumbBytes;
   final bool selected;
   final bool multiSelect;
   final VoidCallback onTap;
@@ -475,6 +502,7 @@ class _GridCard extends StatelessWidget {
   final VoidCallback onDelete;
   const _GridCard({
     required this.item,
+    required this.thumbBytes,
     required this.selected,
     required this.multiSelect,
     required this.onTap,
@@ -499,11 +527,12 @@ class _GridCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // 缩略图
-            if (item.thumbnailBase64 != null && item.thumbnailBase64!.isNotEmpty)
+            // 缩略图（已解码字节，gaplessPlayback 避免重建闪烁）
+            if (thumbBytes != null)
               Image.memory(
-                base64Decode(item.thumbnailBase64!),
+                thumbBytes!,
                 fit: BoxFit.cover,
+                gaplessPlayback: true,
                 errorBuilder: (_, __, ___) => _ThumbPlaceholder(item: item),
               )
             else
@@ -573,6 +602,7 @@ class _GridCard extends StatelessWidget {
 /// 列表行
 class _ListRow extends StatelessWidget {
   final GalleryItem item;
+  final Uint8List? thumbBytes;
   final bool selected;
   final bool multiSelect;
   final VoidCallback onTap;
@@ -581,6 +611,7 @@ class _ListRow extends StatelessWidget {
   final VoidCallback onDelete;
   const _ListRow({
     required this.item,
+    required this.thumbBytes,
     required this.selected,
     required this.multiSelect,
     required this.onTap,
@@ -611,10 +642,11 @@ class _ListRow extends StatelessWidget {
             height: 48,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: item.thumbnailBase64 != null && item.thumbnailBase64!.isNotEmpty
+              child: thumbBytes != null
                   ? Image.memory(
-                      base64Decode(item.thumbnailBase64!),
+                      thumbBytes!,
                       fit: BoxFit.cover,
+                      gaplessPlayback: true,
                       errorBuilder: (_, __, ___) => Icon(
                         item.type == 'video' ? Icons.movie : Icons.photo,
                         color: const Color(0xFFC7C7CC),
@@ -774,17 +806,18 @@ class _FilterChip extends StatelessWidget {
 /// 预览弹层 — 缩略图大图 + 文件名 + 下载/删除
 class _PreviewSheet extends StatelessWidget {
   final GalleryItem item;
+  final Uint8List? thumbBytes;
   final VoidCallback onDownload;
   final VoidCallback onDelete;
   const _PreviewSheet({
     required this.item,
+    required this.thumbBytes,
     required this.onDownload,
     required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
-    final hasThumb = item.thumbnailBase64 != null && item.thumbnailBase64!.isNotEmpty;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -796,11 +829,12 @@ class _PreviewSheet extends StatelessWidget {
             Center(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: hasThumb
+                child: thumbBytes != null
                     ? Image.memory(
-                        base64Decode(item.thumbnailBase64!),
+                        thumbBytes!,
                         height: 240,
                         fit: BoxFit.contain,
+                        gaplessPlayback: true,
                         errorBuilder: (_, __, ___) => SizedBox(
                           height: 200,
                           child: Icon(
