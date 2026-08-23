@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,16 +26,42 @@ class _LogsPageState extends ConsumerState<LogsPage> {
   bool _descending = true;
   final _searchC = TextEditingController();
 
+  /// 自动刷新（对齐 web-debug autoRefresh，默认开启 5s 轮询）
+  bool _autoRefresh = true;
+  final int _refreshIntervalS = 5;
+  Timer? _pollTimer;
+
   @override
   void initState() {
     super.initState();
     _fetchTail();
+    _startPolling();
   }
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     _searchC.dispose();
     super.dispose();
+  }
+
+  void _startPolling() {
+    _pollTimer?.cancel();
+    if (!_autoRefresh) return;
+    _pollTimer = Timer.periodic(
+      Duration(seconds: _refreshIntervalS),
+      (_) => _fetchNew(),
+    );
+  }
+
+  void _toggleAutoRefresh(bool on) {
+    setState(() => _autoRefresh = on);
+    if (on) {
+      _fetchNew();
+      _startPolling();
+    } else {
+      _pollTimer?.cancel();
+    }
   }
 
   void _fetchTail() {
@@ -260,6 +287,60 @@ class _LogsPageState extends ConsumerState<LogsPage> {
             _FilterChip(
               label: _descending ? '倒序' : '顺序',
               onTap: () => setState(() => _descending = !_descending),
+            ),
+            const SizedBox(width: 8),
+            // 自动刷新开关（对齐 web-debug autoRefresh）
+            InkWell(
+              onTap: () => _toggleAutoRefresh(!_autoRefresh),
+              borderRadius: BorderRadius.circular(15),
+              child: Container(
+                height: 30,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _autoRefresh
+                      ? const Color(0x1A0256FF)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(
+                    color: _autoRefresh
+                        ? const Color(0xFF0256FF)
+                        : const Color(0xFFD8D8D8),
+                    width: 0.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _autoRefresh ? Icons.sync : Icons.sync_disabled,
+                      size: 13,
+                      color: _autoRefresh
+                          ? const Color(0xFF0256FF)
+                          : const Color(0xFF8E8E93),
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      '${_refreshIntervalS}s',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: _autoRefresh
+                            ? const Color(0xFF0256FF)
+                            : const Color(0xFF8E8E93),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // 清空 (对齐 web-debug clearLogs)
+            _FilterChip(
+              label: '清空',
+              onTap: () {
+                ref.read(robotDataProvider.notifier).clearLogs();
+                AppToast.show('已清空日志');
+              },
             ),
             const SizedBox(width: 8),
             // 导出 (Pixso 5:2558)

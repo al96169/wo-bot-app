@@ -25,6 +25,8 @@ class RobotDataStore extends StateNotifier<int> {
   // 软件
   final List<Software> softwareInstalled = [];
   final List<Software> softwareAvailable = [];
+  // 软件任务 (匹配 web-debug robotStore.softwareTasks)
+  final List<SoftwareTask> softwareTasks = [];
   // 日志 (匹配 web-debug robotStore.logs)
   final List<LogEntry> logs = [];
   int logCursor = 0;
@@ -192,6 +194,52 @@ class RobotDataStore extends StateNotifier<int> {
     notify();
   }
 
+  // ---- 软件任务（对齐 web-debug SoftwareTask） ----
+
+  /// 新建一个软件操作任务（本地先建 running，等待 progress/ack 更新）
+  void addSoftwareTask(SoftwareTask task) {
+    softwareTasks.insert(0, task);
+    notify();
+  }
+
+  /// 更新进行中任务（按包名匹配最近的 running 任务；可选按 action 精确匹配）
+  void updateSoftwareTask(
+    String pkg, {
+    String? action,
+    double? progress,
+    String? stage,
+    String? output,
+    String? status,
+    DateTime? completedAt,
+    String? toVersion,
+  }) {
+    for (var i = 0; i < softwareTasks.length; i++) {
+      final t = softwareTasks[i];
+      if (t.package == pkg &&
+          t.isRunning &&
+          (action == null || t.action == action)) {
+        if (progress != null) t.progress = progress;
+        if (stage != null) t.stage = stage;
+        if (output != null && output.isNotEmpty) {
+          t.output = t.output.isEmpty ? output : '${t.output}\n$output';
+        }
+        if (status != null) {
+          t.status = status;
+          t.completedAt = completedAt ?? DateTime.now();
+        }
+        if (toVersion != null) t.toVersion = toVersion;
+        notify();
+        return;
+      }
+    }
+  }
+
+  /// 清空所有软件任务
+  void clearSoftwareTasks() {
+    softwareTasks.clear();
+    notify();
+  }
+
   void appendGalleryItems(List<dynamic> items) {
     for (final i in items) {
       if (i is Map) {
@@ -304,6 +352,14 @@ class RobotDataStore extends StateNotifier<int> {
     }
     if (cursor > 0) logCursor = cursor;
     logHasMore = hasMore;
+    notify();
+  }
+
+  /// 清空日志（对齐 web-debug clearLogs）
+  void clearLogs() {
+    logs.clear();
+    logCursor = 0;
+    logHasMore = false;
     notify();
   }
 

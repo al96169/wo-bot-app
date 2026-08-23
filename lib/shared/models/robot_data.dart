@@ -61,6 +61,13 @@ class SystemStatusData {
   double? cpuTemp;
   String? model;
   String? version;
+  // 电池预计可用（分钟，对齐 web-debug battery.estimatedMinutes）
+  int? batteryEstimatedMinutes;
+  // 环境信息（对齐 web-debug systemStatus.environment）
+  double? envTemperature;
+  double? envHumidity;
+  double? envGas;
+  double? envLight;
 
   SystemStatusData({
     this.batteryLevel = 0,
@@ -76,6 +83,11 @@ class SystemStatusData {
     this.cpuTemp,
     this.model,
     this.version,
+    this.batteryEstimatedMinutes,
+    this.envTemperature,
+    this.envHumidity,
+    this.envGas,
+    this.envLight,
   });
 
   void updateFromJson(Map<String, dynamic> json) {
@@ -88,6 +100,7 @@ class SystemStatusData {
     final batt = obj(json['battery']);
     final sys = obj(json['system']);
     final net = obj(json['network']);
+    final env = obj(json['environment']);
 
     batteryLevel =
         _num(batt['level']) ??
@@ -100,6 +113,10 @@ class SystemStatusData {
         json['battery_charging'] == true ||
         json['batteryCharging'] == true ||
         batteryCharging;
+    batteryEstimatedMinutes =
+        (batt['estimated_minutes'] as num?)?.toInt() ??
+        (json['battery_estimated_minutes'] as num?)?.toInt() ??
+        batteryEstimatedMinutes;
     cpuUsage =
         _num(sys['cpu_percent']) ??
         _num(json['cpu']) ??
@@ -137,6 +154,11 @@ class SystemStatusData {
         cpuTemp;
     model = json['model'] as String? ?? model;
     version = json['version'] as String? ?? version;
+    // 环境信息（真机 environment: {temperature, humidity, gas, light}）
+    envTemperature = _num(env['temperature']) ?? envTemperature;
+    envHumidity = _num(env['humidity']) ?? envHumidity;
+    envGas = _num(env['gas']) ?? envGas;
+    envLight = _num(env['light']) ?? envLight;
   }
 
   static double? _num(dynamic v) {
@@ -401,6 +423,40 @@ class Software {
         json['update_available'] as bool? ??
         json['has_update'] as bool?,
   );
+}
+
+/// 软件安装/卸载/升级任务 — 匹配 web-debug SoftwareTask
+///
+/// 由 software_progress 推送驱动（progress/stage/output），
+/// 由 software_*_ack 收官（success/failed + 版本变化）。
+class SoftwareTask {
+  final String id;
+  final String package;
+  final String action; // install / uninstall / upgrade
+  double progress;
+  String stage;
+  String output;
+  String status; // running / success / failed
+  final DateTime startedAt;
+  DateTime? completedAt;
+  final String? fromVersion;
+  String? toVersion;
+
+  SoftwareTask({
+    required this.id,
+    required this.package,
+    required this.action,
+    this.progress = 0,
+    this.stage = 'pending',
+    this.output = '',
+    this.status = 'running',
+    required this.startedAt,
+    this.completedAt,
+    this.fromVersion,
+    this.toVersion,
+  });
+
+  bool get isRunning => status == 'running';
 }
 
 // ============== Gallery ==============

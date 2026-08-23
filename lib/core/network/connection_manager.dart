@@ -626,16 +626,47 @@ class ConnectionManager extends StateNotifier<ConnState> {
         );
         break;
       case 'software_progress':
-        debugPrint('[CM] sw_progress: ${d['progress']}');
+        // 对齐 web-debug：更新进行中任务的进度/阶段/输出
+        _data.updateSoftwareTask(
+          d['package'] as String? ?? '',
+          progress: (d['progress'] as num?)?.toDouble(),
+          stage: d['stage'] as String?,
+          output: d['output'] as String?,
+        );
         break;
       case 'software_install_ack':
       case 'software_uninstall_ack':
-      case 'software_upgrade_ack':
-        debugPrint('[CM] sw_ack: $type success=${d['success']}');
+      case 'software_upgrade_ack': {
+        // 对齐 web-debug：失败状态集合 → success/failed + 版本变化
+        const failStatuses = {
+          'failed',
+          'protected',
+          'permission_denied',
+          'not_in_whitelist',
+          'error',
+        };
+        final action = type
+            .replaceFirst('software_', '')
+            .replaceFirst('_ack', '');
+        final pkg = d['package'] as String? ?? '';
+        final status = d['status'] as String? ?? 'failed';
+        final ok = !failStatuses.contains(status);
+        _data.updateSoftwareTask(
+          pkg,
+          action: action,
+          status: ok ? 'success' : 'failed',
+          toVersion: d['new_version'] as String?,
+        );
+        debugPrint('[CM] sw_ack: $type success=$ok');
+        // already_latest 特殊提示（对齐 web-debug）
+        if (status == 'already_latest') {
+          AppToast.show('$pkg 已是最新版本');
+        }
         // 操作完成后刷新列表（对齐 web-debug：成功后重发 software_list/available）
         sendGetSoftwareList();
         sendGetSoftwareAvailable();
         break;
+      }
       case 'software_updates_available':
         debugPrint('[CM] sw_updates: $d');
         break;

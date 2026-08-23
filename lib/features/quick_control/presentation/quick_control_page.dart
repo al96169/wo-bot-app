@@ -8,8 +8,7 @@ import '../../../shared/widgets/feature_status_bar.dart';
 
 /// 快捷控制页 — 匹配 Pixso 5:2220
 ///
-/// 音量进度条 + 6 个快捷操作按钮（3×2 网格）：
-/// 寻找设备 / 手电 / 去充电 / 手动控制 / 省电模式 / 静音
+/// 音量进度条 + 7 个快捷操作按钮（寻找/手电/去充电/手动控制/省电/静音/急停）
 class QuickControlPage extends ConsumerStatefulWidget {
   const QuickControlPage({super.key});
   @override
@@ -149,6 +148,7 @@ class _QuickControlPageState extends ConsumerState<QuickControlPage> {
                       onRemote: () {
                         AppToast.show('手动控制请前往遥控页');
                       },
+                      onEmergency: _emergencyStop,
                     ),
                   ],
                 ),
@@ -158,6 +158,35 @@ class _QuickControlPageState extends ConsumerState<QuickControlPage> {
         ),
       ),
     );
+  }
+
+  /// 急停（对齐 web-debug QuickActionsView emergency）— 需二次确认
+  void _emergencyStop() {
+    showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('急停'),
+        content: const Text('确定要紧急停止机器人吗？所有运动将立即停止。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFFF453A),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('急停'),
+          ),
+        ],
+      ),
+    ).then((ok) {
+      if (ok == true) {
+        ref.read(connectionManagerProvider.notifier).sendEmergencyStop();
+        AppToast.show('已发送急停', type: AppToastType.error);
+      }
+    });
   }
 }
 
@@ -228,13 +257,13 @@ class _VolumeCard extends StatelessWidget {
   }
 }
 
-/// 快捷按钮网格 — 匹配 Pixso 5:2223 (3×2, 每格 99.5×110)
+/// 快捷按钮网格 — 匹配 Pixso 5:2223 (3×N, 每格 99.5×110)
 class _QuickGrid extends StatelessWidget {
   final bool flashlight, eco, mute;
   final bool findActive;
   final int findRemaining;
   final ValueChanged<bool> onFlashlight, onEco, onMute;
-  final VoidCallback onCharge, onFind, onRemote;
+  final VoidCallback onCharge, onFind, onRemote, onEmergency;
 
   const _QuickGrid({
     required this.flashlight,
@@ -248,6 +277,7 @@ class _QuickGrid extends StatelessWidget {
     required this.onCharge,
     required this.onFind,
     required this.onRemote,
+    required this.onEmergency,
   });
 
   @override
@@ -301,6 +331,13 @@ class _QuickGrid extends StatelessWidget {
             active: mute,
             onTap: () => onMute(!mute),
           ),
+          // 急停（对齐 web-debug QuickActionsView emergency）
+          _QuickButton(
+            icon: Icons.stop_circle,
+            label: '急停',
+            danger: true,
+            onTap: onEmergency,
+          ),
         ],
       ),
     );
@@ -312,17 +349,23 @@ class _QuickButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool active;
+  final bool danger;
   final VoidCallback onTap;
   const _QuickButton({
     required this.icon,
     required this.label,
     this.active = false,
+    this.danger = false,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? const Color(0xFF0256FF) : const Color(0xFF232222);
+    final color = danger
+        ? const Color(0xFFFF453A)
+        : active
+        ? const Color(0xFF0256FF)
+        : const Color(0xFF232222);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -334,7 +377,11 @@ class _QuickButton extends StatelessWidget {
             height: 80,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: active ? const Color(0x1A0256FF) : const Color(0xFFF5F5F5),
+              color: danger
+                  ? const Color(0x1AFF453A)
+                  : active
+                  ? const Color(0x1A0256FF)
+                  : const Color(0xFFF5F5F5),
               borderRadius: BorderRadius.circular(15),
             ),
             child: Icon(icon, size: 50, color: color),

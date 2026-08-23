@@ -121,27 +121,33 @@ class StatusPage extends ConsumerWidget {
                   _MetricTile(
                     icon: Icons.thermostat,
                     label: '温度',
-                    value: system.cpuTemp != null
-                        ? '${system.cpuTemp!.toStringAsFixed(1)}°C'
+                    value: system.envTemperature != null
+                        ? '${system.envTemperature!.toStringAsFixed(1)}°C'
                         : '--',
                     color: AppColors.primary,
                   ),
-                  const _MetricTile(
+                  _MetricTile(
                     icon: Icons.water_drop,
                     label: '湿度',
-                    value: '--',
+                    value: system.envHumidity != null
+                        ? '${system.envHumidity!.toStringAsFixed(1)}%'
+                        : '--',
                     color: Colors.blue,
                   ),
-                  const _MetricTile(
+                  _MetricTile(
                     icon: Icons.gas_meter,
                     label: '燃气',
-                    value: '--',
+                    value: system.envGas != null
+                        ? system.envGas!.toStringAsFixed(1)
+                        : '--',
                     color: Colors.green,
                   ),
-                  const _MetricTile(
+                  _MetricTile(
                     icon: Icons.light_mode,
                     label: '光照',
-                    value: '--',
+                    value: system.envLight != null
+                        ? '${system.envLight!.toStringAsFixed(0)} lux'
+                        : '--',
                     color: Colors.amber,
                   ),
                 ],

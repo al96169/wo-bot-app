@@ -50,7 +50,9 @@ class RobotStatusPage extends ConsumerWidget {
                         ),
                         _StatusRow(
                           label: '预计可用',
-                          value: _uptime(system.uptime),
+                          value: system.batteryEstimatedMinutes != null
+                              ? '约${system.batteryEstimatedMinutes}分钟'
+                              : '--',
                         ),
                         _StatusRow(label: 'IP地址', value: system.ip ?? '--'),
                         _StatusRow(
@@ -91,6 +93,37 @@ class RobotStatusPage extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 10),
+                    // 3. 环境信息（温度/湿度/燃气/光照，对齐 web-debug status.environment）
+                    _StatusCard(
+                      title: '环境信息',
+                      children: [
+                        _StatusRow(
+                          label: '温度',
+                          value: system.envTemperature != null
+                              ? '${system.envTemperature!.toStringAsFixed(1)}°C'
+                              : '--',
+                        ),
+                        _StatusRow(
+                          label: '湿度',
+                          value: system.envHumidity != null
+                              ? '${system.envHumidity!.toStringAsFixed(1)}%'
+                              : '--',
+                        ),
+                        _StatusRow(
+                          label: '燃气',
+                          value: system.envGas != null
+                              ? system.envGas!.toStringAsFixed(1)
+                              : '--',
+                        ),
+                        _StatusRow(
+                          label: '光照',
+                          value: system.envLight != null
+                              ? '${system.envLight!.toStringAsFixed(0)} lux'
+                              : '--',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
                     // 4. 子系统列表
                     _StatusCard(
                       title: '子系统',
@@ -115,7 +148,11 @@ class RobotStatusPage extends ConsumerWidget {
   Widget _buildTopStatusCard(SystemStatusData system) {
     // 电池
     final batteryValue = '${system.batteryLevel.toStringAsFixed(0)}%';
-    final batterySubtitle = system.batteryCharging ? '充电中' : '使用中';
+    final batterySubtitle = system.batteryCharging
+        ? '充电中'
+        : system.batteryEstimatedMinutes != null
+        ? '约${system.batteryEstimatedMinutes}分钟'
+        : '使用中';
     final batteryIcon = system.batteryCharging
         ? Icons.battery_charging_full
         : system.batteryLevel <= 20
