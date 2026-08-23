@@ -177,7 +177,7 @@ class _DancePageState extends ConsumerState<DancePage> {
                       ],
                     ),
                   ),
-                  // 循环开关
+                  // 循环开关（点击即同步给机器人，避免轮询把本地开关覆盖回弹）
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -190,6 +190,11 @@ class _DancePageState extends ConsumerState<DancePage> {
                         onChanged: (v) {
                           store.danceLoop = v;
                           store.notify();
+                          // 同步机器人端循环状态（dance set_loop），
+                          // 否则 1s 轮询 dance_status 会用机器人端旧值覆盖本地开关
+                          ref
+                              .read(connectionManagerProvider.notifier)
+                              .sendDanceCommand('set_loop', {'loop': v});
                         },
                         activeTrackColor: const Color(0xFF0256FF),
                       ),
