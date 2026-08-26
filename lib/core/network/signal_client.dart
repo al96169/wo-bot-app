@@ -415,10 +415,18 @@ class SignalClient {
       if (_dc?.state == RTCDataChannelState.RTCDataChannelOpen) {
         _sendDc('ping', {'ts': DateTime.now().millisecondsSinceEpoch});
       }
-      // pong 超时检查（15s + 5s）
+      // pong 超时检查：视频流量大时 WS pong 可能被延迟，
+      // 放宽到 45s（3 个心跳周期）；且 DC 已建立时优先靠 DC 业务心跳维持，
+      // 避免视频渲染瞬间误判断开触发重连（重连会短暂断开 UI 状态）。
       if (_lastPongTime > 0 &&
-          DateTime.now().millisecondsSinceEpoch - _lastPongTime > 20000) {
-        debugPrint('[Signal] pong 超时，主动断开');
+          DateTime.now().millisecondsSinceEpoch - _lastPongTime > 45000) {
+        // DC 正常时不主动断开（业务通道仍可用，WS 仅作信令）
+        if (_dc?.state == RTCDataChannelState.RTCDataChannelOpen) {
+          debugPrint('[Signal] WS pong 延迟但 DC 正常，跳过断开');
+          _lastPongTime = DateTime.now().millisecondsSinceEpoch;
+          return;
+        }
+        debugPrint('[Signal] pong 超时且 DC 不可用，主动断开');
         _ws?.sink.close();
       }
     });

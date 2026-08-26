@@ -22,6 +22,8 @@ class DeviceListPage extends ConsumerStatefulWidget {
 
 class _DeviceListPageState extends ConsumerState<DeviceListPage> {
   bool _openingBind = false;
+  /// 已跳转主页标记：防止云端重连触发二次 push 覆盖遥控页
+  bool _navigatedToHome = false;
 
   @override
   void initState() {
@@ -254,10 +256,14 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
         .cloudDevicesFiltered;
 
     // 连接成功后跳转机器人主页（对齐 web-debug：连接后进入功能主页）
+    // 防重入：云端信令心跳超时→重连会让 state 经历 connected→disconnected→connected，
+    // 若不加标记会二次 push RobotHomePage 覆盖当前遥控页（"画面出现就退出"根因之一）。
     ref.listen<ConnState>(connectionManagerProvider, (prev, next) {
       if (prev != ConnState.connected &&
           next == ConnState.connected &&
-          mounted) {
+          mounted &&
+          !_navigatedToHome) {
+        _navigatedToHome = true;
         // 延迟跳转，避免绑定流程中的 connected 误触发
         Future.delayed(const Duration(milliseconds: 400), () {
           if (!context.mounted) return;
