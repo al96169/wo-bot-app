@@ -101,8 +101,9 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
   void _retryWebRtcIfNeeded() {
     if (!mounted) return;
     final manager = ref.read(connectionManagerProvider.notifier);
-    // 云端模式：WebRTC 由 SignalClient 管理，不做局域网重试
-    if (manager.signal != null) return;
+    // 云端模式（信令 DC 已通）由 SignalClient 管理，不做局域网重试；
+    // signal 存在但未连接（云端连不上）不算云端模式，走局域网重试。
+    if (_cloudModeActive(manager)) return;
     final webrtc = manager.webrtc;
     if (webrtc.state != WebRtcState.connected &&
         webrtc.state != WebRtcState.failed) {
@@ -111,6 +112,10 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
       _webrtcRetryTimer = Timer(const Duration(seconds: 15), _retryWebRtcIfNeeded);
     }
   }
+
+  /// 云端模式判定：signal 存在且 DC 已通（连接成功才算，失败残留不算）
+  bool _cloudModeActive(ConnectionManager manager) =>
+      manager.signal != null && manager.signal!.isConnected;
 
   /// 立即建立 WebRTC（视频 + DataChannel），同时并行启动摄像头（无等待）
   void _initWebRtc() {
@@ -130,11 +135,10 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
           }
         });
       };
-    // 云端远控：视频流由 SignalClient 提供（DC/信令已建），不再启动局域网 WebRTC
-    if (manager.signal != null) {
+    // 云端远控：信令 DC 已通 → 视频流由 SignalClient 提供，不再启动局域网 WebRTC
+    // 注意：signal 存在但未连接（云端连不上）不是云端模式，走局域网 WebRTC
+    if (_cloudModeActive(manager)) {
       debugPrint('[Remote] 云端模式：视频流走信令，跳过局域网 WebRTC');
-      // 徽标状态：由 build 中 ref.watch(connectionManagerProvider) 驱动重建，
-      // 直接按 signal.isConnected 派生（不覆盖 signal 回调，避免破坏 CM 断开处理）
       _startCamerasImmediate();
       return;
     }
@@ -406,9 +410,9 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     // 云台能力（features 含 gimbal；副摄无云台 → 副摄云台摇杆禁用，对齐 web-debug）
     final gimbalAvailable = manager.remoteFeatures.contains('gimbal');
 
-    // 云端远控：徽标状态由信令连接派生（局域网：用 webrtc.state）
-    final badgeState = manager.signal != null
-        ? (manager.signal!.isConnected ? WebRtcState.connected : WebRtcState.idle)
+    // 云端远控（信令 DC 已通）：徽标由信令连接派生；局域网：用 webrtc.state
+    final badgeState = _cloudModeActive(manager)
+        ? WebRtcState.connected
         : _webrtcState;
 
     // 画面分配：对齐 web-debug（左画面 = stream0/track0，摄像头开 id0）

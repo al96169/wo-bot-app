@@ -327,35 +327,13 @@ class SignalClient {
   }
 
   /// 配置 TURN 服务器（call-ack 后）
+  ///
+  /// 当前网络限制：机器人（局域网）到公网 TURN 43.160.251.24:3478 的 UDP/TCP
+  /// 均不可达（实测超时），TURN 中继不可用；且协商中途 setConfiguration 会触发
+  /// ICE restart 打断已建立的 host 直连（"云端 ICE Failed"根因）。
+  /// 因此**不配置 TURN**：同一 WiFi 靠 host 直连，4G 靠 srflx/NAT 打洞。
   Future<void> _configureTurn(Map<String, dynamic> turn) async {
-    try {
-      // 优先用信令服务器下发的直连 host（公网 IP，TURN 不经 Cloudflare）；
-      // 回退从 signalUrl 推导。
-      final host = (turn['host'] as String? ?? '').isNotEmpty
-          ? turn['host'] as String
-          : _turnHost();
-      if (host.isEmpty || _pc == null) return;
-      final username = turn['username'] as String? ?? '';
-      final credential = turn['credential'] as String? ?? '';
-      await _pc!.setConfiguration({
-        'iceServers': [
-          {'urls': 'stun:stun.l.google.com:19302'},
-          {
-            'urls': 'turn:$host:3478',
-            'username': username,
-            'credential': credential,
-          },
-          {
-            'urls': 'turn:$host:3478?transport=tcp',
-            'username': username,
-            'credential': credential,
-          },
-        ],
-      });
-      debugPrint('[Signal] TURN 已配置: turn:$host:3478');
-    } catch (e) {
-      debugPrint('[Signal] TURN 配置失败: $e');
-    }
+    debugPrint('[Signal] TURN 配置跳过（网络限制：robot 无法访问公网 TURN，且 setConfiguration 会打断 ICE）');
   }
 
   String _turnHost() {

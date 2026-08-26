@@ -584,6 +584,13 @@ class ConnectionManager extends StateNotifier<ConnState> {
     _ws.disconnect();
     _mdns.stop();
     _statusTimer?.cancel();
+    // 清理云端信令残留（否则后续局域网连接时 manager.signal 非 null，
+    // 遥控页会误判云端模式跳过局域网 WebRTC → 画面不出来）
+    final sig = signal;
+    signal = null;
+    if (sig != null) {
+      unawaited(sig.disconnect());
+    }
     currentDevice = null;
     robotStatus = null;
     robotInfo = null;
