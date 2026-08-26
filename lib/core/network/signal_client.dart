@@ -329,7 +329,11 @@ class SignalClient {
   /// 配置 TURN 服务器（call-ack 后）
   Future<void> _configureTurn(Map<String, dynamic> turn) async {
     try {
-      final host = _turnHost();
+      // 优先用信令服务器下发的直连 host（公网 IP，TURN 不经 Cloudflare）；
+      // 回退从 signalUrl 推导。
+      final host = (turn['host'] as String? ?? '').isNotEmpty
+          ? turn['host'] as String
+          : _turnHost();
       if (host.isEmpty || _pc == null) return;
       final username = turn['username'] as String? ?? '';
       final credential = turn['credential'] as String? ?? '';
@@ -355,10 +359,10 @@ class SignalClient {
   }
 
   String _turnHost() {
-    // 从 signalUrl 提取主机（去掉协议和 /ws 路径）
-    final host = signalUrl.replaceFirst(RegExp(r'^https?://'), '');
-    final noPath = host.split('/').first;
-    return noPath;
+    // 从 signalUrl 提取主机（去掉协议 http/https/ws/wss 和 /ws 路径）
+    var host = signalUrl.replaceFirst(RegExp(r'^https?://'), '');
+    host = host.replaceFirst(RegExp(r'^wss?://'), '');
+    return host.split('/').first;
   }
 
   // ===================== 发送 =====================
