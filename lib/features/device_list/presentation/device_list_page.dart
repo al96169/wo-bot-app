@@ -128,6 +128,8 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
 
   /// 直接连接设备（无确认）— 对齐 web-debug connectDirectly
   Future<void> _connectDirectly(RobotDevice device) async {
+    // 主动直连：允许本次连接成功跳转主页
+    _navigatedToHome = false;
     await ref.read(deviceStoreProvider.notifier).setCurrentDevice(device);
     try {
       await ref
@@ -236,14 +238,23 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
       return;
     }
     AppToast.show('正在通过云端连接 ${cloud.robotName ?? cloud.robotId}...');
+    // 主动发起连接：本次成功必须跳转（重置防重入标记）
+    _navigatedToHome = false;
     final ok = await ref
         .read(connectionManagerProvider.notifier)
         .connectViaSignal(cloud.robotId);
     if (!mounted) return;
     if (!ok) {
       AppToast.show('云端连接失败', type: AppToastType.error);
+      return;
     }
-    // 连接成功由 ConnState 变化自动跳转主页
+    // 主动连接成功：直接跳转主页（不依赖 listener，避免防重入标记导致不跳）
+    _navigatedToHome = true;
+    if (ref.read(connectionManagerProvider) == ConnState.connected) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const RobotHomePage()),
+      );
+    }
   }
 
   @override
