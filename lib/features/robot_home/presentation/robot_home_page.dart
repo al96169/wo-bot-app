@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/connection_manager.dart';
+import '../../../core/network/robot_data_store.dart';
 import '../../../shared/widgets/feature_status_bar.dart';
 
 // 批次 2 功能页
@@ -28,7 +29,10 @@ class RobotHomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 连接状态变化 + 数据（features）变化都触发重建：
+    // 云端远控下 DC 打开后 status 消息携带 features 到达，需要刷新入口列表
     ref.watch(connectionManagerProvider);
+    ref.watch(robotDataProvider);
     final manager = ref.read(connectionManagerProvider.notifier);
     final features = manager.remoteFeatures;
 
