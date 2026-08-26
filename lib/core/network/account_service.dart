@@ -409,7 +409,8 @@ class AccountService {
             body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 10));
-      return response.statusCode == 200;
+      // NestJS @Post 默认返回 201；兼容 200/201
+      return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
       debugPrint('[Account] bindDevice 错误: $e');
       return false;

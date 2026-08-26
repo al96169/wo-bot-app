@@ -227,6 +227,8 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
   /// 点击云端设备 → 信令远控（批次 6）
   Future<void> _connectCloud(CloudDevice cloud) async {
     final account = AccountService.instance;
+    // 确保已加载 token（重启后可能未走个人页 init）
+    await account.init();
     if (!account.isAuthenticated) {
       AppToast.show('请先登录', type: AppToastType.error);
       return;

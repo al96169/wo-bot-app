@@ -351,9 +351,11 @@ class ConnectionManager extends StateNotifier<ConnState> {
     String signalUrl = 'wss://signal.wo-bot.com/ws',
   }) async {
     final account = AccountService.instance;
+    // 确保已加载 token（App 重启后可能未走个人页 init）
+    await account.init();
     final token = account.accessToken;
-    if (token == null || token.isEmpty) {
-      debugPrint('[CM] connectViaSignal: 未登录');
+    if (token == null || token.isEmpty || !account.isAuthenticated) {
+      debugPrint('[CM] connectViaSignal: 未登录或 token 失效');
       return false;
     }
 

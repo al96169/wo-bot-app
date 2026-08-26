@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/network/account_service.dart';
 import '../../../core/network/bind_service.dart';
 import '../../../core/network/connection_manager.dart';
 import '../../../core/network/robot_data_store.dart';
@@ -96,6 +97,32 @@ class _ClientManagementPageState extends ConsumerState<ClientManagementPage> {
         AppToast.show('已发送移除指令');
       }
     });
+  }
+
+  /// 绑定到云端：本地已绑定（局域网）→ 登录公网账号 → 请求机器人签发绑定证明 →
+  /// 收到 binding_proof_response 后由 ConnectionManager 自动调 bindDevice(payload, proof)
+  Future<void> _bindToCloud() async {
+    final account = AccountService.instance;
+    await account.init();
+    if (!account.isAuthenticated || account.user == null) {
+      final ok = await account.launchLogin();
+      if (!ok) {
+        AppToast.show('请先登录 wo-bot 公网账号', type: AppToastType.error);
+      }
+      return;
+    }
+    final accountId = account.user!.sub;
+    if (accountId.isEmpty) {
+      AppToast.show('账号信息不完整', type: AppToastType.error);
+      return;
+    }
+    // 本地客户端 ID（绑定关系标识）
+    final clientId = BindService.instance.clientId;
+    debugPrint('[CM] 绑定到云端: accountId=$accountId clientId=$clientId');
+    ref
+        .read(connectionManagerProvider.notifier)
+        .sendBindingProofRequest(accountId, clientId);
+    AppToast.show('已请求绑定证明，等待机器人确认...');
   }
 
   Future<void> _showPasswordDialog() async {
@@ -220,6 +247,26 @@ class _ClientManagementPageState extends ConsumerState<ClientManagementPage> {
                         title: const Text('设置/修改绑定密码', style: TextStyle(fontSize: 14)),
                         trailing: const Icon(Icons.chevron_right, color: Color(0xFFC7C7CC)),
                         onTap: _showPasswordDialog,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // 云端绑定（新架构：把本地绑定设备挂到公网账号，任意网络远程连接）
+                  _SectionCard(
+                    title: '云端绑定',
+                    children: [
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.cloud_upload_outlined, size: 20, color: Color(0xFF0256FF)),
+                        title: const Text('绑定到云端账号', style: TextStyle(fontSize: 14)),
+                        subtitle: Text(
+                          AccountService.instance.isAuthenticated
+                              ? '已登录 ${AccountService.instance.user?.name ?? AccountService.instance.user?.email ?? ''}'
+                              : '未登录，点击后跳转登录 wo-bot 公网',
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93)),
+                        ),
+                        trailing: const Icon(Icons.chevron_right, color: Color(0xFFC7C7CC)),
+                        onTap: _bindToCloud,
                       ),
                     ],
                   ),
