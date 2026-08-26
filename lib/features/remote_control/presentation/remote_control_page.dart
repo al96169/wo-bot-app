@@ -139,11 +139,26 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     // 注意：signal 存在但未连接（云端连不上）不是云端模式，走局域网 WebRTC
     if (_cloudModeActive(manager)) {
       debugPrint('[Remote] 云端模式：视频流走信令，跳过局域网 WebRTC');
+      // 绑定回调后立即读取已缓存的视频流（视频轨可能在进入遥控页前已到达）
+      final cached = manager.signal?.videoStreams;
+      if (cached != null && cached.isNotEmpty) {
+        setState(() {
+          _stream0 = cached[0];
+          _stream1 = cached[1];
+        });
+      }
       _startCamerasImmediate();
       return;
     }
     // 并行：先发 WebRTC offer（信令+ICE 需 1-2s，期间摄像头 pipeline 同步就绪）
     manager.startWebRtc();
+    // 直连模式：读取已缓存的视频流（可能连接阶段已到达）
+    if (manager.webrtc.videoStream0 != null || manager.webrtc.videoStream1 != null) {
+      setState(() {
+        _stream0 = manager.webrtc.videoStream0;
+        _stream1 = manager.webrtc.videoStream1;
+      });
+    }
     _startCamerasImmediate();
   }
 

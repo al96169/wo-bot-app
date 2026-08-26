@@ -34,6 +34,9 @@ class SignalClient {
   /// 是否已收到 answer（restartIce 时序保护）
   bool _answerReceived = false;
 
+  /// 已接收的视频流缓存（index 0/1），供遥控页晚进入时获取
+  final Map<int, MediaStream> _videoStreams = {};
+
   // 心跳
   Timer? _heartbeatTimer;
   Timer? _pongTimeoutTimer;
@@ -188,7 +191,7 @@ class SignalClient {
       debugPrint('[Signal] connection: $s');
     };
 
-    // 双视频轨 → 独立 MediaStream
+    // 双视频轨 → 独立 MediaStream（缓存供后进入的遥控页获取）
     int videoIndex = 0;
     _pc!.onTrack = (RTCTrackEvent event) {
       if (event.track.kind != 'video') return;
@@ -197,6 +200,11 @@ class SignalClient {
         try {
           final stream = await createLocalMediaStream('wobot-signal-cam-$idx');
           stream.addTrack(event.track);
+          if (idx == 0) {
+            _videoStreams[0] = stream;
+          } else {
+            _videoStreams[1] = stream;
+          }
           onVideoStream?.call(stream, idx);
         } catch (e) {
           debugPrint('[Signal] 视频流分配失败#$idx: $e');
@@ -390,6 +398,9 @@ class SignalClient {
   bool get dataChannelReady =>
       _dc?.state == RTCDataChannelState.RTCDataChannelOpen;
 
+  /// 已接收的视频流缓存（遥控页晚进入时读取，避免错过 onVideoStream 回调）
+  Map<int, MediaStream> get videoStreams => _videoStreams;
+
   /// 信令 WS 是否已连接（供上层判断通道可用性）
   bool get wsConnected => _ws != null;
 
@@ -449,6 +460,7 @@ class SignalClient {
     _handshakeAccepted = false;
     _iceFallbackTimer?.cancel();
     _mediaTimeoutTimer?.cancel();
+    _videoStreams.clear();
     try {
       await _dc?.close();
     } catch (_) {}
