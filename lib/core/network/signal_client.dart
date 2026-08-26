@@ -372,6 +372,34 @@ class SignalClient {
     }
   }
 
+  /// 对外业务发送：云端远控模式下 ConnectionManager 的所有指令走这里（DC 已开时）
+  /// 未开时静默丢弃（与局域网 WS 兜底语义一致，由调用方判断 isConnected）
+  void sendBusiness(String type, [Map<String, dynamic>? data]) {
+    _sendDc(type, data);
+  }
+
+  /// 对外业务二进制发送（语音对讲等）：DC 打开时走 DataChannel 二进制帧
+  void sendBusinessBinary(List<int> bytes) {
+    if (_dc?.state == RTCDataChannelState.RTCDataChannelOpen) {
+      try {
+        _dc!.send(
+          RTCDataChannelMessage.fromBinary(
+            bytes is Uint8List ? bytes : Uint8List.fromList(bytes),
+          ),
+        );
+      } catch (e) {
+        debugPrint('[Signal] DC 二进制发送失败: $e');
+      }
+    }
+  }
+
+  /// DataChannel 是否就绪（对外暴露，供 ConnectionManager 路由判断）
+  bool get dataChannelReady =>
+      _dc?.state == RTCDataChannelState.RTCDataChannelOpen;
+
+  /// 信令 WS 是否已连接（供上层判断通道可用性）
+  bool get wsConnected => _ws != null;
+
   // ===================== 心跳 =====================
 
   void _startHeartbeat() {

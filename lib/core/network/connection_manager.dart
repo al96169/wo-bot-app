@@ -120,8 +120,21 @@ class ConnectionManager extends StateNotifier<ConnState> {
 
   // ===================== 发送方法 (匹配 web-debug) =====================
 
+  /// 云端远控模式下 DataChannel 是否就绪（signal DC，非局域网 webrtc DC）
+  bool get _signalDcReady =>
+      signal != null && signal!.dataChannelReady;
+
+  /// 业务消息是否应优先走云端信令 DC（连接成功 + DC 打开）
+  bool get _cloudActive => _signalDcReady;
+
   /// 通用发送 — { type: "...", data: {...} }
+  /// 云端远控：信令 DC 打开后所有指令走 signal DC；局域网模式走本地 WS/webrtc。
   void send(String type, [Map<String, dynamic>? data]) {
+    // 云端信号模式优先：DC 打开 → 走信令 DC（远程无局域网 WS）
+    if (_cloudActive && signal != null) {
+      signal!.sendBusiness(type, data);
+      return;
+    }
     if (data != null) {
       _ws.sendCommand(type, data);
     } else {
@@ -129,12 +142,23 @@ class ConnectionManager extends StateNotifier<ConnState> {
     }
   }
 
-  void sendRaw(Map<String, dynamic> msg) => _ws.sendRaw(msg);
+  void sendRaw(Map<String, dynamic> msg) {
+    if (_cloudActive && signal != null) {
+      signal!.sendBusiness(
+        msg['type'] as String? ?? '',
+        msg['data'] is Map<String, dynamic> ? msg['data'] as Map<String, dynamic> : null,
+      );
+      return;
+    }
+    _ws.sendRaw(msg);
+  }
 
   // ---- 运动控制 ----
   /// 发送运动指令 — DataChannel 就绪时优先走 P2P（对齐 web-debug sendViaDataChannel），WS 兜底
   void sendMotion(double vx, double vy, double vz) {
-    if (webrtc.isDataChannelReady) {
+    if (_cloudActive) {
+      signal!.sendBusiness('motion', {'v_x': vx, 'v_y': vy, 'v_z': vz});
+    } else if (webrtc.isDataChannelReady) {
       webrtc.sendViaDataChannel('motion', {'v_x': vx, 'v_y': vy, 'v_z': vz});
     } else {
       send('motion', {'v_x': vx, 'v_y': vy, 'v_z': vz});
@@ -142,7 +166,9 @@ class ConnectionManager extends StateNotifier<ConnState> {
   }
 
   void sendMotionStop() {
-    if (webrtc.isDataChannelReady) {
+    if (_cloudActive) {
+      signal!.sendBusiness('motion_stop');
+    } else if (webrtc.isDataChannelReady) {
       webrtc.sendViaDataChannel('motion_stop');
     } else {
       send('motion_stop');
@@ -174,9 +200,11 @@ class ConnectionManager extends StateNotifier<ConnState> {
   }
   void sendGimbalCenter() => _sendHighFreq('gimbal', {'action': 'center'});
 
-  /// 高频命令：DataChannel 就绪时优先走 P2P（motion/gimbal 对齐 web-debug），WS 兜底
+  /// 高频命令：云端信令 DC > 局域网 P2P DC > WS 兜底
   void _sendHighFreq(String type, [Map<String, dynamic>? data]) {
-    if (webrtc.isDataChannelReady) {
+    if (_cloudActive) {
+      signal!.sendBusiness(type, data);
+    } else if (webrtc.isDataChannelReady) {
       webrtc.sendViaDataChannel(type, data);
     } else {
       send(type, data);
@@ -438,36 +466,45 @@ class ConnectionManager extends StateNotifier<ConnState> {
 
   /// 确保 DataChannel 就绪（图库下载需要 DC 分块传输；远程 WebRTC 场景无直连 HTTP）
   /// 若 DC 未就绪则启动 WebRTC 并等待 DC 打开，最多等待 [timeout]。
+  /// 云端远控：signal DC 已开即视为就绪。
   /// 返回 true=DC 可用。
   Future<bool> ensureDataChannelForDownload({
     Duration timeout = const Duration(seconds: 10),
   }) async {
+    // 云端信号模式：DC 由 SignalClient 管理
+    if (_signalDcReady) return true;
     if (webrtc.isDataChannelReady) return true;
-    // 已连接但 DC 未就绪（或从未建立）→ 启动 WebRTC
-    if (state == ConnState.connected && !webrtc.isDataChannelReady) {
+    // 已连接但 DC 未就绪（或从未建立）→ 启动 WebRTC（仅局域网场景）
+    if (signal == null && state == ConnState.connected && !webrtc.isDataChannelReady) {
       try {
         await startWebRtc();
       } catch (e) {
         debugPrint('[CM] ensureDC 启动失败: $e');
       }
     }
-    // 等待 DC 打开
+    // 等待 DC 打开（云端等 signal DC，局域网等 webrtc DC）
     final completer = Completer<bool>();
     final timer = Timer(timeout, () {
       if (!completer.isCompleted) completer.complete(false);
     });
-    void onReady(bool ready) {
-      if (ready && !completer.isCompleted) {
+    void check() {
+      if (!completer.isCompleted && (_signalDcReady || webrtc.isDataChannelReady)) {
         completer.complete(true);
       }
     }
 
+    void onReady(bool ready) {
+      if (ready) check();
+    }
+
     webrtc.onDataChannelReady = onReady;
+    final poll = Timer.periodic(const Duration(milliseconds: 200), (_) => check());
     try {
-      if (webrtc.isDataChannelReady) return true;
+      check();
       return await completer.future;
     } finally {
       timer.cancel();
+      poll.cancel();
       // 仅当回调仍是我们的监听器时清理（避免覆盖遥控页已设置的监听）
       if (identical(webrtc.onDataChannelReady, onReady)) {
         webrtc.onDataChannelReady = null;
@@ -492,6 +529,11 @@ class ConnectionManager extends StateNotifier<ConnState> {
     total.setAll(4, headerBytes);
     total.setAll(4 + headerBytes.length, bytes);
 
+    // 云端远控：语音对讲二进制走信令 DC（无局域网 WS）
+    if (_cloudActive && signal != null) {
+      signal!.sendBusinessBinary(total);
+      return;
+    }
     if (preferDataChannel && webrtc.isDataChannelReady) {
       webrtc.sendBinaryViaDataChannel(total);
     } else {
