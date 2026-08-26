@@ -100,11 +100,14 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
   /// 15s 未连接则重试建立 WebRTC（web-debug 有媒体超时重试，此处对齐）
   void _retryWebRtcIfNeeded() {
     if (!mounted) return;
-    final webrtc = ref.read(connectionManagerProvider.notifier).webrtc;
+    final manager = ref.read(connectionManagerProvider.notifier);
+    // 云端模式：WebRTC 由 SignalClient 管理，不做局域网重试
+    if (manager.signal != null) return;
+    final webrtc = manager.webrtc;
     if (webrtc.state != WebRtcState.connected &&
         webrtc.state != WebRtcState.failed) {
       debugPrint('[Remote] WebRTC 15s 未连接，自动重试');
-      ref.read(connectionManagerProvider.notifier).startWebRtc();
+      manager.startWebRtc();
       _webrtcRetryTimer = Timer(const Duration(seconds: 15), _retryWebRtcIfNeeded);
     }
   }
@@ -127,6 +130,12 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
           }
         });
       };
+    // 云端远控：视频流由 SignalClient 提供（DC/信令已建），不再启动局域网 WebRTC
+    if (manager.signal != null) {
+      debugPrint('[Remote] 云端模式：视频流走信令，跳过局域网 WebRTC');
+      _startCamerasImmediate();
+      return;
+    }
     // 并行：先发 WebRTC offer（信令+ICE 需 1-2s，期间摄像头 pipeline 同步就绪）
     manager.startWebRtc();
     _startCamerasImmediate();

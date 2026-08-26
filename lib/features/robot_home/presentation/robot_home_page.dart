@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/connection_manager.dart';
 import '../../../core/network/robot_data_store.dart';
+import '../../../core/utils/app_toast.dart';
 import '../../../shared/widgets/feature_status_bar.dart';
 
 // 批次 2 功能页
@@ -74,8 +75,7 @@ class RobotHomePage extends ConsumerWidget {
         () => _push(context, const RemoteControlPage()),
         feature: 'motion',
       ),
-      const _NavEntry('SSH', Icons.terminal, null, feature: 'exec'),
-      _NavEntry(
+      const _NavEntry('SSH', Icons.terminal, null, feature: 'exec'),      _NavEntry(
         '日志',
         Icons.receipt_long,
         () => _push(context, const LogsPage()),
@@ -175,7 +175,10 @@ class _NavRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: entry.onTap,
+      onTap: entry.onTap ??
+          () {
+            AppToast.show('功能开发中', type: AppToastType.info);
+          },
       child: SizedBox(
         height: 60,
         child: Padding(

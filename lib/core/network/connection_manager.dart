@@ -416,7 +416,11 @@ class ConnectionManager extends StateNotifier<ConnState> {
           _startStatusPolling();
         }
       }
-      ..onVideoStream = webrtc.onVideoStream
+      // 动态转发：始终指向 webrtc.onVideoStream 的当前值，
+      // 遥控页后续设置 manager.webrtc.onVideoStream 也能收到云端视频流
+      ..onVideoStream = (stream, idx) {
+        webrtc.onVideoStream?.call(stream, idx);
+      }
       ..onError = (msg) {
         debugPrint('[CM] Signal 错误: $msg');
         if (state == ConnState.connecting) {

@@ -220,6 +220,10 @@ class SignalClient {
           _sendDc('subscribe', {'events': ['status']});
           _sendDc('get_status');
           _sendDc('camera', {'action': 'list'});
+          // 补充模块/服务列表（对齐局域网 connected 后的初始化请求：
+          // 音乐页"服务未运行"就是缺 service_status 导致的）
+          _sendDc('module_list');
+          _sendDc('service_status');
           break;
         case RTCDataChannelState.RTCDataChannelClosed:
           debugPrint('[Signal] DataChannel closed');
