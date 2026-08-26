@@ -133,6 +133,8 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     // 云端远控：视频流由 SignalClient 提供（DC/信令已建），不再启动局域网 WebRTC
     if (manager.signal != null) {
       debugPrint('[Remote] 云端模式：视频流走信令，跳过局域网 WebRTC');
+      // 徽标状态：由 build 中 ref.watch(connectionManagerProvider) 驱动重建，
+      // 直接按 signal.isConnected 派生（不覆盖 signal 回调，避免破坏 CM 断开处理）
       _startCamerasImmediate();
       return;
     }
@@ -394,6 +396,8 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
   /// 横屏主界面：主摄全屏 + 副摄 PiP + 4 摇杆叠加 + 功能弹窗 + 底部对讲
   Widget _buildLandscape() {
     ref.watch(robotDataProvider);
+    // 连接状态变化（云端 DC 开/关）触发重建，徽标随之更新
+    ref.watch(connectionManagerProvider);
     final store = ref.read(robotDataProvider.notifier);
     final manager = ref.read(connectionManagerProvider.notifier);
     final robotName = (manager.robotInfo?['name'] as String?) ??
@@ -401,6 +405,11 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
         '遥控';
     // 云台能力（features 含 gimbal；副摄无云台 → 副摄云台摇杆禁用，对齐 web-debug）
     final gimbalAvailable = manager.remoteFeatures.contains('gimbal');
+
+    // 云端远控：徽标状态由信令连接派生（局域网：用 webrtc.state）
+    final badgeState = manager.signal != null
+        ? (manager.signal!.isConnected ? WebRtcState.connected : WebRtcState.idle)
+        : _webrtcState;
 
     // 画面分配：对齐 web-debug（左画面 = stream0/track0，摄像头开 id0）
     // 真机实测仅 track0(id0) 有 WebRTC 数据，track1(id1) 为空流 → 主画面必须用 track0
@@ -526,7 +535,7 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                         ),
                       ),
                     ),
-                    _WebRtcBadge(state: _webrtcState),
+                    _WebRtcBadge(state: badgeState),
                     const SizedBox(width: 10),
                     if (store.system.batteryLevel > 0 &&
                         store.system.batteryStatus != 'unknown' &&

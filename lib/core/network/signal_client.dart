@@ -31,6 +31,8 @@ class SignalClient {
   bool _handshakeAccepted = false;
   int _reconnectCount = 0;
   bool _intentionalClose = false;
+  /// 是否已收到 answer（restartIce 时序保护）
+  bool _answerReceived = false;
 
   // 心跳
   Timer? _heartbeatTimer;
@@ -143,13 +145,16 @@ class SignalClient {
       });
       debugPrint('[Signal] 已发送 call');
 
-      // ICE fallback: 5s 未连接 → restartIce
+      // ICE fallback: 10s 内既没收到 answer 也没连上才 restartIce。
+      // 不能 5s 就重启：TURN 配置 + 信令转发耗时可能超 5s，
+      // answer 到达前 restartIce 会打乱协商（视频轨丢失，只剩 DataChannel）。
       _iceFallbackTimer?.cancel();
-      _iceFallbackTimer = Timer(const Duration(seconds: 5), () {
+      _iceFallbackTimer = Timer(const Duration(seconds: 10), () {
+        if (_answerReceived) return; // 已收到 answer，交给 ICE 正常流程
         if (_pc != null &&
             _pc!.iceConnectionState != RTCIceConnectionState.RTCIceConnectionStateConnected &&
             _pc!.iceConnectionState != RTCIceConnectionState.RTCIceConnectionStateCompleted) {
-          debugPrint('[Signal] ICE 5s 未连接，restartIce');
+          debugPrint('[Signal] ICE 10s 未收到 answer/未连接，restartIce');
           _pc!.restartIce();
         }
       });
@@ -274,6 +279,8 @@ class SignalClient {
           final sdp = msg['sdp'];
           final sdpStr = sdp is Map ? sdp['sdp'] as String? : sdp as String?;
           if (sdpStr == null || _pc == null) return;
+          // 标记已收到 answer：restartIce fallback 不再触发
+          _answerReceived = true;
           // 状态守卫: have-local-offer
           if (_pc!.signalingState == RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
             _pc!.setRemoteDescription(RTCSessionDescription(sdpStr, 'answer'));
