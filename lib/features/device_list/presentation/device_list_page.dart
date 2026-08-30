@@ -29,11 +29,17 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
   void initState() {
     super.initState();
     BindService.instance.onMethodsReady = (_) => _showBindPage();
+    // 连接成功收到 robot_info 后，回写 DeviceStore 的设备 robotId
+    // （对齐 web-debug updateCurrentDeviceId：后端 robot_id 为准，保证本地/云端去重）
+    ref.read(connectionManagerProvider.notifier).onRobotIdKnown = (rid) {
+      ref.read(deviceStoreProvider.notifier).updateDeviceRobotId(rid);
+    };
   }
 
   @override
   void dispose() {
     BindService.instance.onMethodsReady = null;
+    ref.read(connectionManagerProvider.notifier).onRobotIdKnown = null;
     super.dispose();
   }
 
@@ -228,6 +234,23 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
     }
   }
 
+  /// 合并列表点击：有 ip:port → 本地连接；无（纯云端设备）→ 云端连接
+  /// （对齐 web-debug handleMergedDeviceClick）
+  Future<void> _onDeviceTap(RobotDevice device) async {
+    if (device.ip.isNotEmpty && device.port > 0) {
+      await _connect(device);
+    } else {
+      final cloud = ref
+          .read(deviceStoreProvider.notifier)
+          .findCloudDevice(device.id);
+      if (cloud != null) {
+        await _connectCloud(cloud);
+      } else {
+        AppToast.show('云端设备信息缺失', type: AppToastType.error);
+      }
+    }
+  }
+
   /// 点击云端设备 → 信令远控（批次 6）
   Future<void> _connectCloud(CloudDevice cloud) async {
     final account = AccountService.instance;
@@ -261,10 +284,8 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
   Widget build(BuildContext context) {
     final store = ref.watch(deviceStoreProvider);
     final connection = ref.watch(connectionManagerProvider);
-    final saved = store.devices;
-    final cloudDevices = ref
-        .read(deviceStoreProvider.notifier)
-        .cloudDevicesFiltered;
+    // 合并列表：本地已保存设备 + 云端绑定设备（对齐 web-debug mergedDevices）
+    final merged = ref.read(deviceStoreProvider.notifier).mergedDevices;
 
     // 连接成功后跳转机器人主页（对齐 web-debug：连接后进入功能主页）
     // 防重入：云端信令心跳超时→重连会让 state 经历 connected→disconnected→connected，
@@ -305,11 +326,12 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(10, 4, 10, 104),
                   children: [
-                    _SectionTitle(title: '我的设备', count: saved.length),
-                    if (saved.isEmpty)
+                    // 合并列表标题 — 对齐 web-debug「设备列表」分区
+                    _SectionTitle(title: '我的设备', count: merged.length),
+                    if (merged.isEmpty)
                       _EmptySaved(onAdd: _openAddPage)
                     else
-                      ...saved.map(
+                      ...merged.map(
                         (device) => Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: _DeviceCard(
@@ -317,27 +339,25 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
                             connected:
                                 store.currentDevice?.id == device.id &&
                                 connection == ConnState.connected,
-                            onTap: () => _connect(device),
+                            cloudOnline: ref
+                                .read(deviceStoreProvider.notifier)
+                                .findCloudDevice(device.id)
+                                ?.status ==
+                                'online',
+                            locallyDiscovered: store.discovered.any(
+                              (d) =>
+                                  d.id == device.id ||
+                                  (device.ip.isNotEmpty &&
+                                      d.ip == device.ip &&
+                                      d.port == device.port),
+                            ),
+                            onTap: () => _onDeviceTap(device),
                             onRemove: () => _remove(device),
                             onForget: () => _forget(device),
                             onDisconnect: _disconnect,
                           ),
                         ),
                       ),
-                    // 云端设备（批次 6：登录后显示云端设备，点击走信令远控）
-                    if (cloudDevices.isNotEmpty) ...[
-                      const SizedBox(height: 14),
-                      _SectionTitle(title: '云端设备', count: cloudDevices.length),
-                      ...cloudDevices.map(
-                        (cloud) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _CloudDeviceCard(
-                            device: cloud,
-                            onTap: () => _connectCloud(cloud),
-                          ),
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -455,6 +475,10 @@ class _SectionTitle extends StatelessWidget {
 class _DeviceCard extends StatelessWidget {
   final RobotDevice device;
   final bool connected;
+  /// 云端设备在线状态（纯云端设备专用，本地设备忽略）
+  final bool cloudOnline;
+  /// 局域网 mDNS 发现列表是否包含该设备（本地在线判定，对齐 web-debug）
+  final bool locallyDiscovered;
   final VoidCallback onTap;
   final VoidCallback? onRemove;
   final VoidCallback? onForget;
@@ -464,14 +488,25 @@ class _DeviceCard extends StatelessWidget {
     required this.device,
     required this.connected,
     required this.onTap,
+    this.cloudOnline = false,
+    this.locallyDiscovered = false,
     this.onRemove,
     this.onForget,
     this.onDisconnect,
   });
 
+  /// 纯云端设备（无本地地址，来自 mergedDevices 的云端绑定设备）
+  bool get _isCloudOnly => device.ip.isEmpty || device.port == 0;
+
+  /// 本地在线判定（对齐 web-debug getOnlineStatusTag）：
+  /// mDNS 发现列表中有此设备，或设备有有效 ip:port（已保存设备可能 mDNS 未发现但仍可达）
+  bool get _isLocalOnline =>
+      locallyDiscovered || (device.ip.isNotEmpty && device.port > 0);
+
   @override
   Widget build(BuildContext context) {
     // Pixso Component_1_2980 (408×139)：名称 → 基础状态行 → IP → 状态胶囊行
+    // 云端设备（无 ip:port）复用同一卡片：名称 → robotId → 云端标识 → 状态胶囊
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(15),
@@ -502,55 +537,67 @@ class _DeviceCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  PopupMenuButton<String>(
-                    tooltip: '设备管理',
-                    icon: const Icon(
-                      Icons.more_horiz,
-                      color: Color(0xFF8E8E93),
+                  // 本地设备保留管理菜单；纯云端设备对齐 web-debug 侧边栏（无菜单）
+                  if (!_isCloudOnly)
+                    PopupMenuButton<String>(
+                      tooltip: '设备管理',
+                      icon: const Icon(
+                        Icons.more_horiz,
+                        color: Color(0xFF8E8E93),
+                      ),
+                      onSelected: (value) {
+                        switch (value) {
+                          case 'disconnect':
+                            onDisconnect?.call();
+                            break;
+                          case 'remove':
+                            onRemove?.call();
+                            break;
+                          case 'forget':
+                            onForget?.call();
+                            break;
+                        }
+                      },
+                      itemBuilder: (context) {
+                        final items = <PopupMenuEntry<String>>[
+                          if (connected)
+                            const PopupMenuItem(
+                              value: 'disconnect',
+                              child: Text('断开连接'),
+                            ),
+                          if (connected)
+                            const PopupMenuItem(
+                              value: 'forget',
+                              child: Text('忘记设备'),
+                            )
+                          else
+                            const PopupMenuItem(
+                              value: 'remove',
+                              child: Text('移除设备'),
+                            ),
+                        ];
+                        return items;
+                      },
                     ),
-                    onSelected: (value) {
-                      switch (value) {
-                        case 'disconnect':
-                          onDisconnect?.call();
-                          break;
-                        case 'remove':
-                          onRemove?.call();
-                          break;
-                        case 'forget':
-                          onForget?.call();
-                          break;
-                      }
-                    },
-                    itemBuilder: (context) {
-                      final items = <PopupMenuEntry<String>>[
-                        if (connected)
-                          const PopupMenuItem(
-                            value: 'disconnect',
-                            child: Text('断开连接'),
-                          ),
-                        if (connected)
-                          const PopupMenuItem(
-                            value: 'forget',
-                            child: Text('忘记设备'),
-                          )
-                        else
-                          const PopupMenuItem(
-                            value: 'remove',
-                            child: Text('移除设备'),
-                          ),
-                      ];
-                      return items;
-                    },
-                  ),
                 ],
               ),
               const SizedBox(height: 10),
-              // Row 2: 基础状态 — 信号强度 | 电量 | 延迟 (Pixso 1:2907)
-              _StatusRow(device: device),
+              // Row 2: 基础状态 — 本地设备显示信号/电量/延迟，云端设备显示 robotId
+              _isCloudOnly
+                  ? Text(
+                      device.id,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11.6,
+                        color: Color(0xFF6750A4),
+                      ),
+                    )
+                  : _StatusRow(device: device),
               const SizedBox(height: 10),
-              // Row 3: IP 和端口 (Pixso 1:2950, 11.6sp 注释文本)
+              // Row 3: IP 行 — 云端设备显示「云端设备」标识 (对齐 web-debug 侧边栏)
               Text(
-                '${device.ip}:${device.port}',
+                _isCloudOnly ? '☁️ 云端设备' : '${device.ip}:${device.port}',
                 style: const TextStyle(
                   fontSize: 11.6,
                   color: Color(0xFF8E8E93),
@@ -558,20 +605,26 @@ class _DeviceCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               // Row 4: 状态胶囊 (Pixso 1:2962, 灰底圆角胶囊)
-              // 优先级对齐 web-debug：已绑定 > 已保存 > 在线状态 > 已连接
+              // 优先级对齐 web-debug getDeviceTags：
+              // 已绑定 > 已保存 > 在线状态（本地在线 > 云端在线 > 离线）> 已连接
               Wrap(
                 spacing: 10,
                 runSpacing: 6,
                 children: [
-                  if (device.bound) const _Tag('已绑定'),
-                  const _Tag('已保存'),
-                  if (connected)
-                    const _Tag('已连接')
-                  else if (device.localAvailable)
+                  if (_isCloudOnly || device.bound) const _Tag('已绑定'),
+                  if (!_isCloudOnly) const _Tag('已保存'),
+                  // 在线状态（对齐 web-debug getOnlineStatusTag）
+                  if (_isCloudOnly)
+                    _Tag(cloudOnline ? '云端在线' : '离线')
+                  else if (_isLocalOnline)
                     const _Tag('本地在线')
+                  else if (cloudOnline)
+                    const _Tag('云端在线')
                   else
-                    const _Tag('当前离线'),
-                  ...device.capabilityLabels.map(_Tag.new),
+                    const _Tag('离线'),
+                  // 已连接 — web-debug 中与在线状态并存（独立追加）
+                  if (connected) const _Tag('已连接'),
+                  if (!_isCloudOnly) ...device.capabilityLabels.map(_Tag.new),
                 ],
               ),
             ],
@@ -690,103 +743,6 @@ class _MessageCard extends StatelessWidget {
           ),
           if (action != null) action!,
         ],
-      ),
-    );
-  }
-}
-
-/// 云端设备卡片（批次 6）— 显示云端设备，点击走信令远控
-class _CloudDeviceCard extends StatelessWidget {
-  final CloudDevice device;
-  final VoidCallback onTap;
-  const _CloudDeviceCard({required this.device, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final online = device.status == 'online';
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(15),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(15),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: const Color(0xFFEEEEEE), width: 0.5),
-          ),
-          child: Row(
-            children: [
-              // 云端图标
-              Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: online
-                      ? const Color(0x1A34C759)
-                      : const Color(0xFFF5F5F5),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  online ? Icons.cloud_done : Icons.cloud_off,
-                  size: 22,
-                  color: online
-                      ? const Color(0xFF34C759)
-                      : const Color(0xFFC7C7CC),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // 信息
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      device.robotName ?? device.robotId,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF1C1C1E),
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '${device.robotId} · ${online ? '在线' : '离线'}'
-                      '${device.boundAt.isNotEmpty ? ' · 已绑定' : ''}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF8E8E93),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // 状态点
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: online
-                      ? const Color(0xFF34C759)
-                      : const Color(0xFFC7C7CC),
-                ),
-              ),
-              const SizedBox(width: 4),
-              const Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: Color(0xFFC7C7CC),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

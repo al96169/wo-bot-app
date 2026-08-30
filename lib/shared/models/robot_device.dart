@@ -12,6 +12,8 @@ class RobotDevice {
   final int? signalDbm;
   final int? batteryLevel;
   final int latencyMs;
+  /// 机器人真实 ID（mDNS 实例名或连接后获取），用于与云端设备 robotId 匹配
+  final String? robotId;
 
   RobotDevice({
     required this.id,
@@ -26,6 +28,7 @@ class RobotDevice {
     this.signalDbm,
     this.batteryLevel,
     this.latencyMs = 0,
+    this.robotId,
   }) : lastSeen = lastSeen ?? DateTime.now();
 
   // ---- 便捷方法 ----
@@ -73,6 +76,7 @@ class RobotDevice {
       signalDbm: json['signalDbm'] as int?,
       batteryLevel: json['batteryLevel'] as int?,
       latencyMs: json['latencyMs'] as int? ?? 0,
+      robotId: json['robotId'] as String?,
     );
   }
 
@@ -90,6 +94,7 @@ class RobotDevice {
       'signalDbm': signalDbm,
       'batteryLevel': batteryLevel,
       'latencyMs': latencyMs,
+      'robotId': robotId,
     };
   }
 
@@ -108,6 +113,7 @@ class RobotDevice {
     int? signalDbm,
     int? batteryLevel,
     int? latencyMs,
+    String? robotId,
   }) {
     return RobotDevice(
       id: id ?? this.id,
@@ -122,6 +128,7 @@ class RobotDevice {
       signalDbm: signalDbm ?? this.signalDbm,
       batteryLevel: batteryLevel ?? this.batteryLevel,
       latencyMs: latencyMs ?? this.latencyMs,
+      robotId: robotId ?? this.robotId,
     );
   }
 

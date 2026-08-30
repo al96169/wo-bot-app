@@ -17,14 +17,14 @@ class DeviceStore extends StateNotifier<DeviceStoreState> {
       try {
         final json = jsonDecode(raw) as Map<String, dynamic>;
         final devices = (json['devices'] as List? ?? [])
-            .map((d) => RobotDevice.fromJson(d as Map<String, dynamic>))
+            .map((d) => _withCompatRobotId(RobotDevice.fromJson(d as Map<String, dynamic>)))
             .where((d) => d.ip.isNotEmpty && d.port > 0)
             .toList();
-        // 按 robotId 去重
+        // 按 robotId 去重（优先 robotId，兼容旧数据 id）
         final seen = <String>{};
         final deduped = <RobotDevice>[];
         for (final d in devices) {
-          final key = d.id;
+          final key = d.robotId ?? d.id;
           if (!seen.contains(key)) {
             seen.add(key);
             deduped.add(d);
@@ -33,8 +33,10 @@ class DeviceStore extends StateNotifier<DeviceStoreState> {
         RobotDevice? current;
         if (json['currentDevice'] != null) {
           try {
-            current = RobotDevice.fromJson(
-              json['currentDevice'] as Map<String, dynamic>,
+            current = _withCompatRobotId(
+              RobotDevice.fromJson(
+                json['currentDevice'] as Map<String, dynamic>,
+              ),
             );
           } catch (_) {}
         }
@@ -44,6 +46,17 @@ class DeviceStore extends StateNotifier<DeviceStoreState> {
         debugPrint('[DeviceStore] 加载失败: $e');
       }
     }
+  }
+
+  /// 兼容旧数据：robotId 为空时从 id（PTR 实例名）提取。
+  /// 实例名形如 robot-xxx._wobot._tcp.local.，首个 label 即 robotId。
+  static RobotDevice _withCompatRobotId(RobotDevice d) {
+    if (d.robotId != null && d.robotId!.isNotEmpty) return d;
+    final id = d.id;
+    if (id.contains('._wobot._tcp.local.')) {
+      return d.copyWith(robotId: id.split('.').first);
+    }
+    return d;
   }
 
   Future<void> _save() async {
@@ -91,21 +104,25 @@ class DeviceStore extends StateNotifier<DeviceStoreState> {
 
   /// 设置当前设备 (连接成功后更新)
   Future<void> setCurrentDevice(RobotDevice device) async {
-    // 优先按 id 匹配，其次按 ip:port
+    // 优先按 robotId 匹配，其次按 id，再按 ip:port（对齐 web-debug setCurrentDevice）
     final existing = state.devices
         .where(
           (d) =>
-              d.id == device.id || (d.ip == device.ip && d.port == device.port),
+              (device.robotId != null && d.robotId == device.robotId) ||
+              d.id == device.id ||
+              (d.ip == device.ip && d.port == device.port),
         )
         .firstOrNull;
 
     if (existing != null) {
-      // 更新属性，保留 ip:port
+      // 更新属性，保留 ip:port；补全 robotId（云端和本地设备 id 可能不同但 robotId 相同）
       final updated = existing.copyWith(
         name: device.name.isNotEmpty ? device.name : existing.name,
         capabilities: device.capabilities.isNotEmpty
             ? device.capabilities
             : existing.capabilities,
+        robotId: device.robotId ?? existing.robotId,
+        localAvailable: device.localAvailable || existing.localAvailable,
       );
       final devices = state.devices
           .map((d) => d.id == updated.id ? updated : d)
@@ -121,7 +138,10 @@ class DeviceStore extends StateNotifier<DeviceStoreState> {
   /// 更新设备 robotId (连接成功后由后端返回)
   Future<void> updateDeviceRobotId(String robotId) async {
     if (state.currentDevice == null) return;
-    final updated = state.currentDevice!.copyWith(id: robotId);
+    final updated = state.currentDevice!.copyWith(
+      id: robotId,
+      robotId: robotId,
+    );
     final devices = state.devices
         .map((d) => d.id == state.currentDevice!.id ? updated : d)
         .toList();
@@ -166,24 +186,63 @@ class DeviceStore extends StateNotifier<DeviceStoreState> {
   }
 
   /// 云端设备过滤：排除已出现在本地已保存设备或发现列表中的 robotId
-  /// （对齐 web-debug cloudDevicesFiltered）
+  /// （对齐 web-debug cloudDevicesFiltered：按 robotId 匹配）
   List<CloudDevice> get cloudDevicesFiltered {
-    final localIds = state.devices.map((d) => d.id).where((s) => s.isNotEmpty).toSet();
-    final discoveredIds = state.discovered.map((d) => d.id).where((s) => s.isNotEmpty).toSet();
+    // 本地设备的 robotId 集合（优先 robotId，其次 id，兼容旧数据）
+    final localRobotIds = state.devices
+        .map((d) => d.robotId ?? d.id)
+        .where((s) => s.isNotEmpty)
+        .toSet();
+    final discoveredRobotIds = state.discovered
+        .map((d) => d.robotId ?? d.id)
+        .where((s) => s.isNotEmpty)
+        .toSet();
     return state.cloudDevices
-        .where((c) => !localIds.contains(c.robotId) && !discoveredIds.contains(c.robotId))
+        .where(
+          (c) =>
+              !localRobotIds.contains(c.robotId) &&
+              !discoveredRobotIds.contains(c.robotId),
+        )
         .toList();
   }
 
-  /// 合并设备列表：本地设备 + 纯云端设备（未覆盖的）
-  /// 同一设备同时存在本地+云端时只显示一次，保留有 ip:port 的本地记录
-  /// （对齐 web-debug mergedDevices）
-  List<Object> get mergedDevices {
-    final localKeys = state.devices.map((d) => d.id).where((s) => s.isNotEmpty).toSet();
-    final merged = <Object>[...state.devices];
+  /// 云端设备中是否存在指定 robotId（是否已绑定到当前用户）
+  bool isCloudBound(String robotId) =>
+      state.cloudDevices.any((c) => c.robotId == robotId);
+
+  /// 查找指定 robotId 对应的云端设备
+  CloudDevice? findCloudDevice(String robotId) {
+    for (final c in state.cloudDevices) {
+      if (c.robotId == robotId) return c;
+    }
+    return null;
+  }
+
+  /// 合并设备列表：本地已保存设备 + 云端绑定设备，按 robotId/id 去重
+  /// - 同一设备同时存在本地+云端时只显示一次，保留有 ip:port 的本地记录
+  /// - 纯云端设备（本地未保存）转换为 RobotDevice 形态（ip/port 为空，
+  ///   bound=true，localAvailable=云端在线），由 UI 区分本地/云端连接
+  /// （对齐 web-debug mergedDevices：本地 key 用 robotId || id）
+  List<RobotDevice> get mergedDevices {
+    final localKeys = state.devices
+        .map((d) => d.robotId ?? d.id)
+        .where((s) => s.isNotEmpty)
+        .toSet();
+    final merged = <RobotDevice>[...state.devices];
     for (final c in cloudDevicesFiltered) {
       if (localKeys.contains(c.robotId)) continue;
-      merged.add(c);
+      merged.add(
+        RobotDevice(
+          id: c.robotId,
+          name: (c.robotName?.isNotEmpty ?? false) ? c.robotName! : c.robotId,
+          ip: '',
+          port: 0,
+          serviceName: '',
+          bound: true,
+          localAvailable: c.status == 'online',
+          robotId: c.robotId,
+        ),
+      );
     }
     return merged;
   }

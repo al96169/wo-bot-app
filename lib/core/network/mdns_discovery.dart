@@ -91,12 +91,16 @@ class MdnsDiscovery {
         final parsed = _parsePtrResponse(dg.data);
         if (parsed == null) return;
         final (instance, displayName) = parsed;
+        // 实例名形如 robot-xxx._wobot._tcp.local.，首个 label 即 robotId
+        // （对齐 web-debug mdnsDiscovery：robotId = d.id）
+        final robotId = instance.split('.').first;
         final device = RobotDevice(
           id: instance,
-          name: displayName ?? instance.split('.').first,
+          name: displayName ?? robotId,
           ip: dg.address.address, // 响应包源 IP = 设备真实地址（web-debug referer 同款）
           port: AppConstants.defaultWebSocketPort,
           serviceName: instance,
+          robotId: robotId,
         );
         devices.add(device);
         AppLogger.info('发现设备: ${device.name} @ ${device.ip}:${device.port}');

@@ -9,6 +9,7 @@ import '../../../core/network/robot_data_store.dart';
 import '../../../core/network/webrtc_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_toast.dart';
+import '../../../shared/models/robot_data.dart';
 import 'widgets/camera_action_sheet.dart';
 import 'widgets/camera_view.dart';
 import 'widgets/remote_drawer.dart';
@@ -50,10 +51,13 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
   MediaStream? _stream1; // 右副摄
   bool _cameraLeftOn = false;
   bool _cameraRightOn = false;
+
   /// 副摄画面实际宽高比（默认 4:3，首帧后按真实分辨率更新 → PiP 无黑边）
   double _subAspect = 4 / 3;
+
   /// 云台拖动期间 50ms 续发 move_update 的定时器
   Timer? _gimbalUpdateTimer;
+
   /// 双击小画面交换主/副画面
   bool _camsSwapped = false;
 
@@ -74,7 +78,10 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     // 立即建立 WebRTC + 启动摄像头（并行，无等待）
     _initWebRtc();
     // 15s 未连接则自动重试（offer/answer 可能因信令时序丢失）
-    _webrtcRetryTimer = Timer(const Duration(seconds: 15), _retryWebRtcIfNeeded);
+    _webrtcRetryTimer = Timer(
+      const Duration(seconds: 15),
+      _retryWebRtcIfNeeded,
+    );
   }
 
   @override
@@ -109,7 +116,10 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
         webrtc.state != WebRtcState.failed) {
       debugPrint('[Remote] WebRTC 15s 未连接，自动重试');
       manager.startWebRtc();
-      _webrtcRetryTimer = Timer(const Duration(seconds: 15), _retryWebRtcIfNeeded);
+      _webrtcRetryTimer = Timer(
+        const Duration(seconds: 15),
+        _retryWebRtcIfNeeded,
+      );
     }
   }
 
@@ -153,13 +163,21 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     // 并行：先发 WebRTC offer（信令+ICE 需 1-2s，期间摄像头 pipeline 同步就绪）
     manager.startWebRtc();
     // 直连模式：读取已缓存的视频流（可能连接阶段已到达）
-    if (manager.webrtc.videoStream0 != null || manager.webrtc.videoStream1 != null) {
+    if (manager.webrtc.videoStream0 != null ||
+        manager.webrtc.videoStream1 != null) {
       setState(() {
         _stream0 = manager.webrtc.videoStream0;
         _stream1 = manager.webrtc.videoStream1;
       });
     }
     _startCamerasImmediate();
+  }
+
+  /// 是否有真实副摄（排除克隆/共享摄像头，对齐 web-debug cameras.length > 1）
+  /// 机器人端单物理摄像头时会克隆出 "(shared)" 逻辑摄像头，不能算真实副摄
+  bool _hasRealSecondaryCamera(List<CameraInfo> cameras) {
+    if (cameras.length < 2) return false;
+    return cameras.any((c) => !c.name.contains('(shared)'));
   }
 
   /// 立即启动摄像头：列表已到用真实 id，未到先兜底 0/1 稍后补
@@ -175,7 +193,7 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
       }
       setState(() {
         _cameraLeftOn = store.cameras.isNotEmpty;
-        _cameraRightOn = store.cameras.length > 1;
+        _cameraRightOn = _hasRealSecondaryCamera(store.cameras);
       });
     } else {
       // 列表未到：兜底启动 0/1，稍后按真实列表补启
@@ -191,7 +209,7 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
           }
           setState(() {
             _cameraLeftOn = s2.cameras.isNotEmpty;
-            _cameraRightOn = s2.cameras.length > 1;
+            _cameraRightOn = _hasRealSecondaryCamera(s2.cameras);
           });
         }
       });
@@ -209,7 +227,11 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
   }
 
   /// 从摇杆值计算速度 — 匹配 web-debug speedFromStick
-  double _speedFromStick(JoystickValue stick, String axis, {double size = 140}) {
+  double _speedFromStick(
+    JoystickValue stick,
+    String axis, {
+    double size = 140,
+  }) {
     const deadzone = 0.03;
     final cx = size / 2;
     final cy = size / 2;
@@ -287,12 +309,19 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     }
   }
 
-  void _onGimbalStickChanged(JoystickValue val, bool isStart, bool isEnd, {double size = 140}) {
+  void _onGimbalStickChanged(
+    JoystickValue val,
+    bool isStart,
+    bool isEnd, {
+    double size = 140,
+  }) {
     final manager = ref.read(connectionManagerProvider.notifier);
     if (isStart) {
       // 对齐 web-debug：拖动期间 50ms 周期续发 move_update（保持速度 + 喂活服务端看门狗）
       _gimbalUpdateTimer?.cancel();
-      _gimbalUpdateTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+      _gimbalUpdateTimer = Timer.periodic(const Duration(milliseconds: 50), (
+        _,
+      ) {
         if (!mounted || !_gimbalStick.value.dragging) return;
         final spd = _gimbalSpeedFromStick(_gimbalStick.value, size: size);
         manager.sendGimbalMoveUpdate(spd.pan, spd.tilt);
@@ -383,9 +412,9 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
         },
         onGallery: () {
           Navigator.of(ctx).pop();
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const GalleryPage()),
-          );
+          Navigator.of(
+            context,
+          ).push(MaterialPageRoute<void>(builder: (_) => const GalleryPage()));
         },
         onGimbalCenter: () {
           Navigator.of(ctx).pop();
@@ -419,7 +448,8 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     ref.watch(connectionManagerProvider);
     final store = ref.read(robotDataProvider.notifier);
     final manager = ref.read(connectionManagerProvider.notifier);
-    final robotName = (manager.robotInfo?['name'] as String?) ??
+    final robotName =
+        (manager.robotInfo?['name'] as String?) ??
         manager.currentDevice?.name ??
         '遥控';
     // 云台能力（features 含 gimbal；副摄无云台 → 副摄云台摇杆禁用，对齐 web-debug）
@@ -472,52 +502,52 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
             ),
             // 副摄 PiP 小窗（右上角，避开顶部浮层；按副摄实际画面比例 + Cover 无黑边）
             // 双击小画面 ↔ 与主画面交换位置
-            Positioned(
-              top: statusBarH + 6,
-              right: edge,
-              width: pipW,
-              height: pipH,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onDoubleTap: _swapCameras,
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: CameraView(
-                        stream: subStream,
-                        label: _camsSwapped ? '主摄' : '副摄',
-                        enabled: _cameraRightOn,
-                        objectFit:
-                            RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                        onVideoSize: (w, h) {
-                          if (w > 0 && h > 0) {
-                            final aspect = w / h;
-                            if ((aspect - _subAspect).abs() > 0.01) {
-                              setState(() => _subAspect = aspect);
+            // 仅当存在真实副摄（非克隆/共享摄像头）时显示，避免单摄时双画面同内容
+            if (_cameraRightOn)
+              Positioned(
+                top: statusBarH + 6,
+                right: edge,
+                width: pipW,
+                height: pipH,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onDoubleTap: _swapCameras,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: CameraView(
+                          stream: subStream,
+                          label: _camsSwapped ? '主摄' : '副摄',
+                          enabled: _cameraRightOn,
+                          objectFit:
+                              RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                          onVideoSize: (w, h) {
+                            if (w > 0 && h > 0) {
+                              final aspect = w / h;
+                              if ((aspect - _subAspect).abs() > 0.01) {
+                                setState(() => _subAspect = aspect);
+                              }
                             }
-                          }
-                        },
-                      ),
-                    ),
-                    // 双击交换提示
-                    const Positioned(
-                      right: 4,
-                      bottom: 4,
-                      child: Text(
-                        '双击交换',
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: Color(0x88FFFFFF),
-                          shadows: [
-                            Shadow(blurRadius: 2),
-                          ],
+                          },
                         ),
                       ),
-                    ),
-                  ],
+                      // 双击交换提示
+                      const Positioned(
+                        right: 4,
+                        bottom: 4,
+                        child: Text(
+                          '双击交换',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: Color(0x88FFFFFF),
+                            shadows: [Shadow(blurRadius: 2)],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
             // 顶部透明浮层（覆盖在画面上）：☰ + 设备名 + WebRTC 状态 + 电量/WiFi
             Positioned(
               top: 0,
@@ -536,7 +566,11 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                   children: [
                     Builder(
                       builder: (ctx) => IconButton(
-                        icon: const Icon(Icons.menu, color: Colors.white, size: 20),
+                        icon: const Icon(
+                          Icons.menu,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                         onPressed: () => Scaffold.of(ctx).openDrawer(),
                         tooltip: '菜单',
                       ),
@@ -568,7 +602,10 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                       ),
                       Text(
                         ' ${store.system.batteryLevel.round()}%',
-                        style: const TextStyle(fontSize: 11, color: Colors.white),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.white,
+                        ),
                       ),
                       const SizedBox(width: 8),
                     ],
@@ -738,9 +775,7 @@ class _FloatingBtn extends StatelessWidget {
       icon: Icon(icon, color: color, size: 20),
       onPressed: onTap,
       tooltip: tooltip,
-      style: IconButton.styleFrom(
-        backgroundColor: const Color(0xAA2C2C2E),
-      ),
+      style: IconButton.styleFrom(backgroundColor: const Color(0xAA2C2C2E)),
     );
   }
 }
@@ -863,7 +898,8 @@ class _JoystickWidgetState extends State<JoystickWidget> {
                   );
                   _updateFromDetails(details.localPosition);
                 },
-                onPanUpdate: (details) => _updateFromDetails(details.localPosition),
+                onPanUpdate: (details) =>
+                    _updateFromDetails(details.localPosition),
                 onPanEnd: (_) => _reset(),
                 onPanCancel: _reset,
                 child: CustomPaint(
@@ -880,7 +916,10 @@ class _JoystickWidgetState extends State<JoystickWidget> {
             const SizedBox(height: 2),
             Text(
               widget.enabled ? widget.label : '${widget.label}(不可用)',
-              style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+              style: const TextStyle(
+                fontSize: 10,
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
         ),

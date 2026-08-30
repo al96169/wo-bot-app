@@ -48,6 +48,10 @@ class ConnectionManager extends StateNotifier<ConnState> {
   String pendingShareCode = '';
   String accountToken = '';
 
+  /// robot_id 已知回调（收到 robot_info 消息时触发），
+  /// 用于 DeviceStore 更新本地设备 robotId（对齐 web-debug updateCurrentDeviceId）
+  void Function(String robotId)? onRobotIdKnown;
+
   /// 分块下载状态（对齐 web-debug ChunkedDownload）：file_name → 组装缓冲
   final Map<String, _ChunkedDownload> _chunkedDownloads = {};
 
@@ -607,7 +611,12 @@ class ConnectionManager extends StateNotifier<ConnState> {
     switch (type) {
       // ---- 连接与认证 ----
       case 'connected':
-        robotId = d['robot_id'] as String?;
+        final connectedRid = d['robot_id'] as String?;
+        if (connectedRid != null && connectedRid.isNotEmpty) {
+          robotId = connectedRid;
+          // 通知上层（DeviceStore）更新设备 robotId，用于本地/云端去重
+          onRobotIdKnown?.call(connectedRid);
+        }
         final features = d['features'] as List?;
         if (features != null) {
           remoteFeatures = features.cast<String>();
@@ -741,8 +750,11 @@ class ConnectionManager extends StateNotifier<ConnState> {
           remoteFeatures = riFeatures.cast<String>();
           _data.setRemoteFeatures(riFeatures);
         }
-        if (d['robot_id'] != null) {
-          robotId = d['robot_id'] as String;
+        final rid = d['robot_id'] as String?;
+        if (rid != null) {
+          robotId = rid;
+          // 通知上层（DeviceStore）更新设备 robotId，用于本地/云端去重
+          onRobotIdKnown?.call(rid);
         }
         break;
       case 'features_update':
