@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/theme/theme_controller.dart';
 import 'core/utils/app_toast.dart';
 import 'features/device_list/presentation/device_list_page.dart';
 import 'features/profile/presentation/profile_page.dart';
@@ -34,10 +35,23 @@ class _WoBotAppState extends ConsumerState<WoBotApp> {
 
   @override
   Widget build(BuildContext context) {
+    // 三态主题（跟随系统/浅色/深色）— 批次 7，对齐 web-debug SettingsView
+    final themeMode = ref.watch(themeControllerProvider);
     return MaterialApp(
       title: 'wo-bot',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(scaffoldBackgroundColor: const Color(0xFFF9F9F9)),
+      theme: ThemeData(
+        scaffoldBackgroundColor: const Color(0xFFF9F9F9),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6750A4)),
+      ),
+      darkTheme: ThemeData(
+        scaffoldBackgroundColor: const Color(0xFF1C1C1E),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF6750A4),
+          brightness: Brightness.dark,
+        ),
+      ),
+      themeMode: themeMode,
       home: Builder(
         builder: (context) {
           // 注册全局 Toast Overlay 上下文（home 内层，位于 Navigator Overlay 之下）

@@ -5,6 +5,8 @@ import '../../../../core/network/connection_manager.dart';
 import '../../../../core/utils/app_toast.dart';
 import '../../../logs/presentation/logs_page.dart';
 import '../../../messages/presentation/messages_page.dart';
+import '../../../process/presentation/command_log_page.dart';
+import '../../../ssh_terminal/presentation/ssh_terminal_page.dart';
 import '../../../status/presentation/robot_status_page.dart';
 
 /// 遥控页左侧抽屉 — 页面切换（SSH/日志/消息/状态）+ 底部退出
@@ -36,7 +38,7 @@ class RemoteDrawer extends ConsumerWidget {
               onTap: () {
                 Navigator.of(context).pop();
                 if (hasSsh) {
-                  AppToast.show('SSH 终端即将上线');
+                  SshTerminalPage.open(context);
                 } else {
                   AppToast.show('设备不支持 SSH');
                 }
@@ -50,6 +52,14 @@ class RemoteDrawer extends ConsumerWidget {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(builder: (_) => const LogsPage()),
                 );
+              },
+            ),
+            _DrawerItem(
+              icon: Icons.terminal,
+              label: '命令日志',
+              onTap: () {
+                Navigator.of(context).pop();
+                CommandLogPage.open(context);
               },
             ),
             _DrawerItem(

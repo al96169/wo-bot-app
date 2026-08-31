@@ -31,15 +31,22 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
     BindService.instance.onMethodsReady = (_) => _showBindPage();
     // 连接成功收到 robot_info 后，回写 DeviceStore 的设备 robotId
     // （对齐 web-debug updateCurrentDeviceId：后端 robot_id 为准，保证本地/云端去重）
-    ref.read(connectionManagerProvider.notifier).onRobotIdKnown = (rid) {
+    // 注意：dispose 时不允许再 ref.read（Riverpod element 已 disposed），
+    // 因此这里缓存 ConnectionManager 引用，dispose 直接操作它。
+    final cm = ref.read(connectionManagerProvider.notifier);
+    _cm = cm;
+    cm.onRobotIdKnown = (rid) {
       ref.read(deviceStoreProvider.notifier).updateDeviceRobotId(rid);
     };
   }
 
+  /// 缓存的 ConnectionManager 引用（dispose 时使用，避免 ref 访问）
+  ConnectionManager? _cm;
+
   @override
   void dispose() {
     BindService.instance.onMethodsReady = null;
-    ref.read(connectionManagerProvider.notifier).onRobotIdKnown = null;
+    _cm?.onRobotIdKnown = null;
     super.dispose();
   }
 

@@ -43,7 +43,9 @@ class RobotDataStore extends StateNotifier<int> {
   bool galleryHasMore = false;
   bool galleryLoading = false;
   // 图库下载（分块组装结果通知 → GalleryPage 监听保存/预览）
-  final ValueNotifier<GalleryDownloadResult?> galleryDownload = ValueNotifier(null);
+  final ValueNotifier<GalleryDownloadResult?> galleryDownload = ValueNotifier(
+    null,
+  );
   // 录制 (对齐 web-debug cameraRecord: is_recording/elapsed_s/file_size_bytes/camera_id)
   bool isRecording = false;
   String? recordingCameraId;
@@ -64,10 +66,61 @@ class RobotDataStore extends StateNotifier<int> {
   List<Map<String, dynamic>> bindings = [];
   // 功能列表
   final List<String> remoteFeatures = [];
+  // SSH 终端输出（对齐 web-debug robotStore.sshOutput）
+  final List<SshOutputEntry> sshOutput = [];
+  // SSH 会话当前工作目录（对齐 web-debug robotStore.shellCwd）
+  String shellCwd = '/';
+  // 命令日志（对齐 web-debug robotStore.cmdLogs）
+  final List<CommandLogEntry> cmdLogs = [];
 
   RobotDataStore() : super(0);
 
   void notify() => state++; // 每次数据变化递增版本号触发 UI 重建
+
+  // ---- SSH / 命令日志 ----
+
+  /// 追加 SSH 终端输出
+  void addSshOutput(String type, String text) {
+    sshOutput.add(
+      SshOutputEntry(
+        id: '${DateTime.now().microsecondsSinceEpoch}',
+        type: type,
+        text: text,
+      ),
+    );
+    notify();
+  }
+
+  /// 清空 SSH 终端输出
+  void clearSshOutput() {
+    sshOutput.clear();
+    notify();
+  }
+
+  /// 更新 SSH 会话工作目录（cd 命令后由 exec_result.cwd 同步）
+  void setShellCwd(String cwd) {
+    shellCwd = cwd;
+    notify();
+  }
+
+  /// 追加命令日志
+  void addCmdLog(String direction, String type, String data) {
+    cmdLogs.add(
+      CommandLogEntry(
+        time: DateTime.now().toIso8601String(),
+        direction: direction,
+        type: type,
+        data: data,
+      ),
+    );
+    notify();
+  }
+
+  /// 清空命令日志
+  void clearCmdLogs() {
+    cmdLogs.clear();
+    notify();
+  }
 
   // ---- 状态更新 ----
   void updateFromStatus(Map<String, dynamic> data) {

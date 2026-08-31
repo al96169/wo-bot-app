@@ -14,6 +14,7 @@ import '../../remote_control/presentation/remote_control_page.dart';
 import '../../settings/presentation/settings_page.dart';
 import '../../software/presentation/software_page.dart';
 import '../../status/presentation/robot_status_page.dart';
+import '../../ssh_terminal/presentation/ssh_terminal_page.dart';
 // 批次 4 功能页
 import '../../dance/presentation/dance_page.dart';
 import '../../gallery/presentation/gallery_page.dart';
@@ -75,7 +76,13 @@ class RobotHomePage extends ConsumerWidget {
         () => _push(context, const RemoteControlPage()),
         feature: 'motion',
       ),
-      const _NavEntry('SSH', Icons.terminal, null, feature: 'exec'),      _NavEntry(
+      _NavEntry(
+        'SSH',
+        Icons.terminal,
+        () => _push(context, const SshTerminalPage()),
+        feature: 'exec',
+      ),
+      _NavEntry(
         '日志',
         Icons.receipt_long,
         () => _push(context, const LogsPage()),
@@ -120,11 +127,7 @@ class RobotHomePage extends ConsumerWidget {
         () => _push(context, const GalleryPage()),
         feature: 'camera_capture',
       ),
-      _NavEntry(
-        '配置',
-        Icons.tune,
-        () => _push(context, const ConfigPage()),
-      ),
+      _NavEntry('配置', Icons.tune, () => _push(context, const ConfigPage())),
     ];
 
     final visible = items.where((e) {
@@ -175,7 +178,8 @@ class _NavRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: entry.onTap ??
+      onTap:
+          entry.onTap ??
           () {
             AppToast.show('功能开发中', type: AppToastType.info);
           },

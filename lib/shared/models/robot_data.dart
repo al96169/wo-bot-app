@@ -577,3 +577,28 @@ class GalleryDownloadResult {
 
   bool get isSuccess => error == null && bytes.isNotEmpty;
 }
+
+// ============== SSH 终端 ==============
+
+/// SSH 终端输出条目 — 匹配 web-debug SSHOutputEntry
+/// type: cmd=用户输入的命令 / out=stdout / err=stderr
+class SshOutputEntry {
+  final String id;
+  final String type; // cmd / out / err
+  final String text;
+  SshOutputEntry({required this.id, required this.type, required this.text});
+}
+
+/// 命令日志条目 — 匹配 web-debug CommandLogEntry
+class CommandLogEntry {
+  final String time;
+  final String direction; // send / recv
+  final String type;
+  final String data;
+  const CommandLogEntry({
+    required this.time,
+    required this.direction,
+    required this.type,
+    required this.data,
+  });
+}

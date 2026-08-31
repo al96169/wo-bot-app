@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/connection_manager.dart';
+import '../../../core/theme/theme_controller.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../shared/widgets/feature_status_bar.dart';
 import 'wifi_manager_page.dart';
@@ -30,6 +31,41 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       'threshold': threshold,
     });
     AppToast.show('已保存$mode阈值: $threshold%', type: AppToastType.success);
+  }
+
+  /// 主题模式选择弹窗（对齐 web-debug SettingsView 下拉）
+  Future<void> _pickTheme() async {
+    final controller = ref.read(themeControllerProvider.notifier);
+    final current = controller.mode;
+    final selected = await showDialog<AppThemeMode>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('主题'),
+        children: AppThemeMode.values.map((m) {
+          return SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, m),
+            child: Row(
+              children: [
+                Icon(
+                  m == current
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                  size: 18,
+                  color: m == current
+                      ? const Color(0xFF6750A4)
+                      : const Color(0xFFC7C7CC),
+                ),
+                const SizedBox(width: 10),
+                Text(m.label, style: const TextStyle(fontSize: 14)),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+    if (selected != null) {
+      await controller.setMode(selected);
+    }
   }
 
   @override
@@ -66,6 +102,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         label: '蓝牙',
                         value: '待接入',
                         onTap: () => AppToast.show('蓝牙功能待接入'),
+                      ),
+                      _Divider(),
+                      // 主题（批次 7，对齐 web-debug SettingsView 主题切换）
+                      _NavRow(
+                        label: '主题',
+                        value: ref
+                            .watch(themeControllerProvider.notifier)
+                            .mode
+                            .label,
+                        onTap: _pickTheme,
                       ),
                       _Divider(),
                       // 省电模式阈值 (Pixso 5:4254)

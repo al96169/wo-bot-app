@@ -125,8 +125,7 @@ class ConnectionManager extends StateNotifier<ConnState> {
   // ===================== 发送方法 (匹配 web-debug) =====================
 
   /// 云端远控模式下 DataChannel 是否就绪（signal DC，非局域网 webrtc DC）
-  bool get _signalDcReady =>
-      signal != null && signal!.dataChannelReady;
+  bool get _signalDcReady => signal != null && signal!.dataChannelReady;
 
   /// 业务消息是否应优先走云端信令 DC（连接成功 + DC 打开）
   bool get _cloudActive => _signalDcReady;
@@ -150,7 +149,9 @@ class ConnectionManager extends StateNotifier<ConnState> {
     if (_cloudActive && signal != null) {
       signal!.sendBusiness(
         msg['type'] as String? ?? '',
-        msg['data'] is Map<String, dynamic> ? msg['data'] as Map<String, dynamic> : null,
+        msg['data'] is Map<String, dynamic>
+            ? msg['data'] as Map<String, dynamic>
+            : null,
       );
       return;
     }
@@ -179,8 +180,16 @@ class ConnectionManager extends StateNotifier<ConnState> {
     }
   }
 
-  void sendEmergencyStop() => send('emergency_stop');
-  void sendEmergencyRelease() => send('emergency_release');
+  void sendEmergencyStop() {
+    // 命令日志（对齐 web-debug QuickActions/RemoteView 急停埋点）
+    _data.addCmdLog('send', 'emergency', '急停触发');
+    send('emergency_stop');
+  }
+
+  void sendEmergencyRelease() {
+    _data.addCmdLog('send', 'emergency_release', '释放急停');
+    send('emergency_release');
+  }
 
   // ---- 系统操作 (匹配 web-debug sendSystemAction) ----
   void sendSystemAction(String action) => send('system', {'action': action});
@@ -194,6 +203,7 @@ class ConnectionManager extends StateNotifier<ConnState> {
     'gimbal',
     {'action': 'move_update', 'pan_speed': panSpeed, 'tilt_speed': tiltSpeed},
   );
+
   /// 云台停止：WS + DC 双通道都发 move_end。
   /// 摇杆过程可能恰逢 DC/WS 切换，若 begin/update 走 A 通道、end 走 B 通道，
   /// 迟到的 begin/update 会在 end 之后到达并重新启动移动循环 → 云台停不下来。
@@ -202,6 +212,7 @@ class ConnectionManager extends StateNotifier<ConnState> {
     send('gimbal', {'action': 'move_end'}); // WS 兜底（有序）
     _sendHighFreq('gimbal', {'action': 'move_end'}); // DC 优先（有序）
   }
+
   void sendGimbalCenter() => _sendHighFreq('gimbal', {'action': 'center'});
 
   /// 高频命令：云端信令 DC > 局域网 P2P DC > WS 兜底
@@ -224,6 +235,7 @@ class ConnectionManager extends StateNotifier<ConnState> {
     debugPrint('[CM] camera → action=$action camera_id=$cameraId');
     send('camera', {'action': action, 'camera_id': cameraId});
   }
+
   void sendCameraCapture([String quality = 'high']) =>
       send('camera_capture', {'quality': quality});
   void sendCameraRecordStart(int cameraId, [String quality = 'high']) =>
@@ -285,14 +297,18 @@ class ConnectionManager extends StateNotifier<ConnState> {
       send('wifi_disconnect', {'device': device});
 
   // ---- 图库 (对齐 web-debug GalleryView) ----
-  void sendGetGalleryList({String type = 'all', int page = 1, int pageSize = 20}) =>
-      send('camera_media_list', {
-        'type': type,
-        'page': page,
-        'page_size': pageSize,
-      });
+  void sendGetGalleryList({
+    String type = 'all',
+    int page = 1,
+    int pageSize = 20,
+  }) => send('camera_media_list', {
+    'type': type,
+    'page': page,
+    'page_size': pageSize,
+  });
   void sendGalleryDelete(List<String> fileNames) =>
       send('camera_media_delete', {'file_names': fileNames});
+
   /// 请求下载媒体文件 — 走 WebSocket（可靠到达机器人端）；
   /// 机器人端收到后经已建立的 DataChannel 分块回传 start/chunk/end（远程 WebRTC 场景同样适用）。
   /// 不再走 DC 发送：App 客户端 DC 消息在机器人端 server-DC 覆盖后可能丢失（subscribe 能到、后续消息丢）。
@@ -320,6 +336,7 @@ class ConnectionManager extends StateNotifier<ConnState> {
   // 对齐 web-debug：config_get 无 key 时取全量配置
   void sendConfigGet([String? key]) =>
       send('config_get', key != null ? {'key': key} : {});
+
   /// 提交全量配置（对齐 web-debug config_set {config: {...}}，机器人端深度合并）
   void sendConfigSet(Map<String, dynamic> config) =>
       send('config_set', {'config': config});
@@ -330,6 +347,7 @@ class ConnectionManager extends StateNotifier<ConnState> {
       send('bind_remove', {'clientId': clientId});
   void sendBindRemoveAll() => send('bind_remove_all');
   void sendBindShareCreate() => send('bind_share_create');
+
   /// 使用分享码绑定（对齐机器人端 bind_share_use: {shareCode, clientId, clientName}）
   void sendBindShareUse(String code, {String? clientId, String? clientName}) =>
       send('bind_share_use', {
@@ -338,18 +356,19 @@ class ConnectionManager extends StateNotifier<ConnState> {
         if (clientName != null) 'clientName': clientName,
       });
   void sendBindPasswordConfig() => send('bind_password_config');
+
   /// 更新密码绑定：修改密码或开关（对齐机器人端 bind_password_update: {password, enabled}）
   void sendBindPasswordUpdate({String? password, bool? enabled}) =>
       send('bind_password_update', {
         if (password != null) 'password': password,
         if (enabled != null) 'enabled': enabled,
       });
+
   /// 绑定证明（批次 6：把本地绑定设备挂到云端帐号）
-  void sendBindingProofRequest(String accountId, String clientId) =>
-      send('binding_proof_request', {
-        'accountId': accountId,
-        'clientId': clientId,
-      });
+  void sendBindingProofRequest(String accountId, String clientId) => send(
+    'binding_proof_request',
+    {'accountId': accountId, 'clientId': clientId},
+  );
 
   // ---- WebRTC 信令 ----
   void sendWebRtcOffer(String sdp) => send('webrtc_offer', {'sdp': sdp});
@@ -483,7 +502,9 @@ class ConnectionManager extends StateNotifier<ConnState> {
     if (_signalDcReady) return true;
     if (webrtc.isDataChannelReady) return true;
     // 已连接但 DC 未就绪（或从未建立）→ 启动 WebRTC（仅局域网场景）
-    if (signal == null && state == ConnState.connected && !webrtc.isDataChannelReady) {
+    if (signal == null &&
+        state == ConnState.connected &&
+        !webrtc.isDataChannelReady) {
       try {
         await startWebRtc();
       } catch (e) {
@@ -496,7 +517,8 @@ class ConnectionManager extends StateNotifier<ConnState> {
       if (!completer.isCompleted) completer.complete(false);
     });
     void check() {
-      if (!completer.isCompleted && (_signalDcReady || webrtc.isDataChannelReady)) {
+      if (!completer.isCompleted &&
+          (_signalDcReady || webrtc.isDataChannelReady)) {
         completer.complete(true);
       }
     }
@@ -506,7 +528,10 @@ class ConnectionManager extends StateNotifier<ConnState> {
     }
 
     webrtc.onDataChannelReady = onReady;
-    final poll = Timer.periodic(const Duration(milliseconds: 200), (_) => check());
+    final poll = Timer.periodic(
+      const Duration(milliseconds: 200),
+      (_) => check(),
+    );
     try {
       check();
       return await completer.future;
@@ -572,7 +597,11 @@ class ConnectionManager extends StateNotifier<ConnState> {
   }
 
   // ---- exec ----
-  void sendExec(String command) => send('exec', {'command': command});
+  void sendExec(String command) {
+    // 记录命令日志（对齐 web-debug sendSSHCommand: addCmdLog + sendExec）
+    _data.addCmdLog('send', 'exec', command);
+    send('exec', {'command': command});
+  }
 
   // ===================== 内部方法 =====================
 
@@ -681,14 +710,14 @@ class ConnectionManager extends StateNotifier<ConnState> {
         break;
       case 'bind_list_ack':
       case 'bind_list_update':
-        _data.setBindings(d['bindings'] as List? ?? d['clients'] as List? ?? []);
+        _data.setBindings(
+          d['bindings'] as List? ?? d['clients'] as List? ?? [],
+        );
         break;
       case 'binding_proof_response':
         // 绑定证明结果（批次 6：把本地绑定设备挂到云端帐号）
         // {success, payload: {...}, proof: "hex"} → POST /api/devices/bind {payload, proof}
-        if (d['success'] == true &&
-            d['payload'] is Map &&
-            d['proof'] != null) {
+        if (d['success'] == true && d['payload'] is Map && d['proof'] != null) {
           final payload = Map<String, dynamic>.from(d['payload'] as Map);
           final proof = d['proof'] as String;
           debugPrint('[CM] binding_proof 成功，提交云端绑定');
@@ -848,19 +877,20 @@ class ConnectionManager extends StateNotifier<ConnState> {
         _data.setCameraRecord(
           isRecording:
               d['is_recording'] as bool? ?? d['success'] as bool? ?? false,
-          cameraId: (d['camera_id'] as num?)?.toString() ??
-              d['camera_id'] as String?,
+          cameraId:
+              (d['camera_id'] as num?)?.toString() ?? d['camera_id'] as String?,
           fileSizeBytes: (d['size_bytes'] as num?)?.toInt(),
         );
         break;
       case 'camera_record_status':
         // 对齐 web-debug：data.is_recording + camera_id/elapsed_s/file_size_bytes
         _data.setCameraRecord(
-          isRecording: d['is_recording'] as bool? ??
+          isRecording:
+              d['is_recording'] as bool? ??
               d['recording'] as bool? ??
               _data.isRecording,
-          cameraId: (d['camera_id'] as num?)?.toString() ??
-              d['camera_id'] as String?,
+          cameraId:
+              (d['camera_id'] as num?)?.toString() ?? d['camera_id'] as String?,
           elapsedS: (d['elapsed_s'] as num?)?.toInt(),
           fileSizeBytes: (d['file_size_bytes'] as num?)?.toInt(),
         );
@@ -890,7 +920,10 @@ class ConnectionManager extends StateNotifier<ConnState> {
           if (removed != null && removed.isNotEmpty) {
             _data.galleryItems.removeWhere((g) => removed.contains(g.name));
             _data.notify();
-            AppToast.show('已删除 ${removed.length} 个文件', type: AppToastType.success);
+            AppToast.show(
+              '已删除 ${removed.length} 个文件',
+              type: AppToastType.success,
+            );
           }
         } else {
           AppToast.show(
@@ -901,81 +934,93 @@ class ConnectionManager extends StateNotifier<ConnState> {
         break;
 
       // ---- 图库分块下载（对齐 web-debug handleChunkedDownloadMessage） ----
-      case 'camera_media_download_start': {
-        final name = d['file_name'] as String? ?? '';
-        if (name.isEmpty) break;
-        _chunkedDownloads[name] = _ChunkedDownload(
-          fileName: name,
-          sizeBytes: (d['size_bytes'] as num?)?.toInt() ?? 0,
-          totalChunks: (d['total_chunks'] as num?)?.toInt() ?? 0,
-        );
-        break;
-      }
-      case 'camera_media_download_chunk': {
-        final name = d['file_name'] as String? ?? '';
-        final dl = _chunkedDownloads[name];
-        if (dl == null) break;
-        final idx = (d['chunk_index'] as num?)?.toInt() ?? -1;
-        final chunkB64 = d['data'] as String? ?? '';
-        if (idx >= 0 && chunkB64.isNotEmpty) {
-          dl.chunks[idx] = chunkB64;
-        }
-        break;
-      }
-      case 'camera_media_download_end': {
-        final name = d['file_name'] as String? ?? '';
-        final dl = _chunkedDownloads.remove(name);
-        if (dl == null) break;
-        // 按索引排序并组装 base64 → bytes
-        final keys = dl.chunks.keys.toList()..sort();
-        final fullB64 = keys.map((k) => dl.chunks[k]).join();
-        try {
-          final bytes = base64Decode(fullB64);
-          _data.notifyGalleryDownload(
-            GalleryDownloadResult(
-              fileName: name,
-              bytes: bytes,
-              sizeBytes: dl.sizeBytes,
-            ),
-          );
-        } catch (e) {
-          debugPrint('[CM] 图库下载组装失败: $e');
-          _data.notifyGalleryDownload(
-            GalleryDownloadResult(fileName: name, bytes: const [], error: '组装失败: $e'),
-          );
-        }
-        break;
-      }
-      case 'camera_media_download_data': {
-        // WS 回退：单次 file_base64（小文件）
-        final name = d['file_name'] as String? ?? '';
-        if (d['error'] != null) {
-          _data.notifyGalleryDownload(
-            GalleryDownloadResult(
-              fileName: name,
-              bytes: const [],
-              error: d['error'] as String?,
-            ),
+      case 'camera_media_download_start':
+        {
+          final name = d['file_name'] as String? ?? '';
+          if (name.isEmpty) break;
+          _chunkedDownloads[name] = _ChunkedDownload(
+            fileName: name,
+            sizeBytes: (d['size_bytes'] as num?)?.toInt() ?? 0,
+            totalChunks: (d['total_chunks'] as num?)?.toInt() ?? 0,
           );
           break;
         }
-        final b64 = d['file_base64'] as String? ?? '';
-        try {
-          final bytes = base64Decode(b64);
-          _data.notifyGalleryDownload(
-            GalleryDownloadResult(
-              fileName: name,
-              bytes: bytes,
-              sizeBytes: (d['size_bytes'] as num?)?.toInt() ?? bytes.length,
-            ),
-          );
-        } catch (e) {
-          _data.notifyGalleryDownload(
-            GalleryDownloadResult(fileName: name, bytes: const [], error: '解析失败: $e'),
-          );
+      case 'camera_media_download_chunk':
+        {
+          final name = d['file_name'] as String? ?? '';
+          final dl = _chunkedDownloads[name];
+          if (dl == null) break;
+          final idx = (d['chunk_index'] as num?)?.toInt() ?? -1;
+          final chunkB64 = d['data'] as String? ?? '';
+          if (idx >= 0 && chunkB64.isNotEmpty) {
+            dl.chunks[idx] = chunkB64;
+          }
+          break;
         }
-        break;
-      }
+      case 'camera_media_download_end':
+        {
+          final name = d['file_name'] as String? ?? '';
+          final dl = _chunkedDownloads.remove(name);
+          if (dl == null) break;
+          // 按索引排序并组装 base64 → bytes
+          final keys = dl.chunks.keys.toList()..sort();
+          final fullB64 = keys.map((k) => dl.chunks[k]).join();
+          try {
+            final bytes = base64Decode(fullB64);
+            _data.notifyGalleryDownload(
+              GalleryDownloadResult(
+                fileName: name,
+                bytes: bytes,
+                sizeBytes: dl.sizeBytes,
+              ),
+            );
+          } catch (e) {
+            debugPrint('[CM] 图库下载组装失败: $e');
+            _data.notifyGalleryDownload(
+              GalleryDownloadResult(
+                fileName: name,
+                bytes: const [],
+                error: '组装失败: $e',
+              ),
+            );
+          }
+          break;
+        }
+      case 'camera_media_download_data':
+        {
+          // WS 回退：单次 file_base64（小文件）
+          final name = d['file_name'] as String? ?? '';
+          if (d['error'] != null) {
+            _data.notifyGalleryDownload(
+              GalleryDownloadResult(
+                fileName: name,
+                bytes: const [],
+                error: d['error'] as String?,
+              ),
+            );
+            break;
+          }
+          final b64 = d['file_base64'] as String? ?? '';
+          try {
+            final bytes = base64Decode(b64);
+            _data.notifyGalleryDownload(
+              GalleryDownloadResult(
+                fileName: name,
+                bytes: bytes,
+                sizeBytes: (d['size_bytes'] as num?)?.toInt() ?? bytes.length,
+              ),
+            );
+          } catch (e) {
+            _data.notifyGalleryDownload(
+              GalleryDownloadResult(
+                fileName: name,
+                bytes: const [],
+                error: '解析失败: $e',
+              ),
+            );
+          }
+          break;
+        }
       case 'camera_media_download_done':
         // 分块传输完成确认（已在 end 处理组装）
         break;
@@ -1018,37 +1063,38 @@ class ConnectionManager extends StateNotifier<ConnState> {
         break;
       case 'software_install_ack':
       case 'software_uninstall_ack':
-      case 'software_upgrade_ack': {
-        // 对齐 web-debug：失败状态集合 → success/failed + 版本变化
-        const failStatuses = {
-          'failed',
-          'protected',
-          'permission_denied',
-          'not_in_whitelist',
-          'error',
-        };
-        final action = type
-            .replaceFirst('software_', '')
-            .replaceFirst('_ack', '');
-        final pkg = d['package'] as String? ?? '';
-        final status = d['status'] as String? ?? 'failed';
-        final ok = !failStatuses.contains(status);
-        _data.updateSoftwareTask(
-          pkg,
-          action: action,
-          status: ok ? 'success' : 'failed',
-          toVersion: d['new_version'] as String?,
-        );
-        debugPrint('[CM] sw_ack: $type success=$ok');
-        // already_latest 特殊提示（对齐 web-debug）
-        if (status == 'already_latest') {
-          AppToast.show('$pkg 已是最新版本');
+      case 'software_upgrade_ack':
+        {
+          // 对齐 web-debug：失败状态集合 → success/failed + 版本变化
+          const failStatuses = {
+            'failed',
+            'protected',
+            'permission_denied',
+            'not_in_whitelist',
+            'error',
+          };
+          final action = type
+              .replaceFirst('software_', '')
+              .replaceFirst('_ack', '');
+          final pkg = d['package'] as String? ?? '';
+          final status = d['status'] as String? ?? 'failed';
+          final ok = !failStatuses.contains(status);
+          _data.updateSoftwareTask(
+            pkg,
+            action: action,
+            status: ok ? 'success' : 'failed',
+            toVersion: d['new_version'] as String?,
+          );
+          debugPrint('[CM] sw_ack: $type success=$ok');
+          // already_latest 特殊提示（对齐 web-debug）
+          if (status == 'already_latest') {
+            AppToast.show('$pkg 已是最新版本');
+          }
+          // 操作完成后刷新列表（对齐 web-debug：成功后重发 software_list/available）
+          sendGetSoftwareList();
+          sendGetSoftwareAvailable();
+          break;
         }
-        // 操作完成后刷新列表（对齐 web-debug：成功后重发 software_list/available）
-        sendGetSoftwareList();
-        sendGetSoftwareAvailable();
-        break;
-      }
       case 'software_updates_available':
         debugPrint('[CM] sw_updates: $d');
         break;
@@ -1070,7 +1116,9 @@ class ConnectionManager extends StateNotifier<ConnState> {
         debugPrint('[CM] config_get_ack keys=${d.keys.length}');
         break;
       case 'config_set_ack':
-        debugPrint('[CM] config_set_ack: success=${d['success']} changes=${d['changes']}');
+        debugPrint(
+          '[CM] config_set_ack: success=${d['success']} changes=${d['changes']}',
+        );
         if (d['success'] == true) {
           // 重新拉取最新配置
           sendConfigGet();
@@ -1105,6 +1153,32 @@ class ConnectionManager extends StateNotifier<ConnState> {
       // ---- exec ----
       case 'exec_result':
         debugPrint('[CM] exec_result: ok');
+        {
+          // 对齐 web-debug useWebSocket.ts exec_result 解析：
+          // stdout/stderr 分行追加，return_code 非 0 时提示，cwd 同步 shell 会话
+          final stdout = d['stdout'] as String? ?? '';
+          final stderr = d['stderr'] as String? ?? '';
+          final returnCode = (d['return_code'] as num?)?.toInt() ?? 0;
+          final cwd = d['cwd'] as String?;
+          if (cwd != null && cwd.isNotEmpty) {
+            _data.setShellCwd(cwd);
+          }
+          if (stdout.isNotEmpty) {
+            for (final line in stdout.split('\n')) {
+              if (line.trim().isEmpty) continue;
+              _data.addSshOutput('out', line);
+            }
+          }
+          if (stderr.isNotEmpty) {
+            for (final line in stderr.split('\n')) {
+              if (line.trim().isEmpty) continue;
+              _data.addSshOutput('err', line);
+            }
+          }
+          if (returnCode != 0) {
+            _data.addSshOutput('err', '[exit: $returnCode]');
+          }
+        }
         break;
 
       // ---- 日志 ----
