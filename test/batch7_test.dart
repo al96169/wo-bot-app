@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:wo_bot/core/network/connection_manager.dart';
 import 'package:wo_bot/core/network/robot_data_store.dart';
 import 'package:wo_bot/core/theme/theme_controller.dart';
 import 'package:wo_bot/features/ssh_terminal/presentation/ssh_terminal_page.dart';

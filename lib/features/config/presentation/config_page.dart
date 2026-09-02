@@ -28,6 +28,8 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
   String _jsonText = '';
   String _jsonError = '';
   bool _applying = false;
+  /// JSON 编辑器输入控制器（复用实例，避免 build 重建导致光标跳动/输入丢失）
+  final TextEditingController _jsonController = TextEditingController();
 
   static const _coreFeatures = ['websocket', 'exec', 'system'];
 
@@ -52,6 +54,12 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
     });
   }
 
+  @override
+  void dispose() {
+    _jsonController.dispose();
+    super.dispose();
+  }
+
   Map<String, dynamic> _deepCopy(Map<String, dynamic> src) {
     return jsonDecode(jsonEncode(src)) as Map<String, dynamic>;
   }
@@ -63,6 +71,10 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
         _edit = _deepCopy(store.robotConfig);
         _loaded = true;
         _jsonText = const JsonEncoder.withIndent('  ').convert(_edit);
+        // 同步 controller 文本（首次进入 JSON tab 前已就绪）
+        if (_jsonController.text != _jsonText) {
+          _jsonController.text = _jsonText;
+        }
       });
     }
   }
@@ -379,14 +391,17 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
                 border: Border.all(color: const Color(0xFFD8D8D8), width: 0.5),
               ),
               child: TextField(
-                controller: TextEditingController(text: _jsonText),
+                controller: _jsonController,
                 maxLines: null,
                 keyboardType: TextInputType.multiline,
+                // 容器为白底，文字显式用深色保证可读（不随主题变浅）
                 style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 13,
                   fontFamily: 'monospace',
                   height: 1.5,
+                  color: Color(0xFF1C1C1E),
                 ),
+                cursorColor: const Color(0xFF0256FF),
                 onChanged: (v) {
                   _jsonText = v;
                   try {
@@ -399,6 +414,10 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
                 decoration: const InputDecoration(
                   border: InputBorder.none,
                   hintText: '{ "robot": { ... } }',
+                  hintStyle: TextStyle(
+                    color: Color(0xFF8E8E93),
+                    fontFamily: 'monospace',
+                  ),
                 ),
               ),
             ),
