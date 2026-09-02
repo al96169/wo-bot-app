@@ -27,8 +27,17 @@ class _MusicPageState extends ConsumerState<MusicPage> {
     _refresh();
     // 2s 轮询音乐状态（对齐 web-debug refreshTimer）
     _refreshTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      if (mounted) {
-        ref.read(connectionManagerProvider.notifier).sendGetMusicStatus();
+      if (!mounted) return;
+      final m = ref.read(connectionManagerProvider.notifier);
+      m.sendGetMusicStatus();
+      // 兜底：服务已运行但列表为空（如进入页面时服务未就绪、
+      // 首次 music_list 被"服务未就绪"响应跳过）→ 补拉列表
+      final store = ref.read(robotDataProvider.notifier);
+      final svcRunning = store.services.any(
+        (s) => s.serviceId == 'music_player' && s.status == 'running',
+      );
+      if (svcRunning && store.musicSongs.isEmpty) {
+        m.sendGetMusicList();
       }
     });
   }
@@ -43,6 +52,35 @@ class _MusicPageState extends ConsumerState<MusicPage> {
     final m = ref.read(connectionManagerProvider.notifier);
     m.sendGetMusicList();
     m.sendGetMusicStatus();
+  }
+
+  /// 启动音乐服务并等待就绪后自动拉取列表。
+  /// 音乐服务冷启动需 1-3s，立即发 music_list 会命中 robot 端
+  /// "服务未就绪"响应（无 songs），导致列表一直为空。
+  void _startMusicService() {
+    final m = ref.read(connectionManagerProvider.notifier);
+    m.sendServiceControl('music_player', 'start');
+    AppToast.show('正在启动音乐服务...');
+    // 轮询等待服务 running 后拉取列表（最多 ~10s）
+    var attempts = 0;
+    Timer.periodic(const Duration(milliseconds: 800), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      attempts++;
+      final services = ref.read(robotDataProvider.notifier).services;
+      final running = services.any(
+        (s) => s.serviceId == 'music_player' && s.status == 'running',
+      );
+      if (running || attempts >= 13) {
+        t.cancel();
+        _refresh();
+        if (!running) {
+          AppToast.show('音乐服务启动超时', type: AppToastType.error);
+        }
+      }
+    });
   }
 
   void _send(String cmd, [Map<String, dynamic> data = const {}]) {
@@ -105,12 +143,7 @@ class _MusicPageState extends ConsumerState<MusicPage> {
                         ),
                       ),
                       TextButton(
-                        onPressed: () {
-                          ref
-                              .read(connectionManagerProvider.notifier)
-                              .sendServiceControl('music_player', 'start');
-                          AppToast.show('正在启动音乐服务...');
-                        },
+                        onPressed: () => _startMusicService(),
                         style: TextButton.styleFrom(
                           foregroundColor: const Color(0xFF0256FF),
                           padding: const EdgeInsets.symmetric(horizontal: 10),

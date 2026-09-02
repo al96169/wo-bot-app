@@ -28,6 +28,11 @@ class _SshTerminalPageState extends ConsumerState<SshTerminalPage> {
   final ScrollController _scroll = ScrollController();
   bool _sending = false;
 
+  /// 上一次构建时的输出条数 — 仅在新增输出时自动滚动到底部。
+  /// 用户上翻看历史时若每次重建都强制滚底，会被拉回（get_status 轮询
+  /// 触发 store.notify() 会频繁重建页面）。
+  int _lastOutputCount = 0;
+
   @override
   void initState() {
     super.initState();
@@ -68,12 +73,33 @@ class _SshTerminalPageState extends ConsumerState<SshTerminalPage> {
     ref.read(robotDataProvider.notifier).clearSshOutput();
   }
 
+  /// 滚动到底部（发送命令后主动调用）
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
         _scroll.animateTo(
           _scroll.position.maxScrollExtent,
           duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  /// 输出增加时自动滚动到底部；用户上翻（offset < max）时不做任何事
+  void _autoScrollOnNewOutput(int outputCount) {
+    final hasNew = outputCount > _lastOutputCount;
+    _lastOutputCount = outputCount;
+    if (!hasNew) return;
+    // 用户正停留在底部附近才自动跟随；上翻看历史时保持原位
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      final pos = _scroll.position;
+      final atBottom = pos.maxScrollExtent - pos.pixels < 120;
+      if (atBottom) {
+        pos.animateTo(
+          pos.maxScrollExtent,
+          duration: const Duration(milliseconds: 150),
           curve: Curves.easeOut,
         );
       }
@@ -93,8 +119,8 @@ class _SshTerminalPageState extends ConsumerState<SshTerminalPage> {
     final store = ref.read(robotDataProvider.notifier);
     final connected = _connected;
     final output = store.sshOutput;
-    // 新输出时自动滚动到底部
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    // 仅新增输出时自动滚动（避免 get_status 轮询重建把用户从顶部拉回底部）
+    _autoScrollOnNewOutput(output.length);
 
     return Scaffold(
       backgroundColor: const Color(0xFF1C1C1E),
@@ -144,16 +170,14 @@ class _SshTerminalPageState extends ConsumerState<SshTerminalPage> {
               ),
             ),
             const Divider(color: Color(0xFF3A3A3C), height: 1),
-            // 输出区
+            // 输出区：未连接时仍展示历史输出（仅禁用输入），
+            // 避免重新进入页面时因连接状态丢失历史可见性
             Expanded(
-              child: !connected
+              child: output.isEmpty
                   ? const Center(
                       child: Text(
                         '请先连接设备后再使用 SSH 终端',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF8E8E93),
-                        ),
+                        style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
                       ),
                     )
                   : ListView.builder(

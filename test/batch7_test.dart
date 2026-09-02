@@ -1,9 +1,12 @@
 // 批次 7 测试：SSH 终端数据流 / 主题控制器 / 命令日志
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:wo_bot/core/theme/theme_controller.dart';
+import 'package:wo_bot/core/network/connection_manager.dart';
 import 'package:wo_bot/core/network/robot_data_store.dart';
+import 'package:wo_bot/core/theme/theme_controller.dart';
+import 'package:wo_bot/features/ssh_terminal/presentation/ssh_terminal_page.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -35,6 +38,27 @@ void main() {
 
     store.clearCmdLogs();
     expect(store.cmdLogs.length, 0);
+  });
+
+  testWidgets('SSH 页面未连接时仍显示历史输出（历史会话保留）', (tester) async {
+    // 预填历史输出（模拟之前会话），未连接状态
+    final store = RobotDataStore();
+    store.addSshOutput('cmd', 'ls');
+    store.addSshOutput('out', 'src  config.yaml');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          robotDataProvider.overrideWith((ref) => store),
+        ],
+        child: const MaterialApp(home: SshTerminalPage()),
+      ),
+    );
+    await tester.pump();
+
+    // 历史命令与输出应可见（未被"请先连接设备"占位替代）
+    expect(find.text('ls'), findsOneWidget);
+    expect(find.text('src  config.yaml'), findsOneWidget);
   });
 
   test('ThemeController 三态循环 + 持久化', () async {

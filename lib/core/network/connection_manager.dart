@@ -839,7 +839,12 @@ class ConnectionManager extends StateNotifier<ConnState> {
         _data.updateMusicFromJson(d);
         break;
       case 'music_list':
-        _data.setMusicSongs(d['songs'] as List? ?? []);
+        // 对齐 web-debug：仅当 songs 为数组时才更新列表。
+        // robot 端音乐服务未就绪时返回 {"status":"stopped"}（无 songs 字段），
+        // 若此时清空列表会误显示"暂无歌曲"（服务就绪后不会自动重试）。
+        if (d['songs'] is List) {
+          _data.setMusicSongs(d['songs'] as List);
+        }
         break;
       case 'music_volume':
         _data.music.volume =
