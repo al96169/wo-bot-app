@@ -716,13 +716,130 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
   }
 }
 
-/// WebRTC 状态胶囊
-class _WebRtcBadge extends StatelessWidget {
+/// WebRTC 状态胶囊 — 点击弹出连接监控面板（对齐 web-debug 监控面板）
+class _WebRtcBadge extends ConsumerWidget {
   final WebRtcState state;
   const _WebRtcBadge({required this.state});
 
+  /// 弹出 WebRTC 监控面板（详细状态 + ICE 候选）
+  static void _openMonitor(
+    BuildContext context,
+    WidgetRef ref,
+    WebRtcState state,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1C1C1E),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'WebRTC 监控',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _MonitorRow(label: '总状态', value: state.name),
+              _MonitorRow(
+                label: '连接',
+                value: _val(ref, (w) => w.connectionState),
+              ),
+              _MonitorRow(
+                label: 'ICE 连接',
+                value: _val(ref, (w) => w.iceConnectionState),
+              ),
+              _MonitorRow(
+                label: 'ICE 收集',
+                value: _val(ref, (w) => w.iceGatheringState),
+              ),
+              _MonitorRow(
+                label: '信令',
+                value: _val(ref, (w) => w.signalingState),
+              ),
+              _MonitorRow(
+                label: 'DataChannel',
+                value: _val(ref, (w) => w.dcReadyState),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '本地候选',
+                style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _candidates(ref, local: true),
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFFE5E5EA),
+                  fontFamily: 'monospace',
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '远端候选',
+                style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _candidates(ref, local: false),
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFFE5E5EA),
+                  fontFamily: 'monospace',
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF6750A4),
+                  ),
+                  child: const Text('关闭'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _val(WidgetRef ref, String Function(dynamic webrtc) get) {
+    try {
+      final w = ref.read(connectionManagerProvider.notifier).webrtc;
+      final v = get(w);
+      return v.isEmpty ? '--' : v;
+    } catch (_) {
+      return '--';
+    }
+  }
+
+  static String _candidates(WidgetRef ref, {required bool local}) {
+    try {
+      final w = ref.read(connectionManagerProvider.notifier).webrtc;
+      final list = local ? w.localCandidates : w.remoteCandidates;
+      if (list.isEmpty) return '（无）';
+      return list.join('\n');
+    } catch (_) {
+      return '（无）';
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final (color, label) = switch (state) {
       WebRtcState.connected => (const Color(0xFF34C759), '视频'),
       WebRtcState.connecting => (const Color(0xFFFF9500), '连接中'),
@@ -730,24 +847,62 @@ class _WebRtcBadge extends StatelessWidget {
       WebRtcState.disconnected => (const Color(0xFF8E8E93), '断开'),
       WebRtcState.idle => (const Color(0xFF8E8E93), '未连接'),
     };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(10),
+    return GestureDetector(
+      onTap: () => _openMonitor(context, ref, state),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 10, color: Colors.white),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+/// 监控行 — label + value
+class _MonitorRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _MonitorRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+          SizedBox(
+            width: 90,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+            ),
           ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 10, color: Colors.white),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFFE5E5EA),
+                fontFamily: 'monospace',
+              ),
+            ),
           ),
         ],
       ),

@@ -5,6 +5,7 @@ import '../../../core/network/account_service.dart';
 import '../../../core/network/bind_service.dart';
 import '../../../core/network/connection_manager.dart';
 import '../../../core/network/device_store.dart';
+import '../../../core/network/share_link_service.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../shared/models/robot_device.dart';
 import '../../robot_home/presentation/robot_home_page.dart';
@@ -22,6 +23,7 @@ class DeviceListPage extends ConsumerStatefulWidget {
 
 class _DeviceListPageState extends ConsumerState<DeviceListPage> {
   bool _openingBind = false;
+
   /// 已跳转主页标记：防止云端重连触发二次 push 覆盖遥控页
   bool _navigatedToHome = false;
 
@@ -38,6 +40,13 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
     cm.onRobotIdKnown = (rid) {
       ref.read(deviceStoreProvider.notifier).updateDeviceRobotId(rid);
     };
+    // 分享链接深链处理（wobot://connect?robotIp=&robotPort=&shareCode=）
+    ShareLinkService.instance.onShareLink = _handleShareLink;
+    // 冷启动被拉起时可能有待处理分享（getInitialLink 已触发 submit）
+    final pendingShare = ShareLinkService.instance.take();
+    if (pendingShare != null) {
+      Future.microtask(() => _connectFromShareLink(pendingShare));
+    }
   }
 
   /// 缓存的 ConnectionManager 引用（dispose 时使用，避免 ref 访问）
@@ -47,7 +56,61 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
   void dispose() {
     BindService.instance.onMethodsReady = null;
     _cm?.onRobotIdKnown = null;
+    if (ShareLinkService.instance.onShareLink == _handleShareLink) {
+      ShareLinkService.instance.onShareLink = null;
+    }
     super.dispose();
+  }
+
+  /// 分享链接回调（深链到达时触发）
+  void _handleShareLink(ShareLinkData data) {
+    if (!mounted) return;
+    Future.microtask(() => _connectFromShareLink(data));
+  }
+
+  /// 分享链接自动连接（对齐 web-debug App.vue 分享逻辑）
+  Future<void> _connectFromShareLink(ShareLinkData data) async {
+    // 1. 找已有设备（robotId 或 ip:port 匹配）
+    final store = ref.read(deviceStoreProvider);
+    RobotDevice? existing;
+    for (final d in store.devices) {
+      if ((data.robotId != null &&
+              data.robotId!.isNotEmpty &&
+              (d.id == data.robotId || d.robotId == data.robotId)) ||
+          (d.ip == data.robotIp && d.port == data.robotPort)) {
+        existing = d;
+        break;
+      }
+    }
+
+    RobotDevice target;
+    if (existing != null) {
+      target = existing;
+      // 已绑定当前用户？看 binding 凭证是否存在（此处简化：直接带分享码连）
+    } else {
+      // 2. 新设备：创建记录
+      target = RobotDevice(
+        id: 'share-${DateTime.now().millisecondsSinceEpoch}',
+        name: '机器人 ${data.robotIp}',
+        ip: data.robotIp,
+        port: data.robotPort,
+        serviceName: '',
+      );
+      await ref.read(deviceStoreProvider.notifier).addDevice(target);
+    }
+
+    // 3. 设置分享码并连接（连接时 WS 携带 shareCode 完成自动绑定）
+    final cm = ref.read(connectionManagerProvider.notifier);
+    cm.pendingShareCode = data.shareCode;
+    AppToast.show('正在通过分享码连接 ${data.robotIp}...');
+    _navigatedToHome = false;
+    try {
+      await ref.read(deviceStoreProvider.notifier).setCurrentDevice(target);
+      await cm.connectToDevice(target);
+    } catch (e) {
+      if (!mounted) return;
+      AppToast.show('连接失败: ${data.robotIp}', type: AppToastType.error);
+    }
   }
 
   Future<void> _showBindPage() async {
@@ -281,9 +344,9 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
     // 主动连接成功：直接跳转主页（不依赖 listener，避免防重入标记导致不跳）
     _navigatedToHome = true;
     if (ref.read(connectionManagerProvider) == ConnState.connected) {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => const RobotHomePage()),
-      );
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => const RobotHomePage()));
     }
   }
 
@@ -346,10 +409,11 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
                             connected:
                                 store.currentDevice?.id == device.id &&
                                 connection == ConnState.connected,
-                            cloudOnline: ref
-                                .read(deviceStoreProvider.notifier)
-                                .findCloudDevice(device.id)
-                                ?.status ==
+                            cloudOnline:
+                                ref
+                                    .read(deviceStoreProvider.notifier)
+                                    .findCloudDevice(device.id)
+                                    ?.status ==
                                 'online',
                             locallyDiscovered: store.discovered.any(
                               (d) =>
@@ -482,8 +546,10 @@ class _SectionTitle extends StatelessWidget {
 class _DeviceCard extends StatelessWidget {
   final RobotDevice device;
   final bool connected;
+
   /// 云端设备在线状态（纯云端设备专用，本地设备忽略）
   final bool cloudOnline;
+
   /// 局域网 mDNS 发现列表是否包含该设备（本地在线判定，对齐 web-debug）
   final bool locallyDiscovered;
   final VoidCallback onTap;

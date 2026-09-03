@@ -22,6 +22,7 @@ class SettingsPage extends ConsumerStatefulWidget {
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   int _ecoThreshold = 30;
   int _chargeThreshold = 30;
+
   /// 调试模式（持久化，控制 AppLogger.debug 输出）
   bool _debugMode = false;
 
@@ -150,11 +151,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         ),
                         title: const Text(
                           '调试模式',
-                          style: TextStyle(fontSize: 14, color: Color(0xFF3D3D3D)),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF3D3D3D),
+                          ),
                         ),
                         subtitle: const Text(
                           '开启后在日志输出 DEBUG 级别信息',
-                          style: TextStyle(fontSize: 11, color: Color(0xFF8E8E93)),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF8E8E93),
+                          ),
                         ),
                         value: _debugMode,
                         activeTrackColor: const Color(0xFF6750A4),

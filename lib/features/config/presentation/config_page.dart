@@ -28,6 +28,7 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
   String _jsonText = '';
   String _jsonError = '';
   bool _applying = false;
+
   /// JSON 编辑器输入控制器（复用实例，避免 build 重建导致光标跳动/输入丢失）
   final TextEditingController _jsonController = TextEditingController();
 
@@ -100,19 +101,47 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 15),
                 children: [
-                  _TabChip(label: '功能', active: _tab == 'features', onTap: () => setState(() => _tab = 'features')),
+                  _TabChip(
+                    label: '功能',
+                    active: _tab == 'features',
+                    onTap: () => setState(() => _tab = 'features'),
+                  ),
                   const SizedBox(width: 6),
-                  _TabChip(label: '运动', active: _tab == 'motion', onTap: () => setState(() => _tab = 'motion')),
+                  _TabChip(
+                    label: '运动',
+                    active: _tab == 'motion',
+                    onTap: () => setState(() => _tab = 'motion'),
+                  ),
                   const SizedBox(width: 6),
-                  _TabChip(label: '摄像头', active: _tab == 'camera', onTap: () => setState(() => _tab = 'camera')),
+                  _TabChip(
+                    label: '摄像头',
+                    active: _tab == 'camera',
+                    onTap: () => setState(() => _tab = 'camera'),
+                  ),
                   const SizedBox(width: 6),
-                  _TabChip(label: '网络', active: _tab == 'network', onTap: () => setState(() => _tab = 'network')),
+                  _TabChip(
+                    label: '网络',
+                    active: _tab == 'network',
+                    onTap: () => setState(() => _tab = 'network'),
+                  ),
                   const SizedBox(width: 6),
-                  _TabChip(label: '省电', active: _tab == 'power', onTap: () => setState(() => _tab = 'power')),
+                  _TabChip(
+                    label: '省电',
+                    active: _tab == 'power',
+                    onTap: () => setState(() => _tab = 'power'),
+                  ),
                   const SizedBox(width: 6),
-                  _TabChip(label: 'JSON', active: _tab == 'json', onTap: () => setState(() => _tab = 'json')),
+                  _TabChip(
+                    label: 'JSON',
+                    active: _tab == 'json',
+                    onTap: () => setState(() => _tab = 'json'),
+                  ),
                   const SizedBox(width: 6),
-                  _TabChip(label: '绑定', active: _tab == 'bind', onTap: () => setState(() => _tab = 'bind')),
+                  _TabChip(
+                    label: '绑定',
+                    active: _tab == 'bind',
+                    onTap: () => setState(() => _tab = 'bind'),
+                  ),
                 ],
               ),
             ),
@@ -124,7 +153,13 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
                         children: [
                           CircularProgressIndicator(strokeWidth: 2),
                           SizedBox(height: 10),
-                          Text('加载配置中...', style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93))),
+                          Text(
+                            '加载配置中...',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF8E8E93),
+                            ),
+                          ),
                         ],
                       ),
                     )
@@ -217,14 +252,14 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
               value: ((motion['max_linear_speed'] as num?)?.toDouble() ?? 1.0),
               min: 0.1,
               max: 2.0,
-                            onChanged: (v) => setState(() => motion['max_linear_speed'] = v),
+              onChanged: (v) => setState(() => motion['max_linear_speed'] = v),
             ),
             _SliderRow(
               label: '最大角速度',
               value: ((motion['max_angular_speed'] as num?)?.toDouble() ?? 1.0),
               min: 0.1,
               max: 3.0,
-                            onChanged: (v) => setState(() => motion['max_angular_speed'] = v),
+              onChanged: (v) => setState(() => motion['max_angular_speed'] = v),
             ),
             _TextFieldRow(
               label: '串口设备',
@@ -235,7 +270,9 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
               label: '串口波特率',
               value: '${motion['serial_baudrate'] ?? 115200}',
               numeric: true,
-              onChanged: (v) => setState(() => motion['serial_baudrate'] = int.tryParse(v) ?? 115200),
+              onChanged: (v) => setState(
+                () => motion['serial_baudrate'] = int.tryParse(v) ?? 115200,
+              ),
             ),
           ],
         ),
@@ -265,7 +302,9 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
               label: '默认摄像头',
               value: '${camera['default_camera'] ?? 0}',
               options: const ['0', '1'],
-              onChanged: (v) => setState(() => camera['default_camera'] = int.tryParse(v) ?? 0),
+              onChanged: (v) => setState(
+                () => camera['default_camera'] = int.tryParse(v) ?? 0,
+              ),
             ),
             _SliderRow(
               label: '分辨率宽度',
@@ -273,7 +312,7 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
               min: 320,
               max: 1280,
               step: 160,
-                            onChanged: (v) => setState(() => res['width'] = v.round()),
+              onChanged: (v) => setState(() => res['width'] = v.round()),
             ),
             _SliderRow(
               label: '分辨率高度',
@@ -281,7 +320,7 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
               min: 240,
               max: 960,
               step: 120,
-                            onChanged: (v) => setState(() => res['height'] = v.round()),
+              onChanged: (v) => setState(() => res['height'] = v.round()),
             ),
             _DropdownRow(
               label: '拍照画质',
@@ -392,13 +431,15 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
               label: 'WebSocket 端口',
               value: '${server['port'] ?? 8765}',
               numeric: true,
-              onChanged: (v) => setState(() => server['port'] = int.tryParse(v) ?? 8765),
+              onChanged: (v) =>
+                  setState(() => server['port'] = int.tryParse(v) ?? 8765),
             ),
             _TextFieldRow(
               label: 'HTTP 端口',
               value: '${server['http_port'] ?? 8000}',
               numeric: true,
-              onChanged: (v) => setState(() => server['http_port'] = int.tryParse(v) ?? 8000),
+              onChanged: (v) =>
+                  setState(() => server['http_port'] = int.tryParse(v) ?? 8000),
             ),
             _TextFieldRow(
               label: '广播 IP（留空自动）',
@@ -517,7 +558,9 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF0256FF),
                       side: const BorderSide(color: Color(0xFF0256FF)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(22),
+                      ),
                     ),
                     child: const Text('载入'),
                   ),
@@ -528,7 +571,9 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
                     onPressed: _applying ? null : _applyConfig,
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF0256FF),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(22),
+                      ),
                     ),
                     child: Text(_applying ? '应用中...' : '应用配置'),
                   ),
@@ -553,11 +598,19 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.link, color: Color(0xFF0256FF)),
               title: const Text('客户端管理', style: TextStyle(fontSize: 14)),
-              subtitle: const Text('查看绑定列表、分享码、密码配置', style: TextStyle(fontSize: 11, color: Color(0xFF8E8E93))),
-              trailing: const Icon(Icons.chevron_right, color: Color(0xFFC7C7CC)),
+              subtitle: const Text(
+                '查看绑定列表、分享码、密码配置',
+                style: TextStyle(fontSize: 11, color: Color(0xFF8E8E93)),
+              ),
+              trailing: const Icon(
+                Icons.chevron_right,
+                color: Color(0xFFC7C7CC),
+              ),
               onTap: () {
                 Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const ClientManagementPage()),
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ClientManagementPage(),
+                  ),
                 );
               },
             ),
@@ -591,7 +644,11 @@ class _TabChip extends StatelessWidget {
   final String label;
   final bool active;
   final VoidCallback onTap;
-  const _TabChip({required this.label, required this.active, required this.onTap});
+  const _TabChip({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -686,13 +743,18 @@ class _SwitchRow extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontSize: 14,
-                  color: enabled ? const Color(0xFF3D3D3D) : const Color(0xFFC7C7CC),
+                  color: enabled
+                      ? const Color(0xFF3D3D3D)
+                      : const Color(0xFFC7C7CC),
                 ),
               ),
               if (hint != null)
                 Text(
                   hint!,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93)),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF8E8E93),
+                  ),
                 ),
             ],
           ),
@@ -725,13 +787,21 @@ class _DropdownRow extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: Text(label, style: const TextStyle(fontSize: 14, color: Color(0xFF3D3D3D))),
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF3D3D3D)),
+          ),
         ),
         DropdownButton<String>(
           value: options.contains(value) ? value : options.first,
           underline: const SizedBox.shrink(),
           items: options
-              .map((o) => DropdownMenuItem(value: o, child: Text(o, style: const TextStyle(fontSize: 13))))
+              .map(
+                (o) => DropdownMenuItem(
+                  value: o,
+                  child: Text(o, style: const TextStyle(fontSize: 13)),
+                ),
+              )
               .toList(),
           onChanged: (v) {
             if (v != null) onChanged(v);
@@ -770,7 +840,10 @@ class _SliderRow extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: Text(label, style: const TextStyle(fontSize: 14, color: Color(0xFF3D3D3D))),
+              child: Text(
+                label,
+                style: const TextStyle(fontSize: 14, color: Color(0xFF3D3D3D)),
+              ),
             ),
             Text(
               displayValue ?? '${value.toStringAsFixed(1)}$suffix',
@@ -820,7 +893,10 @@ class _TextFieldRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 100,
-            child: Text(label, style: const TextStyle(fontSize: 14, color: Color(0xFF3D3D3D))),
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF3D3D3D)),
+            ),
           ),
           Expanded(
             child: TextField(
@@ -829,7 +905,10 @@ class _TextFieldRow extends StatelessWidget {
               style: const TextStyle(fontSize: 13),
               decoration: const InputDecoration(
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.all(Radius.circular(8)),
                   borderSide: BorderSide(color: Color(0xFFD8D8D8), width: 0.5),

@@ -464,10 +464,7 @@ class _ModuleRow extends StatelessWidget {
               module.name.isEmpty ? module.id : module.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF1C1C1E),
-              ),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF1C1C1E)),
             ),
           ),
           if (module.version.isNotEmpty) ...[

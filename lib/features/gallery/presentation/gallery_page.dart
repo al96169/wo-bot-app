@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:video_player/video_player.dart';
 import '../../../core/network/connection_manager.dart';
 import '../../../core/network/robot_data_store.dart';
 import '../../../core/utils/app_toast.dart';
@@ -27,6 +28,7 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
   String _layout = 'grid'; // grid / list
   bool _multiSelect = false;
   final Set<String> _selected = {};
+
   /// 缩略图 base64 → 解码字节缓存（避免每次 rebuild 重复解码导致闪烁）
   final Map<String, Uint8List> _thumbCache = {};
 
@@ -57,10 +59,7 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
     store.notify();
     ref
         .read(connectionManagerProvider.notifier)
-        .sendGetGalleryList(
-          type: _filter,
-          page: store.galleryPage + 1,
-        );
+        .sendGetGalleryList(type: _filter, page: store.galleryPage + 1);
   }
 
   void _changeFilter(String type) {
@@ -107,13 +106,12 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
       manager.sendGalleryDownload(fileName);
       result = await _waitDownload(store, fileName);
     }
-    debugPrint('[Gallery] 下载结果: success=${result?.isSuccess} err=${result?.error}');
+    debugPrint(
+      '[Gallery] 下载结果: success=${result?.isSuccess} err=${result?.error}',
+    );
     if (!mounted) return;
     if (result == null || !result.isSuccess) {
-      AppToast.show(
-        '下载失败: ${result?.error ?? '超时'}',
-        type: AppToastType.error,
-      );
+      AppToast.show('下载失败: ${result?.error ?? '超时'}', type: AppToastType.error);
       return;
     }
     // 保存到应用文档目录
@@ -183,9 +181,7 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
       ),
     ).then((ok) {
       if (ok == true) {
-        ref
-            .read(connectionManagerProvider.notifier)
-            .sendGalleryDelete(names);
+        ref.read(connectionManagerProvider.notifier).sendGalleryDelete(names);
         _selected.clear();
         setState(() {});
       }
@@ -209,7 +205,8 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
             // 工具栏
             _buildToolbar(store),
             // 存储空间条
-            if (storage != null && storage.totalBytes > 0) _buildStorageBar(storage),
+            if (storage != null && storage.totalBytes > 0)
+              _buildStorageBar(storage),
             // 列表
             Expanded(
               child: NotificationListener<ScrollNotification>(
@@ -267,11 +264,10 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
               const Spacer(),
               // 布局切换
               _IconBtn(
-                icon: _layout == 'grid'
-                    ? Icons.view_list
-                    : Icons.grid_view,
-                onTap: () =>
-                    setState(() => _layout = _layout == 'grid' ? 'list' : 'grid'),
+                icon: _layout == 'grid' ? Icons.view_list : Icons.grid_view,
+                onTap: () => setState(
+                  () => _layout = _layout == 'grid' ? 'list' : 'grid',
+                ),
               ),
               const SizedBox(width: 8),
               // 多选
@@ -293,7 +289,10 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
               children: [
                 Text(
                   '已选 ${_selected.length} 项',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF3D3D3D)),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF3D3D3D),
+                  ),
                 ),
                 const Spacer(),
                 TextButton.icon(
@@ -337,7 +336,10 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
   }
 
   Widget _buildStorageBar(GalleryStorage storage) {
-    final usedPercent = (storage.usedBytes / storage.totalBytes).clamp(0.0, 1.0);
+    final usedPercent = (storage.usedBytes / storage.totalBytes).clamp(
+      0.0,
+      1.0,
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(15, 0, 15, 10),
       child: Row(
@@ -469,7 +471,7 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
       _toggleSelect(item.name);
       return;
     }
-    // 预览弹层：缩略图全屏展示 + 下载/删除
+    // 预览弹层：缩略图/视频 + 下载/删除（视频由 _PreviewSheet 内部解析源）
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.white,
@@ -577,7 +579,10 @@ class _GridCard extends StatelessWidget {
                 right: 4,
                 bottom: 4,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 1,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0x99000000),
                     borderRadius: BorderRadius.circular(4),
@@ -596,7 +601,9 @@ class _GridCard extends StatelessWidget {
                 child: GestureDetector(
                   onTap: onSelect,
                   child: Icon(
-                    selected ? Icons.check_circle : Icons.radio_button_unchecked,
+                    selected
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
                     size: 20,
                     color: selected
                         ? const Color(0xFF0256FF)
@@ -838,7 +845,7 @@ class _FilterChip extends StatelessWidget {
 }
 
 /// 预览弹层 — 缩略图大图 + 文件名 + 下载/删除
-class _PreviewSheet extends StatelessWidget {
+class _PreviewSheet extends ConsumerStatefulWidget {
   final GalleryItem item;
   final Uint8List? thumbBytes;
   final VoidCallback onDownload;
@@ -851,7 +858,117 @@ class _PreviewSheet extends StatelessWidget {
   });
 
   @override
+  ConsumerState<_PreviewSheet> createState() => _PreviewSheetState();
+}
+
+class _PreviewSheetState extends ConsumerState<_PreviewSheet> {
+  /// 视频本地文件路径（信令模式分块下载后）
+  String? _videoLocalPath;
+  bool _videoLoading = false;
+  String? _videoHttpUrl;
+
+  bool get _isVideo => widget.item.type == 'video';
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isVideo) _initVideoSource();
+  }
+
+  /// 解析视频源：直连局域网 → HTTP URL 流式；信令/云端 → 分块下载本地文件
+  void _initVideoSource() {
+    final manager = ref.read(connectionManagerProvider.notifier);
+    // 信令/云端模式：无局域网直连，走分块下载
+    final sig = manager.signal;
+    final cloudActive = sig != null && sig.isConnected;
+    final ip = manager.currentDevice?.ip;
+    if (cloudActive || ip == null || ip.isEmpty) {
+      _downloadForVideo();
+      return;
+    }
+    // 直连模式：HTTP 流式
+    final store = ref.read(robotDataProvider.notifier);
+    final server = store.robotConfig['server'] as Map?;
+    final httpPort = (server?['http_port'] as num?)?.toInt() ?? 8000;
+    setState(() {
+      _videoHttpUrl =
+          'http://$ip:$httpPort/api/media/${Uri.encodeComponent(widget.item.name)}';
+    });
+  }
+
+  /// 信令模式：分块下载视频到应用文档目录后本地播放
+  Future<void> _downloadForVideo() async {
+    setState(() => _videoLoading = true);
+    final fileName = widget.item.name;
+    final manager = ref.read(connectionManagerProvider.notifier);
+    final store = ref.read(robotDataProvider.notifier);
+    // 触发下载（先探测，无响应 1s 后重试）
+    manager.sendGalleryDownload(fileName);
+    var result = await _waitDownload(
+      store,
+      fileName,
+      timeout: const Duration(seconds: 15),
+    );
+    if (result == null || !result.isSuccess) {
+      await Future<void>.delayed(const Duration(seconds: 1));
+      manager.sendGalleryDownload(fileName);
+      result = await _waitDownload(store, fileName);
+    }
+    if (!mounted) return;
+    if (result == null || !result.isSuccess) {
+      setState(() {
+        _videoLoading = false;
+        _videoLocalPath = null;
+      });
+      return;
+    }
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/$fileName');
+      await file.writeAsBytes(result.bytes);
+      if (!mounted) return;
+      setState(() {
+        _videoLoading = false;
+        _videoLocalPath = file.path;
+      });
+    } catch (e) {
+      debugPrint('[Gallery] 视频预览保存失败: $e');
+      if (mounted) setState(() => _videoLoading = false);
+    }
+  }
+
+  /// 等待下载结果（与 _GalleryPageState._waitDownload 同款，独立实现）
+  Future<GalleryDownloadResult?> _waitDownload(
+    RobotDataStore store,
+    String fileName, {
+    Duration timeout = const Duration(seconds: 120),
+  }) async {
+    final completer = Completer<GalleryDownloadResult?>();
+    void listener() {
+      final r = store.galleryDownload.value;
+      if (r != null && r.fileName == fileName) {
+        completer.complete(r);
+      }
+    }
+
+    final existing = store.galleryDownload.value;
+    if (existing != null && existing.fileName == fileName) {
+      return existing;
+    }
+    store.galleryDownload.addListener(listener);
+    try {
+      return await completer.future.timeout(timeout);
+    } catch (_) {
+      return null;
+    } finally {
+      store.galleryDownload.removeListener(listener);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final item = widget.item;
+    final isVideo = _isVideo;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -859,35 +976,11 @@ class _PreviewSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 大图
+            // 大图 / 视频区
             Center(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: thumbBytes != null
-                    ? Image.memory(
-                        thumbBytes!,
-                        height: 240,
-                        fit: BoxFit.contain,
-                        gaplessPlayback: true,
-                        errorBuilder: (_, __, ___) => SizedBox(
-                          height: 200,
-                          child: Icon(
-                            item.type == 'video' ? Icons.movie : Icons.photo,
-                            size: 64,
-                            color: const Color(0xFFC7C7CC),
-                          ),
-                        ),
-                      )
-                    : Container(
-                        width: double.infinity,
-                        height: 200,
-                        color: const Color(0xFFF5F5F5),
-                        child: Icon(
-                          item.type == 'video' ? Icons.movie : Icons.photo,
-                          size: 64,
-                          color: const Color(0xFFC7C7CC),
-                        ),
-                      ),
+                child: isVideo ? _buildVideoArea() : _buildImageArea(),
               ),
             ),
             const SizedBox(height: 16),
@@ -902,7 +995,7 @@ class _PreviewSheet extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              '${item.type == 'video' ? '视频' : '照片'}'
+              '${isVideo ? '视频' : '照片'}'
               '${item.cameraId != null ? ' · 摄像头 ${item.cameraId}' : ''}'
               ' · ${_GalleryPageState._fmtSize(item.fileSize)}'
               '${item.durationSec != null ? ' · ${_GalleryPageState._fmtDuration(item.durationSec)}' : ''}',
@@ -914,7 +1007,7 @@ class _PreviewSheet extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: onDelete,
+                    onPressed: widget.onDelete,
                     icon: const Icon(Icons.delete_outline, size: 18),
                     label: const Text('删除'),
                     style: OutlinedButton.styleFrom(
@@ -929,7 +1022,7 @@ class _PreviewSheet extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: onDownload,
+                    onPressed: widget.onDownload,
                     icon: const Icon(Icons.download, size: 18),
                     label: const Text('下载'),
                     style: FilledButton.styleFrom(
@@ -944,6 +1037,157 @@ class _PreviewSheet extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 图片区（缩略图）
+  Widget _buildImageArea() {
+    final thumbBytes = widget.thumbBytes;
+    return SizedBox(
+      height: 240,
+      width: double.infinity,
+      child: thumbBytes != null
+          ? Image.memory(
+              thumbBytes,
+              fit: BoxFit.contain,
+              gaplessPlayback: true,
+              errorBuilder: (_, __, ___) =>
+                  const _MediaPlaceholder(icon: Icons.photo, label: '图片不可用'),
+            )
+          : const _MediaPlaceholder(icon: Icons.photo, label: '无预览'),
+    );
+  }
+
+  /// 视频区：HTTP 流 / 本地文件 → VideoPlayer；加载中 → 转圈；失败 → 占位
+  Widget _buildVideoArea() {
+    // 优先本地文件（信令下载后），其次 HTTP URL（直连）
+    final source = _videoLocalPath ?? _videoHttpUrl;
+    if (source != null && source.isNotEmpty && !_videoLoading) {
+      return _VideoPlayerArea(source: source);
+    }
+    if (_videoLoading) {
+      return const SizedBox(
+        height: 200,
+        width: double.infinity,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(strokeWidth: 2),
+              SizedBox(height: 8),
+              Text(
+                '正在加载视频...',
+                style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return const _MediaPlaceholder(icon: Icons.movie, label: '视频预览');
+  }
+}
+
+/// 通用媒体占位
+class _MediaPlaceholder extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _MediaPlaceholder({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 200,
+      width: double.infinity,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 64, color: const Color(0xFFC7C7CC)),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 视频播放区（video_player）
+class _VideoPlayerArea extends StatefulWidget {
+  final String source;
+  const _VideoPlayerArea({required this.source});
+
+  @override
+  State<_VideoPlayerArea> createState() => _VideoPlayerAreaState();
+}
+
+class _VideoPlayerAreaState extends State<_VideoPlayerArea> {
+  VideoPlayerController? _controller;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    try {
+      final c = VideoPlayerController.networkUrl(
+        widget.source.startsWith('http')
+            ? Uri.parse(widget.source)
+            : Uri.file(widget.source),
+      );
+      await c.initialize();
+      if (!mounted) {
+        c.dispose();
+        return;
+      }
+      setState(() {
+        _controller = c;
+      });
+      c.play();
+    } catch (e) {
+      debugPrint('[Gallery] 视频初始化失败: $e');
+      if (mounted) {
+        setState(() => _error = '视频加载失败: $e');
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_error != null) {
+      return _MediaPlaceholder(icon: Icons.error_outline, label: _error!);
+    }
+    if (_controller == null || !_controller!.value.isInitialized) {
+      return const SizedBox(
+        height: 200,
+        width: double.infinity,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+    final aspect = _controller!.value.aspectRatio;
+    return GestureDetector(
+      onTap: () {
+        if (_controller!.value.isPlaying) {
+          _controller!.pause();
+        } else {
+          _controller!.play();
+        }
+      },
+      child: AspectRatio(
+        aspectRatio: aspect.isFinite && aspect > 0 ? aspect : 4 / 3,
+        child: VideoPlayer(_controller!),
       ),
     );
   }

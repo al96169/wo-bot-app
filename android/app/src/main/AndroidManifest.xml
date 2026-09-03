@@ -6,7 +6,8 @@
     <application
         android:label="wo-bot"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -35,6 +36,13 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="wobot" android:host="auth"/>
+            </intent-filter>
+            <!-- 分享链接 wobot://connect?robotIp=&robotPort=&shareCode= — 自动连接绑定 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="wobot" android:host="connect"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
