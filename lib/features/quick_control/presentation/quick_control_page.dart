@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/connection_manager.dart';
 import '../../../core/network/robot_data_store.dart';
 import '../../../core/utils/app_toast.dart';
+import '../../../shared/models/robot_data.dart';
 import '../../../shared/widgets/feature_status_bar.dart';
 
 /// 快捷控制页 — 匹配 Pixso 5:2220
@@ -102,6 +103,7 @@ class _QuickControlPageState extends ConsumerState<QuickControlPage> {
     final data = ref.read(robotDataProvider.notifier);
     final manager = ref.read(connectionManagerProvider.notifier);
     final volume = data.music.volume;
+    final modules = data.modules;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9F9),
@@ -150,6 +152,11 @@ class _QuickControlPageState extends ConsumerState<QuickControlPage> {
                       },
                       onEmergency: _emergencyStop,
                     ),
+                    // 扩展模块列表（对齐 web-debug QuickActionsView 模块展示）
+                    if (modules.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _ModuleCard(modules: modules),
+                    ],
                   ],
                 ),
               ),
@@ -393,6 +400,99 @@ class _QuickButton extends StatelessWidget {
               fontSize: 14,
               fontWeight: FontWeight.w400,
               color: Color(0xFF232222),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 扩展模块卡片 — 对齐 web-debug QuickActionsView 扩展模块展示（name/version/status）
+class _ModuleCard extends StatelessWidget {
+  final List<Module> modules;
+  const _ModuleCard({required this.modules});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: const Color(0xFFEEEEEE), width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '扩展模块',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1C1C1E),
+            ),
+          ),
+          const SizedBox(height: 10),
+          for (final m in modules) _ModuleRow(module: m),
+        ],
+      ),
+    );
+  }
+}
+
+class _ModuleRow extends StatelessWidget {
+  final Module module;
+  const _ModuleRow({required this.module});
+
+  @override
+  Widget build(BuildContext context) {
+    final running = module.status == 'running';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Icon(
+            Icons.extension_outlined,
+            size: 18,
+            color: running ? const Color(0xFF34C759) : const Color(0xFFC7C7CC),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              module.name.isEmpty ? module.id : module.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF1C1C1E),
+              ),
+            ),
+          ),
+          if (module.version.isNotEmpty) ...[
+            Text(
+              'v${module.version}',
+              style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93)),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: running
+                  ? const Color(0x1A34C759)
+                  : const Color(0xFFF0F0F0),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              running ? '运行中' : '已停止',
+              style: TextStyle(
+                fontSize: 11,
+                color: running
+                    ? const Color(0xFF34C759)
+                    : const Color(0xFF8E8E93),
+              ),
             ),
           ),
         ],

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/network/connection_manager.dart';
 import '../../../core/network/device_store.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/utils/app_toast.dart';
+import '../../../core/utils/logger.dart';
 import '../../../shared/widgets/feature_status_bar.dart';
 import 'wifi_manager_page.dart';
 
@@ -20,6 +22,32 @@ class SettingsPage extends ConsumerStatefulWidget {
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   int _ecoThreshold = 30;
   int _chargeThreshold = 30;
+  /// 调试模式（持久化，控制 AppLogger.debug 输出）
+  bool _debugMode = false;
+
+  static const _keyDebugMode = 'wobot_debug_mode';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDebugMode();
+  }
+
+  Future<void> _loadDebugMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _debugMode = prefs.getBool(_keyDebugMode) ?? false;
+    });
+  }
+
+  Future<void> _toggleDebugMode(bool v) async {
+    setState(() => _debugMode = v);
+    AppLogger.setDebugMode(v);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyDebugMode, v);
+    AppToast.show(v ? '调试模式已开启' : '调试模式已关闭');
+  }
 
   void _sendSystemAction(String action, String name) {
     ref.read(connectionManagerProvider.notifier).sendSystemAction(action);
@@ -113,6 +141,24 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                             .mode
                             .label,
                         onTap: _pickTheme,
+                      ),
+                      _Divider(),
+                      // 调试模式（对齐 web-debug Debug 模式开关）
+                      SwitchListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 15,
+                        ),
+                        title: const Text(
+                          '调试模式',
+                          style: TextStyle(fontSize: 14, color: Color(0xFF3D3D3D)),
+                        ),
+                        subtitle: const Text(
+                          '开启后在日志输出 DEBUG 级别信息',
+                          style: TextStyle(fontSize: 11, color: Color(0xFF8E8E93)),
+                        ),
+                        value: _debugMode,
+                        activeTrackColor: const Color(0xFF6750A4),
+                        onChanged: _toggleDebugMode,
                       ),
                       _Divider(),
                       // 省电模式阈值 (Pixso 5:4254)

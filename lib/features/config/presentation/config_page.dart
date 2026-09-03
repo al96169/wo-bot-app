@@ -246,7 +246,10 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
   // ---- 摄像头 ----
   Widget _buildCamera() {
     final camera = _edit['camera'] as Map<String, dynamic>? ?? {};
+    // 确保 camera 段写回 _edit（原配置可能缺子段）
+    _edit['camera'] = camera;
     final res = camera['resolution'] as Map<String, dynamic>? ?? {};
+    camera['resolution'] = res;
     return ListView(
       padding: const EdgeInsets.fromLTRB(15, 10, 15, 20),
       children: [
@@ -304,6 +307,69 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
             ),
           ],
         ),
+        const SizedBox(height: 10),
+        // 云台绑定（对齐 web-debug：摄像头图像是否跟随云台转动）
+        _SectionCard(
+          title: '云台绑定',
+          children: [
+            _SwitchRow(
+              label: '水平绑定 (Pan)',
+              value: camera['gimbal_pan_bind'] == true,
+              onChanged: (v) => setState(() => camera['gimbal_pan_bind'] = v),
+            ),
+            _SwitchRow(
+              label: '俯仰绑定 (Tilt)',
+              value: camera['gimbal_tilt_bind'] == true,
+              onChanged: (v) => setState(() => camera['gimbal_tilt_bind'] = v),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        // 云台配置（对齐 web-debug ConfigView gimbal 区）
+        _buildGimbalSection(),
+      ],
+    );
+  }
+
+  // ---- 云台配置 ----
+  Widget _buildGimbalSection() {
+    final gimbal = _edit['gimbal'] as Map<String, dynamic>? ?? {};
+    // 确保 gimbal 段写回 _edit（原配置可能缺该段或子字段）
+    _edit['gimbal'] = gimbal;
+    final enabled = gimbal['enabled'] == true;
+    return _SectionCard(
+      title: '云台配置',
+      children: [
+        _SwitchRow(
+          label: '启用云台',
+          value: enabled,
+          onChanged: (v) => setState(() => gimbal['enabled'] = v),
+        ),
+        if (enabled) ...[
+          _TextFieldRow(
+            label: '云台类型',
+            value: gimbal['gimbal_type'] as String? ?? '',
+            onChanged: (v) => setState(() => gimbal['gimbal_type'] = v),
+          ),
+          _SwitchRow(
+            label: '水平反转 (Pan Invert)',
+            value: gimbal['pan_invert'] == true,
+            onChanged: (v) => setState(() => gimbal['pan_invert'] = v),
+          ),
+          _SwitchRow(
+            label: '垂直反转 (Tilt Invert)',
+            value: gimbal['tilt_invert'] == true,
+            onChanged: (v) => setState(() => gimbal['tilt_invert'] = v),
+          ),
+          _SliderRow(
+            label: '步进角度',
+            value: ((gimbal['step'] as num?)?.toDouble() ?? 3.0),
+            min: 0.1,
+            max: 30,
+            step: 0.1,
+            onChanged: (v) => setState(() => gimbal['step'] = v),
+          ),
+        ],
       ],
     );
   }
