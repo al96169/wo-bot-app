@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/connection_manager.dart';
+import '../../../core/network/device_store.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../shared/widgets/feature_status_bar.dart';
@@ -200,7 +201,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('删除此机器人'),
-        content: const Text('确定要删除此机器人并解除绑定吗？此操作将删除设备的连接记录。'),
+        content: const Text('确定要删除此机器人并解除绑定吗？此操作将删除设备的连接记录，并解除与当前客户端的绑定。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -213,11 +214,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ],
       ),
     );
-    if (ok == true) {
-      AppToast.show('已删除此机器人', type: AppToastType.success);
-      if (!mounted) return;
-      Navigator.of(context).pop();
+    if (ok != true) return;
+
+    final manager = ref.read(connectionManagerProvider.notifier);
+    final store = ref.read(deviceStoreProvider);
+    final current = store.currentDevice;
+    // 1. 断开当前连接
+    manager.disconnect();
+    // 2. 通知机器人端移除本客户端绑定（对齐 web-debug forget：sendBindRemoveAll）
+    manager.sendBindRemoveAll();
+    // 3. 删除本地保存记录（若已连接过某设备）
+    if (current != null) {
+      await ref.read(deviceStoreProvider.notifier).removeDevice(current.id);
     }
+    if (!mounted) return;
+    AppToast.show('已删除此机器人', type: AppToastType.success);
+    Navigator.of(context).pop();
   }
 }
 

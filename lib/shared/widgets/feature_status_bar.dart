@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/connection_manager.dart';
 import '../../../core/network/robot_data_store.dart';
+import '../../../core/theme/theme_controller.dart';
 import '../models/robot_data.dart';
 
 /// 功能页状态栏 — 匹配 Pixso 状态栏组件 (5:1137, 428×76)
 ///
-/// 结构：返回按钮(44) + 标题区(机器人名 + 页面名) + 右侧图标组 + 连接状态胶囊
+/// 结构：返回按钮(44) + 标题区(机器人名 + 页面名) + 主题按钮 + 右侧操作区 + 状态胶囊
 /// - 机器人名称与连接状态由 ConnectionManager 驱动
 /// - Wifi / 蜂窝 / 电量图标由 RobotDataStore 驱动（对齐 Pixso 5:1137 容器 35）
 class FeatureStatusBar extends ConsumerWidget {
@@ -92,6 +93,8 @@ class FeatureStatusBar extends ConsumerWidget {
                 ],
               ),
             ),
+            // 主题循环按钮（对齐 web-debug AppHeader toggleTheme）
+            const _ThemeToggleButton(),
             // 右侧操作区
             if (actions != null) ...actions!,
             const SizedBox(width: 8),
@@ -105,6 +108,34 @@ class FeatureStatusBar extends ConsumerWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 主题循环按钮 — 点击 auto→light→dark 循环（对齐 web-debug AppHeader toggleTheme）
+class _ThemeToggleButton extends ConsumerWidget {
+  const _ThemeToggleButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(themeControllerProvider.notifier);
+    final mode = controller.mode;
+    final icon = switch (mode) {
+      AppThemeMode.light => Icons.light_mode_outlined,
+      AppThemeMode.dark => Icons.dark_mode_outlined,
+      AppThemeMode.auto => Icons.brightness_auto_outlined,
+    };
+    return Tooltip(
+      message: '主题: ${mode.label}（点击切换）',
+      child: InkWell(
+        onTap: () => controller.cycle(),
+        borderRadius: BorderRadius.circular(22),
+        child: SizedBox(
+          width: 40,
+          height: 44,
+          child: Icon(icon, size: 20, color: const Color(0xFF6750A4)),
         ),
       ),
     );

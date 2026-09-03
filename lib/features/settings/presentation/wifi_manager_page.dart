@@ -23,11 +23,22 @@ class WifiManagerPage extends ConsumerStatefulWidget {
 
 class _WifiManagerPageState extends ConsumerState<WifiManagerPage> {
   bool _scanning = false;
+  bool _showAddForm = false;
+  bool _connecting = false;
+  final TextEditingController _ssidC = TextEditingController();
+  final TextEditingController _pwdC = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _scan();
+  }
+
+  @override
+  void dispose() {
+    _ssidC.dispose();
+    _pwdC.dispose();
+    super.dispose();
   }
 
   void _scan() {
@@ -39,8 +50,34 @@ class _WifiManagerPageState extends ConsumerState<WifiManagerPage> {
     });
   }
 
-  void _connect(String ssid) {
-    // 打开密码输入
+  /// 判断网络是否加密（对齐 web-debug：security 为 "--"/空 视为开放网络免密）
+  bool _isSecure(Map<String, dynamic> net) {
+    final sec = (net['security'] as String? ?? '--').trim();
+    return sec.isNotEmpty && sec != '--';
+  }
+
+  void _connect(String ssid, {String? password}) {
+    final m = ref.read(connectionManagerProvider.notifier);
+    setState(() => _connecting = true);
+    m.sendWifiConnect(ssid, password ?? '');
+    AppToast.show('正在连接 $ssid...');
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _connecting = false);
+    });
+  }
+
+  /// 点击网络：加密弹密码框，开放网络直接连
+  void _onNetworkTap(Map<String, dynamic> net) {
+    final ssid = net['ssid'] as String? ?? '';
+    if (ssid.isEmpty) return;
+    if (_isSecure(net)) {
+      _promptPassword(ssid);
+    } else {
+      _connect(ssid);
+    }
+  }
+
+  void _promptPassword(String ssid) {
     final pwdC = TextEditingController();
     showDialog<void>(
       context: context,
@@ -49,7 +86,12 @@ class _WifiManagerPageState extends ConsumerState<WifiManagerPage> {
         content: TextField(
           controller: pwdC,
           obscureText: true,
+          autofocus: true,
           decoration: const InputDecoration(hintText: 'WiFi 密码'),
+          onSubmitted: (v) {
+            Navigator.pop(ctx);
+            _connect(ssid, password: v);
+          },
         ),
         actions: [
           TextButton(
@@ -58,11 +100,8 @@ class _WifiManagerPageState extends ConsumerState<WifiManagerPage> {
           ),
           FilledButton(
             onPressed: () {
-              ref
-                  .read(connectionManagerProvider.notifier)
-                  .sendWifiConnect(ssid, pwdC.text);
               Navigator.pop(ctx);
-              AppToast.show('正在连接 $ssid...');
+              _connect(ssid, password: pwdC.text);
             },
             child: const Text('连接'),
           ),
@@ -71,12 +110,35 @@ class _WifiManagerPageState extends ConsumerState<WifiManagerPage> {
     );
   }
 
+  /// 断开当前 WiFi
+  void _disconnect(String device) {
+    final m = ref.read(connectionManagerProvider.notifier);
+    m.sendWifiDisconnect(device);
+    AppToast.show('正在断开 WiFi...');
+  }
+
+  /// 手动添加网络（SSID + 可选密码）
+  void _addNetwork() {
+    final ssid = _ssidC.text.trim();
+    if (ssid.isEmpty) {
+      AppToast.show('请输入网络名称', type: AppToastType.error);
+      return;
+    }
+    final password = _pwdC.text.trim();
+    _ssidC.clear();
+    _pwdC.clear();
+    setState(() => _showAddForm = false);
+    _connect(ssid, password: password);
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.watch(robotDataProvider);
     final store = ref.read(robotDataProvider.notifier);
     final networks = store.wifiNetworks;
     final currentSsid = store.wifiCurrentSSID;
+    // 当前连接设备名（wifi_disconnect 需要，robot 端 current_device 字段）
+    final currentDevice = store.wifiCurrentDevice;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9F9),
@@ -84,7 +146,7 @@ class _WifiManagerPageState extends ConsumerState<WifiManagerPage> {
         child: Column(
           children: [
             const FeatureStatusBar(title: 'WiFi 管理'),
-            // 顶部：当前连接状态 + 扫描按钮
+            // 顶部：当前连接状态 + 扫描/断开按钮
             Padding(
               padding: const EdgeInsets.fromLTRB(15, 6, 15, 10),
               child: Row(
@@ -107,6 +169,25 @@ class _WifiManagerPageState extends ConsumerState<WifiManagerPage> {
                                   style: const TextStyle(
                                     fontSize: 13,
                                     color: Color(0xFF34C759),
+                                  ),
+                                ),
+                              ),
+                              // 断开当前连接（对齐 web-debug）
+                              InkWell(
+                                onTap: currentDevice.isNotEmpty
+                                    ? () => _disconnect(currentDevice)
+                                    : null,
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  child: Text(
+                                    '断开',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFFFF453A),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -139,6 +220,28 @@ class _WifiManagerPageState extends ConsumerState<WifiManagerPage> {
               ),
             ),
             const Divider(height: 1, thickness: 0.5, color: Color(0xFFE8E8E8)),
+            // 手动添加网络入口（对齐 web-debug "+ 添加网络"）
+            Padding(
+              padding: const EdgeInsets.fromLTRB(15, 6, 15, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => setState(() => _showAddForm = !_showAddForm),
+                  icon: Icon(
+                    _showAddForm ? Icons.close : Icons.add,
+                    size: 16,
+                  ),
+                  label: Text(_showAddForm ? '取消' : '+ 添加网络'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF0256FF),
+                    textStyle: const TextStyle(fontSize: 13),
+                  ),
+                ),
+              ),
+            ),
+            // 手动添加表单
+            if (_showAddForm) _buildAddForm(),
+            const Divider(height: 1, thickness: 0.5, color: Color(0xFFE8E8E8)),
             // 热点列表
             Expanded(
               child: networks.isEmpty
@@ -153,7 +256,8 @@ class _WifiManagerPageState extends ConsumerState<WifiManagerPage> {
                           ),
                           SizedBox(height: 10),
                           Text(
-                            '未发现 WiFi 热点',
+                            '未发现 WiFi 热点\n可点击上方"添加网络"手动连接',
+                            textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 13,
                               color: Color(0xFF8E8E93),
@@ -170,6 +274,7 @@ class _WifiManagerPageState extends ConsumerState<WifiManagerPage> {
                         final ssid = net['ssid'] as String? ?? '未知';
                         final signal = net['signal'] as num? ?? 0;
                         final isCurrent = ssid == currentSsid;
+                        final isOpen = !_isSecure(net);
                         return Container(
                           margin: const EdgeInsets.only(bottom: 8),
                           decoration: BoxDecoration(
@@ -197,7 +302,11 @@ class _WifiManagerPageState extends ConsumerState<WifiManagerPage> {
                               style: const TextStyle(fontSize: 14),
                             ),
                             subtitle: Text(
-                              isCurrent ? '已连接' : '${signal}dBm',
+                              isCurrent
+                                  ? '已连接'
+                                  : (isOpen
+                                        ? '开放网络 · ${signal}dBm'
+                                        : '${signal}dBm'),
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFF8E8E93),
@@ -210,10 +319,16 @@ class _WifiManagerPageState extends ConsumerState<WifiManagerPage> {
                                     color: Color(0xFF34C759),
                                   )
                                 : TextButton(
-                                    onPressed: () => _connect(ssid),
-                                    child: const Text('连接'),
+                                    onPressed: _connecting
+                                        ? null
+                                        : () => _onNetworkTap(net),
+                                    child: Text(
+                                      _connecting ? '连接中' : '连接',
+                                    ),
                                   ),
-                            onTap: isCurrent ? null : () => _connect(ssid),
+                            onTap: isCurrent
+                                ? null
+                                : () => _onNetworkTap(net),
                           ),
                         );
                       },
@@ -221,6 +336,51 @@ class _WifiManagerPageState extends ConsumerState<WifiManagerPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 手动添加网络表单（SSID + 可选密码）
+  Widget _buildAddForm() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(15, 4, 15, 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFD8D8D8), width: 0.5),
+      ),
+      child: Column(
+        children: [
+          TextField(
+            controller: _ssidC,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: '网络名称 (SSID)',
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _pwdC,
+            obscureText: true,
+            decoration: const InputDecoration(
+              hintText: '密码（开放网络可留空）',
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _addNetwork,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF0256FF),
+              ),
+              child: const Text('添加并连接'),
+            ),
+          ),
+        ],
       ),
     );
   }

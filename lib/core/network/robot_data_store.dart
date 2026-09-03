@@ -56,6 +56,8 @@ class RobotDataStore extends StateNotifier<int> {
   // WiFi 扫描
   final List<Map<String, dynamic>> wifiNetworks = [];
   String wifiCurrentSSID = '';
+  /// 当前连接 WiFi 的设备名（断开用）
+  String wifiCurrentDevice = '';
   // 省电策略
   String powerMode = 'normal';
   int powerThreshold = 30;
@@ -384,6 +386,8 @@ class RobotDataStore extends StateNotifier<int> {
       }
     }
     wifiCurrentSSID = data['current_ssid'] as String? ?? '';
+    // 当前连接设备名（断开 WiFi 需要，对齐 web-debug currentDevice）
+    wifiCurrentDevice = data['current_device'] as String? ?? '';
     notify();
   }
 

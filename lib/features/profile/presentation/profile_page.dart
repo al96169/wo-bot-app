@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/network/account_service.dart';
 import '../../../core/network/device_store.dart';
 import '../../../core/utils/app_toast.dart';
+import '../../cloud_apps/presentation/cloud_apps_page.dart';
 
 /// 个人页面 — 匹配 Pixso 1:4187 (已登录) / 1:4438 (未登录)
 class ProfilePage extends ConsumerStatefulWidget {
@@ -151,6 +152,20 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         const SizedBox(height: 10),
         // Card 2: 云端设备 (登录后展示设备列表 + 解绑)
         _buildCloudDevicesCard(),
+        const SizedBox(height: 10),
+        // Card 2.5: 授权应用管理（CloudAppsPage 入口 — 对齐 web-debug 用户菜单）
+        _ProfileCard(
+          children: [
+            _MenuRow(
+              label: '授权应用',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const CloudAppsPage(),
+                ),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 10),
         // Card 3: 消息 (59px)
         _ProfileCard(
