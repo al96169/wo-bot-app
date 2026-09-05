@@ -56,6 +56,7 @@ class RobotDataStore extends StateNotifier<int> {
   // WiFi 扫描
   final List<Map<String, dynamic>> wifiNetworks = [];
   String wifiCurrentSSID = '';
+
   /// 当前连接 WiFi 的设备名（断开用）
   String wifiCurrentDevice = '';
   // 省电策略
@@ -74,10 +75,32 @@ class RobotDataStore extends StateNotifier<int> {
   String shellCwd = '/';
   // 命令日志（对齐 web-debug robotStore.cmdLogs）
   final List<CommandLogEntry> cmdLogs = [];
+  // 可更新软件（software_updates_available 推送，对齐 web-debug）
+  List<Map<String, dynamic>> softwareUpdatesAvailable = [];
+
+  /// 更新横幅是否已关闭（本次会话）
+  bool softwareUpdateBannerDismissed = false;
 
   RobotDataStore() : super(0);
 
   void notify() => state++; // 每次数据变化递增版本号触发 UI 重建
+
+  // ---- 软件更新 ----
+
+  /// 设置可更新软件列表（software_updates_available）
+  void setSoftwareUpdatesAvailable(List<dynamic> updates) {
+    softwareUpdatesAvailable = updates
+        .whereType<Map>()
+        .map((m) => Map<String, dynamic>.from(m))
+        .toList();
+    notify();
+  }
+
+  /// 关闭更新横幅
+  void dismissSoftwareUpdateBanner() {
+    softwareUpdateBannerDismissed = true;
+    notify();
+  }
 
   // ---- SSH / 命令日志 ----
 

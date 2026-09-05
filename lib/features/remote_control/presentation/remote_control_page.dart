@@ -61,6 +61,10 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
   /// 双击小画面交换主/副画面
   bool _camsSwapped = false;
 
+  /// 录像本地秒表（1s 刷新 REC 角标；robot 每 5s 推送校准一次 elapsed_s）
+  Timer? _recordTimer;
+  int _localRecordSeconds = 0;
+
   @override
   void initState() {
     super.initState();
@@ -89,6 +93,7 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     _motionTimer?.cancel();
     _webrtcRetryTimer?.cancel();
     _gimbalUpdateTimer?.cancel();
+    _recordTimer?.cancel();
     _moveStick.dispose();
     _yawStick.dispose();
     _gimbalStick.dispose();
@@ -371,12 +376,27 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     final manager = ref.read(connectionManagerProvider.notifier);
     if (store.isRecording) {
       manager.sendCameraRecordStop();
+      _stopRecordTimer();
       AppToast.show('停止录像');
     } else {
       final camId = store.cameras.isNotEmpty ? store.cameras.first.cameraId : 0;
       manager.sendCameraRecordStart(camId);
+      // 本地秒表驱动 REC 角标实时跳动（robot 每 5s 校准一次 elapsed_s）
+      _localRecordSeconds = store.recordingElapsedS;
+      _recordTimer?.cancel();
+      _recordTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) return;
+        setState(() => _localRecordSeconds++);
+      });
       AppToast.show('开始录像');
     }
+  }
+
+  /// 停止录像秒表（收到 robot 停止推送时也调用）
+  void _stopRecordTimer() {
+    _recordTimer?.cancel();
+    _recordTimer = null;
+    _localRecordSeconds = 0;
   }
 
   /// 画质切换
@@ -396,7 +416,10 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
       ),
       builder: (ctx) => CameraActionSheet(
         isRecording: store.isRecording,
-        recordTime: _fmtRecordTime(store.recordingElapsedS),
+        recordTime: _fmtRecordTime(
+          store.isRecording ? _localRecordSeconds : store.recordingElapsedS,
+        ),
+        recordSize: _fmtFileSize(store.recordingFileSizeBytes),
         quality: store.streamQuality,
         onCapture: () {
           Navigator.of(ctx).pop();
@@ -431,6 +454,14 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     return '${m.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
   }
 
+  /// 录像文件大小格式化（对齐 web-debug recordSize）
+  static String _fmtFileSize(int? bytes) {
+    if (bytes == null || bytes <= 0) return '';
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -448,6 +479,22 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
     ref.watch(connectionManagerProvider);
     final store = ref.read(robotDataProvider.notifier);
     final manager = ref.read(connectionManagerProvider.notifier);
+    // 录像状态同步：外部（robot 推送/其他入口）开始/停止时维护本地秒表
+    if (store.isRecording && _recordTimer == null) {
+      _localRecordSeconds = store.recordingElapsedS;
+      _recordTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() => _localRecordSeconds++);
+      });
+    } else if (!store.isRecording && _recordTimer != null) {
+      _recordTimer?.cancel();
+      _recordTimer = null;
+      _localRecordSeconds = 0;
+    }
+    // 本地秒表与 robot 推送的 elapsed_s 对齐（避免漂移）：秒表落后时以推送为准
+    if (store.isRecording &&
+        store.recordingElapsedS > _localRecordSeconds + 1) {
+      _localRecordSeconds = store.recordingElapsedS;
+    }
     final robotName =
         (manager.robotInfo?['name'] as String?) ??
         manager.currentDevice?.name ??
@@ -498,6 +545,7 @@ class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
                 label: _camsSwapped ? '副摄' : '主摄',
                 enabled: _cameraLeftOn,
                 recording: store.isRecording,
+                recordTime: _fmtRecordTime(_localRecordSeconds),
               ),
             ),
             // 副摄 PiP 小窗（右上角，避开顶部浮层；按副摄实际画面比例 + Cover 无黑边）

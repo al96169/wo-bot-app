@@ -52,6 +52,9 @@ class ConnectionManager extends StateNotifier<ConnState> {
   /// 用于 DeviceStore 更新本地设备 robotId（对齐 web-debug updateCurrentDeviceId）
   void Function(String robotId)? onRobotIdKnown;
 
+  /// 版本不匹配回调（WS close 4001，对齐 web-debug VersionMismatchDialog），UI 注册弹窗
+  void Function()? onVersionMismatch;
+
   /// 分块下载状态（对齐 web-debug ChunkedDownload）：file_name → 组装缓冲
   final Map<String, _ChunkedDownload> _chunkedDownloads = {};
 
@@ -74,6 +77,11 @@ class ConnectionManager extends StateNotifier<ConnState> {
       }
       ..onError = (e) {
         state = ConnState.error;
+      }
+      // 版本不匹配（WS close 4001）→ 转发给 UI（对齐 web-debug）
+      ..onVersionMismatch = () {
+        state = ConnState.error;
+        onVersionMismatch?.call();
       }
       ..onStateChanged = (wsState) {
         switch (wsState) {
@@ -1101,7 +1109,9 @@ class ConnectionManager extends StateNotifier<ConnState> {
           break;
         }
       case 'software_updates_available':
-        debugPrint('[CM] sw_updates: $d');
+        debugPrint('[CM] sw_updates: ${d['updates']}');
+        // 存储可更新软件列表（对齐 web-debug UpdateBanner 数据源）
+        _data.setSoftwareUpdatesAvailable(d['updates'] as List? ?? []);
         break;
 
       // ---- WiFi ----

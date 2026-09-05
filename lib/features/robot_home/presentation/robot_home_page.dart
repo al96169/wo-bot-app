@@ -37,6 +37,10 @@ class RobotHomePage extends ConsumerWidget {
     ref.watch(robotDataProvider);
     final manager = ref.read(connectionManagerProvider.notifier);
     final features = manager.remoteFeatures;
+    final store = ref.read(robotDataProvider.notifier);
+    final updates = store.softwareUpdatesAvailable;
+    final showUpdateBanner =
+        updates.isNotEmpty && !store.softwareUpdateBannerDismissed;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9F9),
@@ -48,6 +52,15 @@ class RobotHomePage extends ConsumerWidget {
               title: '机器人主页',
               onBack: () => Navigator.of(context).pop(),
             ),
+            // 软件更新横幅（对齐 web-debug UpdateBanner）
+            if (showUpdateBanner)
+              _UpdateBanner(
+                updates: updates,
+                onGoto: () => _push(context, const SoftwarePage()),
+                onDismiss: () => ref
+                    .read(robotDataProvider.notifier)
+                    .dismissSoftwareUpdateBanner(),
+              ),
             // 主内容滚动区 (Pixso 5:1190)
             Expanded(
               child: SingleChildScrollView(
@@ -226,6 +239,73 @@ class _NavRow extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 软件更新横幅 — 对齐 web-debug UpdateBanner（发现可更新软件时显示）
+class _UpdateBanner extends StatelessWidget {
+  final List<Map<String, dynamic>> updates;
+  final VoidCallback onGoto;
+  final VoidCallback onDismiss;
+  const _UpdateBanner({
+    required this.updates,
+    required this.onGoto,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final names = updates
+        .map(
+          (u) => (u['display_name'] as String?)?.isNotEmpty == true
+              ? u['display_name'] as String
+              : u['name'] as String? ?? '',
+        )
+        .where((n) => n.isNotEmpty)
+        .join('、');
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(15, 0, 15, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFF7E6), Color(0xFFFFE7BA)],
+        ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFFA8C16), width: 0.5),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.card_giftcard, size: 18, color: Color(0xFFFA8C16)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '发现 ${updates.length} 个可更新软件：$names',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, color: Color(0xFFAD4E00)),
+            ),
+          ),
+          TextButton(
+            onPressed: onGoto,
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFFA8C16),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: const Size(0, 28),
+              textStyle: const TextStyle(fontSize: 12),
+            ),
+            child: const Text('去升级'),
+          ),
+          InkWell(
+            onTap: onDismiss,
+            child: const Padding(
+              padding: EdgeInsets.all(2),
+              child: Icon(Icons.close, size: 16, color: Color(0xFFAD4E00)),
+            ),
+          ),
+        ],
       ),
     );
   }

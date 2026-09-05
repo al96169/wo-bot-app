@@ -23,6 +23,9 @@ class ActionItem {
 class CameraActionSheet extends StatelessWidget {
   final bool isRecording;
   final String recordTime;
+
+  /// 录制文件大小文本（如 "12.3 MB"；为空不显示）
+  final String recordSize;
   final String quality;
   final VoidCallback onCapture;
   final VoidCallback onRecordToggle;
@@ -34,6 +37,7 @@ class CameraActionSheet extends StatelessWidget {
     super.key,
     required this.isRecording,
     required this.recordTime,
+    this.recordSize = '',
     required this.quality,
     required this.onCapture,
     required this.onRecordToggle,
@@ -60,13 +64,21 @@ class CameraActionSheet extends StatelessWidget {
           children: [
             const Text(
               '摄像头功能',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1C1C1E)),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1C1C1E),
+              ),
             ),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _ActionButton(icon: Icons.photo_camera, label: '拍照', onTap: onCapture),
+                _ActionButton(
+                  icon: Icons.photo_camera,
+                  label: '拍照',
+                  onTap: onCapture,
+                ),
                 _ActionButton(
                   icon: isRecording ? Icons.stop : Icons.fiber_manual_record,
                   label: isRecording ? '停止录像' : '录像',
@@ -74,28 +86,56 @@ class CameraActionSheet extends StatelessWidget {
                   active: isRecording,
                   onTap: onRecordToggle,
                 ),
-                _ActionButton(icon: Icons.photo_library, label: '图库', onTap: onGallery),
-                _ActionButton(icon: Icons.center_focus_strong, label: '云台归位', onTap: onGimbalCenter),
+                _ActionButton(
+                  icon: Icons.photo_library,
+                  label: '图库',
+                  onTap: onGallery,
+                ),
+                _ActionButton(
+                  icon: Icons.center_focus_strong,
+                  label: '云台归位',
+                  onTap: onGimbalCenter,
+                ),
               ],
             ),
             const SizedBox(height: 12),
-            // 录制状态
+            // 录制状态（时长 + 文件大小，对齐 web-debug REC 状态行）
             if (isRecording)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Row(
                   children: [
-                    const Icon(Icons.circle, size: 10, color: Color(0xFFFF3B30)),
+                    const Icon(
+                      Icons.circle,
+                      size: 10,
+                      color: Color(0xFFFF3B30),
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       'REC $recordTime',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFFFF3B30)),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFFF3B30),
+                      ),
                     ),
+                    if (recordSize.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '· $recordSize',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF8E8E93),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
             // 画质
-            const Text('直播画质', style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93))),
+            const Text(
+              '直播画质',
+              style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+            ),
             const SizedBox(height: 6),
             Wrap(
               spacing: 8,
@@ -108,7 +148,9 @@ class CameraActionSheet extends StatelessWidget {
                     selectedColor: const Color(0xFF0256FF),
                     labelStyle: TextStyle(
                       fontSize: 12,
-                      color: quality == value ? Colors.white : const Color(0xFF3D3D3D),
+                      color: quality == value
+                          ? Colors.white
+                          : const Color(0xFF3D3D3D),
                     ),
                   ),
               ],

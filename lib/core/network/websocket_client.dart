@@ -25,6 +25,9 @@ class WsClient {
   void Function(String error)? onError;
   void Function(String state)? onStateChanged;
 
+  /// 服务端拒绝（close code 4001 = 版本不匹配）回调
+  void Function()? onVersionMismatch;
+
   /// 连接到指定 IP:端口
   Future<void> connect(
     String ip, {
@@ -60,6 +63,19 @@ class WsClient {
         _onData,
         onDone: () {
           debugPrint('[WS] stream onDone');
+          // 服务端明确拒绝（close code >= 4000）：不自动重连
+          final closeCode = _channel?.closeCode;
+          if (closeCode != null && closeCode >= 4000) {
+            debugPrint('[WS] 服务端拒绝连接, code: $closeCode');
+            if (closeCode == 4001) {
+              // 版本不匹配（对齐 web-debug VersionMismatchDialog）
+              debugPrint('[WS] 版本不匹配（4001）');
+              onVersionMismatch?.call();
+            }
+            _channel = null;
+            onStateChanged?.call('error');
+            return;
+          }
           _handleDisconnect();
         },
         onError: (e) {

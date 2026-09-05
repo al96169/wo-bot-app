@@ -9,7 +9,11 @@ class CameraView extends StatefulWidget {
   final String label;
   final bool enabled;
   final bool recording;
+
+  /// 录制已进行时长文本（如 "00:05"）；为空时 REC 角标不显示时间
+  final String? recordTime;
   final RTCVideoViewObjectFit objectFit;
+
   /// 首帧尺寸回调（宽×高，像素）— 用于外层按画面实际比例排版（如副摄 PiP 无黑边）
   final void Function(int width, int height)? onVideoSize;
 
@@ -19,6 +23,7 @@ class CameraView extends StatefulWidget {
     required this.label,
     this.enabled = true,
     this.recording = false,
+    this.recordTime,
     this.objectFit = RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
     this.onVideoSize,
   });
@@ -39,24 +44,27 @@ class _CameraViewState extends State<CameraView> {
 
   /// 初始化 renderer（web 上 initialize 可能抛错，隔离避免 Uncaught Error）
   void _initRenderer() {
-    _renderer.initialize().then((_) {
-      if (mounted) {
-        setState(() => _rendererReady = true);
-        if (widget.stream != null) {
-          _renderer.srcObject = widget.stream;
-        }
-      }
-      // 首帧/尺寸变化时上报实际分辨率（RTCVideoRenderer.onResize 在尺寸变化时触发）
-      _renderer.onResize = () {
-        final w = _renderer.videoWidth;
-        final h = _renderer.videoHeight;
-        if (w > 0 && h > 0) {
-          widget.onVideoSize?.call(w, h);
-        }
-      };
-    }).catchError((Object e) {
-      debugPrint('[CameraView] renderer 初始化失败: $e');
-    });
+    _renderer
+        .initialize()
+        .then((_) {
+          if (mounted) {
+            setState(() => _rendererReady = true);
+            if (widget.stream != null) {
+              _renderer.srcObject = widget.stream;
+            }
+          }
+          // 首帧/尺寸变化时上报实际分辨率（RTCVideoRenderer.onResize 在尺寸变化时触发）
+          _renderer.onResize = () {
+            final w = _renderer.videoWidth;
+            final h = _renderer.videoHeight;
+            if (w > 0 && h > 0) {
+              widget.onVideoSize?.call(w, h);
+            }
+          };
+        })
+        .catchError((Object e) {
+          debugPrint('[CameraView] renderer 初始化失败: $e');
+        });
   }
 
   @override
@@ -75,8 +83,7 @@ class _CameraViewState extends State<CameraView> {
 
   @override
   Widget build(BuildContext context) {
-    final hasStream =
-        widget.stream != null && widget.enabled && _rendererReady;
+    final hasStream = widget.stream != null && widget.enabled && _rendererReady;
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1C1C1E),
@@ -91,13 +98,10 @@ class _CameraViewState extends State<CameraView> {
         children: [
           // 视频流
           if (hasStream)
-            RTCVideoView(
-              _renderer,
-              objectFit: widget.objectFit,
-            )
+            RTCVideoView(_renderer, objectFit: widget.objectFit)
           else
             _Placeholder(label: widget.label, waiting: widget.enabled),
-          // 录制标记
+          // 录制标记（带实时时长，如 "REC 00:05"）
           if (widget.recording)
             Positioned(
               top: 8,
@@ -108,17 +112,21 @@ class _CameraViewState extends State<CameraView> {
                   color: const Color(0xCCFF3B30),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.circle, size: 8, color: Colors.white),
-                    SizedBox(width: 4),
+                    const Icon(Icons.circle, size: 8, color: Colors.white),
+                    const SizedBox(width: 4),
                     Text(
-                      'REC',
-                      style: TextStyle(
+                      (widget.recordTime != null &&
+                              widget.recordTime!.isNotEmpty)
+                          ? 'REC ${widget.recordTime}'
+                          : 'REC',
+                      style: const TextStyle(
                         fontSize: 10,
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
+                        fontFeatures: [FontFeature.tabularFigures()],
                       ),
                     ),
                   ],

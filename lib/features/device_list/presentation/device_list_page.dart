@@ -40,6 +40,23 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
     cm.onRobotIdKnown = (rid) {
       ref.read(deviceStoreProvider.notifier).updateDeviceRobotId(rid);
     };
+    // 版本不匹配弹窗（WS close 4001，对齐 web-debug VersionMismatchDialog）
+    cm.onVersionMismatch = () {
+      if (!mounted) return;
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('版本不匹配'),
+          content: const Text('当前 App 协议版本与机器人不兼容，连接被拒绝。\n请更新 App 或机器人软件后重试。'),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('知道了'),
+            ),
+          ],
+        ),
+      );
+    };
     // 分享链接深链处理（wobot://connect?robotIp=&robotPort=&shareCode=）
     ShareLinkService.instance.onShareLink = _handleShareLink;
     // 冷启动被拉起时可能有待处理分享（getInitialLink 已触发 submit）
@@ -56,6 +73,7 @@ class _DeviceListPageState extends ConsumerState<DeviceListPage> {
   void dispose() {
     BindService.instance.onMethodsReady = null;
     _cm?.onRobotIdKnown = null;
+    _cm?.onVersionMismatch = null;
     if (ShareLinkService.instance.onShareLink == _handleShareLink) {
       ShareLinkService.instance.onShareLink = null;
     }
